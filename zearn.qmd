@@ -1,0 +1,1715 @@
+---
+title: "Predicting Repeated Behavior in Behavioral Sciences"
+subtitle: "Applying Reinforcement Learning in Teacher Decision-Making"
+author:
+  - name: Marcos Gallo
+    orcid: 0000-0002-8227-2661
+format:
+  pdf:
+    toc: true
+    number-sections: true
+execute:
+  echo: false
+  warning: false
+  error: false
+---
+
+# Introduction
+
+## Predicting Repeated Behavior in the Behavioral Sciences
+
+Applying Reinforcement Learning in Teacher Decision-Making
+
+## A Novel Approach
+
+# Context and Research Questions
+
+## The Zearn Platform
+
+<!-- ![Teacher and Students](https://assets-global.website-files.com/60ad603a6b6b23851c3fb0d8/60f850148c03471458e4be28_hithere-poster-00001.jpg) *Image from [Zearn](https://about.zearn.org)* -->
+
+Zearn is an online math-teaching platform.
+
+-   Model the decision-making of teachers
+
+-   Understand how they adapt their teaching strategies to optimize student achievement.
+
+## Data - Zearn Platform
+
+Personalized learning experience for students. Teachers track student progress and make informed decisions.
+
+-   **Classroom structure:** Self-paced online lessons and small group instruction.
+
+-   **Badge system for student achievement:** Students earn badges upon completing lessons (mastery of specific skills). Track student progress and motivate them to continue learning.
+
+-   **Tower Alerts:** Real-time notifications sent to teachers when a student struggles with a specific concept. Teachers can provide support and address learning gaps.
+
+-   **Teacher selection and criteria:** Consistently use the platform and work in traditional school settings.
+
+-   **Variables of interest:** Teacher effort, student performance, lesson completion, and the time spent by both teachers and students on the platform.
+
+## Research Questions
+
+<!-- Get some ideas from the mega-study prereg -->
+
+# Theory
+
+<!-- Literature Review -->
+
+## Teacher effort and student achievement
+
+### Education production function
+
+### Context and experience
+
+## Reinforcement Learning to Capture Patterns in Repeated Behavior
+
+### Why Reinforcement Learning?
+
+-   RL is inspired by the way animals learn from their experiences
+-   An agent in RL represents a decision-maker
+-   Actions: choices made by the agent
+-   Environment: the context in which the agent makes decisions
+-   Observations: information the agent receives about the environment
+-   Rewards: feedback received by the agent based on the actions taken
+
+In the context of predicting repeated behavior, RL algorithms can be used to model the decision-making process of individuals or groups, such as teachers, by learning from the patterns in their actions and the resulting outcomes.
+
+RL: an **agent** learns to make decisions by interacting with an **environment**. Through [trial and error]{.underline}, agent learns the best **actions** to take in different situations to achieve its **goals**.
+
+$$
+\text{Agent} \xrightarrow[\text{Actions}]{\text{Performs}} \text{Environment} \xrightarrow[\text{Observations, Rewards}]{\text{Provides}} \text{Agent}
+$$
+
+**Suitability for modeling teacher decision-making**
+
+-   Captures the dynamic and sequential nature of teaching
+
+-   Example: $s_t = (TowerAlerts_t, RD\_resources\_t)$, $a_t = (RD\_small\_group\_lessons\_t, TimeSpent\_t)$
+
+-   Allows for the exploration of optimal teaching strategies in response to students' progress and engagement
+
+-   Example: Balancing between focusing on struggling students and challenging high-performing students
+
+**Assumptions, objective functions, and tradeoffs**
+
+Assumes teachers make decisions to maximize long-term rewards (e.g., student learning outcomes)
+
+Objective: $\max_{\pi} \mathbb{E}[\sum_{t=0}^T \gamma^t r(s_t, a_t) | \pi]$
+
+Balances the tradeoffs between exploration (trying new teaching strategies) and exploitation (using known effective strategies)
+
+Example: $\epsilon$-greedy strategy
+
+**Flexibility and robustness**
+
+-   Adapts to changes in the learning environment and individual student needs
+
+-   Example: Adapting to new curriculum or varying levels of student preparedness
+
+-   Allows for the incorporation of various state, action, and reward variables
+
+-   Example: Including external factors such as school policies or testing schedules
+
+-   Can be tailored to different educational contexts and objectives
+
+-   Example: Customizing the model for different grade levels
+
+-   Tradeoff between learning (exploring) and optimizing (exploiting)
+
+**Example:**
+
+-   State: Current progress of students in the class.
+-   Actions: Assigning additional practice, providing personalized feedback, adjusting lesson plans.
+-   Rewards: Improved student performance, student engagement, reduced learning gaps.
+
+$$
+State (S) \xrightarrow[\text{Action (A)}]{\text{Teacher Decides}} New State (S') \xrightarrow[\text{Reward (R)}]{\text{Resulting Outcome}} \text{Feedback}
+$$
+
+### Q-Learning Model
+
+### Actor-Critic Model
+
+1.  Full RL framework
+2.  Policy learning and state value learning
+3.  Eligibility traces for delayed rewards
+
+### Gaussian Policy Model
+
+D. Continuous Control through a Gaussian Policy 1. Probability distribution over actions
+
+<!-- Literature Review -->
+
+## RL in teaching and education
+
+1.  Markov decision processes
+2.  Instructional actions, objectives, and costs
+
+# Data
+
+```{r load packages}
+library(tidyverse)
+library(data.table)
+library(ggrepel)
+library(ggpubr)
+library(RColorBrewer)
+library(gtsummary)
+library(gt)
+library(PerformanceAnalytics)
+library(foreach)
+library(doParallel)
+library(reticulate)
+use_virtualenv("./py-zearn")
+
+set.seed(832399554)
+random_py <- import("random")
+random_py$seed(832399554)
+# https://www.random.org/integers/
+# Timestamp: 2023-05-17 16:18:28 UTC
+```
+
+```{r data prep}
+
+df <- read.csv(file = "Data/df_clean.csv")
+
+# Convert columns to appropriate data types
+dt <- as.data.table(df)
+# Rename variable
+dt[, `:=`(
+  Usage.Week = as.Date(Usage.Week),
+  week = week(Usage.Week),
+  poverty = factor(poverty, ordered = TRUE, exclude = c("")),
+  income = factor(income, ordered = TRUE, exclude = c("")),
+  charter.school = ifelse(charter.school == "Yes",
+                          1, ifelse(charter.school == "No",
+                                    0, NA)),
+  school.account = ifelse(school.account == "Yes",
+                          1, ifelse(school.account == "No",
+                                    0, NA)),
+  # Log Transform
+  Minutes.per.Active.User = log(Minutes.per.Active.User + 1),
+  Badges.per.Active.User = log(Badges.per.Active.User + 1),
+  Tower.Alerts.per.Tower.Completion = log(Tower.Alerts.per.Tower.Completion + 1),
+  User.Session = log(User.Session + 1),
+  tch_min = log(tch_min + 1)
+)]
+
+# Create new variables using data.table syntax
+dt[, min_week := week(min(Usage.Week)),
+   by = Teacher.User.ID]
+dt[, `:=`(
+  week = ifelse(week >= min_week, week - min_week + 1, week - min_week + 53),
+  Tsubj = max(week),
+  mean_act_st = mean(Active.Users...Total)
+), by = .(Classroom.ID)]
+dt[, `:=`(
+  st_login = ifelse(Minutes.per.Active.User > 0, 1, 0),
+  tch_login = ifelse(tch_min > 0, 1, 0)
+), by = .(Classroom.ID, Teacher.User.ID, week)]
+# Update the Grade.Level values and labels
+dt <- dt[!(Grade.Level %in% c(-1, 11))] # Ignore -1 and 11
+dt[, Grade.Level := factor(Grade.Level,
+                           ordered = TRUE,
+                           exclude = c(""))]
+dt[, Grade.Level := factor(Grade.Level,
+                           levels = c(0:8),
+                           labels = c("Kindergarten", "1st", "2nd",
+                                      "3rd", "4th", "5th",
+                                      "6th", "7th", "8th"))]
+
+# Remove duplicate classroom-week pairs
+dt <- dt[order(-Active.Users...Total),
+         .SD[1],
+         by = .(Classroom.ID, week)]
+
+df <- as.data.frame(dt) %>%
+  ungroup()
+
+```
+
+## Descriptive Statistics and Visualizations
+
+The data represents various aspects of Zearn schools including identifiers, usage data, and demographic information. The dataset contains information for `r length(unique(df$Classroom.ID))` classrooms and `r length(unique(df$Teacher.User.ID))` teachers, with an average of `r mean(df$Students...Total, 1)` students per classroom. Various transformations and computations were performed on the data to prepare it for analysis, including calculating the number of distinct teachers, total students, and total weeks per school.
+
+Descriptive statistics were computed for different measures such as the number of unique teachers, total students, and total weeks per school. Proportions were also calculated for various variables like poverty and income. The resulting statistics and proportions are displayed in @tbl-summary and @tbl-proportions, respectively. Refer to @tbl-summary-statistics for detailed information on the summary statistics for different variables by grade level.
+
+The geographical distribution of teachers across Louisiana and the top 5 cities with the highest number of teachers are presented in @fig-teachers-map.
+
+```{r}
+#| label: tbl-summary
+#| tbl-cap: "Summary statistics for the schools"
+
+df_summary <- df %>%
+  group_by(MDR.School.ID) %>%
+  summarise(
+    Unique_Teacher_Count = n_distinct(Teacher.User.ID)
+  ) %>%
+  left_join(df %>%
+              group_by(Classroom.ID, MDR.School.ID) %>%
+              summarise(
+                Students_Total = mean(Students...Total, na.rm = TRUE),
+                Weeks_Total = n_distinct(Usage.Week)
+                ) %>%
+              group_by(MDR.School.ID) %>%
+              summarize(
+                Students_Total = sum(Students_Total),
+                Weeks_Total = mean(Weeks_Total)
+                ),
+            by = "MDR.School.ID") %>%
+  ungroup() %>%
+  summarise(
+    Mean_Teachers = mean(Unique_Teacher_Count),
+    SD_Teachers = sd(Unique_Teacher_Count),
+    Min_Teachers = min(Unique_Teacher_Count),
+    Max_Teachers = max(Unique_Teacher_Count),
+    Mean_Students_Total = mean(Students_Total),
+    SD_Students_Total = sd(Students_Total, na.rm = TRUE),
+    Min_Students_Total = min(Students_Total),
+    Max_Students_Total = max(Students_Total),
+    Mean_Weeks_Total = mean(Weeks_Total),
+    SD_Weeks_Total = sd(Weeks_Total, na.rm = TRUE),
+    Min_Weeks_Total = min(Weeks_Total),
+    Max_Weeks_Total = max(Weeks_Total)
+  ) %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "Value") %>%
+  separate(Variable, into = c("Measure", "Variable"), sep = "_", extra = "merge") %>%
+  pivot_wider(names_from = Measure, values_from = Value)
+  
+df_proportions <- df %>%
+  group_by(poverty) %>%
+  summarise(n = n()) %>%
+  mutate(Percentage = paste0(round(n / sum(n) * 100, digits = 2), "%")) %>%
+  select(-"n") %>%
+  na.omit() %>%
+  rename(Variable = poverty) %>%
+  mutate(Variable = as.character(Variable)) %>%
+  bind_rows(df %>%
+              group_by(income) %>%
+              summarise(n = n()) %>%
+              mutate(Percentage = paste0(round(n / sum(n) * 100, digits = 2), "%")) %>%
+              select(-"n") %>%
+              na.omit() %>%
+              rename(Variable = income) %>%
+              mutate(Variable = as.character(Variable))
+            ) %>%
+  bind_rows(df %>%
+              ungroup() %>%
+              summarise(
+                Charter_Schools = mean(charter.school)*100,
+                Schools_with_Paid_Account = mean(school.account)*100
+                ) %>%
+              mutate(
+                Charter_Schools = paste0(round(Charter_Schools, digits = 2), "%"),
+                Schools_with_Paid_Account = paste0(round(Schools_with_Paid_Account, digits = 2), "%")
+              ) %>%
+              transpose(keep.names = "Variable") %>%
+              rename(Percentage = V1)) %>%
+  add_row(Variable = "**Poverty Level**", Percentage = "", .before = 1) %>%
+  add_row(Variable = "**Income**", Percentage = "", .before = 5) %>%
+  add_row(Variable = "**Other**", Percentage = "", .before = 23)
+
+# Summary statistics table
+gt_summary <- df_summary %>%
+  gt(rowname_col = "Variable") %>%
+  cols_label(Mean = "Mean", SD = "Standard Deviation", Min = "Minimum", Max = "Maximum") %>%
+  fmt_number(
+    columns = c("Mean", "SD"),
+    decimals = 2
+  ) %>%
+  fmt_number(
+    columns = c("Min","Max"),
+    decimals = 0
+  )
+gt_summary
+```
+
+```{r}
+#| label: tbl-proportions
+#| tbl-cap: "Proportions of different variables."
+
+# Create the proportions table
+gt_proportions <- df_proportions %>%
+  gt(rowname_col = "Variable") %>%
+  cols_label(Percentage = "Proportions") %>%
+  fmt_markdown(columns = Variable)
+
+# Print tables
+gt_proportions
+
+```
+
+```{r}
+#| cache: true
+#| label: fig-teachers-map
+#| fig-cap: "Geographical distribution of teachers across various parishes in Louisiana, and the top 5 cities with the highest number of teachers."
+
+library(sf)
+library(tidygeocoder)
+library(tigris)
+library(furrr)
+
+# Batch geocoding
+# Sys.setenv(GEOCODIO_API_KEY = "")
+unique_zipcodes <- unique(dt$zipcode) %>%
+  as.list()
+plan(strategy = "multisession", workers = availableCores())
+address_geodata <- furrr::future_map_dfr(.x = unique_zipcodes, 
+                               ~ geo(postalcode = .x,
+                                     country = "United States",
+                                     method = 'geocodio',
+                                     full_results = TRUE)) %>%
+  select(postalcode,
+         address_components.city,
+         address_components.county,
+         lat, long) %>%
+  rename(
+    city = address_components.city,
+    county = address_components.county
+  ) %>%
+  mutate(
+    postalcode = as.integer(postalcode)
+  )
+
+# Merge the geocoding results back into the original data.table
+dt <- merge(dt, address_geodata,
+            by.x = "zipcode",
+            by.y = "postalcode",
+            all.x = TRUE)
+
+# Aggregate the data to get the number of teachers in each county
+dt_map <- dt[, .(
+  num_teachers = n_distinct(Teacher.User.ID)
+), by = .(county)]
+
+# Get the top 5 cities by number of teachers
+# Aggregate the data to get the number of teachers in each city
+top_cities <- dt[, .(
+  num_teachers = n_distinct(Teacher.User.ID),
+  lat = mean(lat),
+  long = mean(long)
+), by = .(city, county)]
+# Get the top 5 cities with the most teachers
+top_cities <- top_cities[order(-num_teachers)][1:5,]
+
+# Get the Louisiana county map data
+df_map <- tigris::counties(cb = TRUE,
+                           resolution = "20m",
+                           class = "sf",
+                           state = "LA") %>%
+  # sf::st_set_crs(4326) %>%
+  left_join(
+    as.data.frame(dt_map),
+    by = c("NAMELSAD" = "county")
+  ) %>%
+  sf::st_as_sf()
+
+ggplot() +
+  geom_sf(data = df_map, aes(fill = num_teachers)) +
+  scale_fill_continuous(name = "Number of Teachers", low = "white", high = "red", na.value = "gray90") +
+  labs(
+    title = "Number of Teachers by Parish in Louisiana"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank()
+  ) +
+  geom_point(data = top_cities, aes(x = long, y = lat)) +
+  geom_text_repel(data = top_cities, aes(x = long, y = lat, label = city), size = 3, color = "black")
+```
+
+## Unit of Analysis: Classroom-Week
+
+### Zearn's Eye View
+
+Time-series data for teacher effort and student achievement A. Weekly aggregation of data B. Privacy concerns for student data
+
+<!-- Print head of dataset with better labels -->
+
+### Measuring Student Achievement
+
+```{r}
+#| label: tbl-summary-statistics
+#| caption: "Means (SD) of student variables by grade level."
+
+create_summary <- function(var_name, var_label, type = "continuous") {
+  summary_stat <- df %>%
+    select(Grade.Level, var_name) %>%
+    tbl_summary(
+      by = Grade.Level,
+      missing = "no",
+      type = list(var_name ~ type),
+      statistic = var_name ~ ifelse(type == "continuous", "{mean} ({sd})", "{n} ({p})")
+    ) %>%
+    add_overall() %>%
+    as_tibble() 
+  summary_stat[1] <- var_label
+  return(summary_stat)
+}
+
+summaries_list <- list(
+  create_summary("Sessions.per.Active.User", "Sessions per Student"),
+  create_summary("Minutes.per.Active.User", "Minutes per Student"),
+  create_summary("Badges.per.Active.User", "Badges per Student"),
+  create_summary("Tower.Alerts.per.Tower.Completion", "Tower Alerts per Lesson Completion"),
+  # create_summary("tch_login", "Teacher Login (0/1)", type = "dichotomous"),
+  create_summary("tch_min", "Minutes per Teacher")
+)
+
+summary_table <- bind_rows(summaries_list) %>% 
+  transpose(keep.names = "Characteristic", make.names = 1)
+names(summary_table)[1] <- "Grade Level"
+
+gt(summary_table)
+
+```
+
+### Change in Active Users and Badges per Active User Over Time
+
+The average number of active students over time is shown in @fig-active-users, and the total number of student logins over time is illustrated in @fig-logins-week.
+
+```{r}
+#| label: fig-active-users
+#| fig-cap: "Change in the average number of active students over time."
+
+# Group data by Classroom.ID or Teacher.User.ID
+grouped_data <- df %>%
+  group_by(week) %>%
+  summarise(
+    total_active_users = mean(Active.Users...Total),
+    total_badges = mean(Badges.per.Active.User)
+  )
+
+# Visualize the change over time
+ggplot(grouped_data, aes(x = week, y = total_active_users)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Active Students Over Time",
+       x = "Number of Weeks from First Use",
+       y = "Total Active Students") +
+  theme_minimal()
+
+```
+
+```{r}
+#| label: fig-logins-week
+#| fig-cap: "Total number of student logins over time."
+
+# Calculate the sum of login values by Usage.Week and Teacher.User.ID
+login_data <- df %>%
+  group_by(Usage.Week, Teacher.User.ID) %>%
+  summarize(tch_login = max(tch_login),
+            st_login  = max(st_login)) %>%
+  group_by(Usage.Week) %>%
+  summarize(tch_logins = sum(tch_login),
+            st_logins  = sum(st_login))
+# Create bar plot
+bar_plot <- ggplot() +
+  geom_bar(data = login_data, aes(x = Usage.Week, y = st_logins), stat = "identity") +
+  # geom_point(data = login_data, aes(x = Usage.Week, y = tch_logins), color = "blue") +
+  labs(
+    title = "Mean of Logins Across Teachers' Classrooms",
+    x = "Week",
+    y = "Total Logins"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+  scale_x_date(date_breaks = "3 week", date_labels = "%Y-%m-%d")
+
+# Add labels for Christmas and Thanksgiving
+bar_plot +
+  geom_text(aes(x = as.Date("2019-12-25"), y = 1250, label = "Christmas"),
+            size = 4, angle = 90, hjust = 0.5, vjust = 0.5,
+            color = "red") +
+  geom_text(aes(x = as.Date("2019-11-25"), y = 1250, label = "Thanksgiving"),
+            size = 4, angle = 90, hjust = 0.5, vjust = 0.5,
+            color = "darkorange")
+
+```
+
+## Exclusion criteria
+
+1.  Traditional schools and consistent platform usage
+2.  Criteria for inclusion in the study We remove teachers with more than 4 classrooms and those who have logged in for less than 12 weeks in total. We exclude classrooms in the 6th to 8th grades, as those are a small proportion of our dataset.
+
+```{r preprocess data}
+
+dt[, n_weeks := .N,
+   by = Classroom.ID]
+
+dt <- dt[
+  n_weeks > 11 & # At least 3 months cumulative activity
+    # Tsubj < 4*n_weeks & # At least activity once a month on average
+    teacher_number_classes < 5 &
+    Students...Total > 5 &
+    mean_act_st > 3 &
+    !(Grade.Level %in% c("6th","7th","8th")) &
+    !(month(Usage.Week) %in% c(6, 7, 8)) &
+    !is.na(District.Rollup.ID),
+]
+
+cols_to_select <- names(dt)[sapply(dt, function(x) !is.numeric(x) ||
+                                     (is.numeric(x) && is.finite(sd(x)) && sd(x) != 0))]
+dt <- dt[, ..cols_to_select]
+
+df <- as.data.frame(dt) %>%
+  ungroup() %>%
+  arrange(Classroom.ID, week)
+# Clean environment
+rm(list = setdiff(ls(), "df"))
+
+```
+
+## Variables of interest
+
+Teacher log-ins and time spent on the platform Student lesson completion (badges) D. State variables 1. Tower Alerts 2. Student time usage
+
+### Visualizing Relationships Between Variables
+
+-   Use correlation analysis to find relationships between variables
+
+-   Identify variables that may be strong predictors for the reinforcement learning model
+
+@fig-corr displays the correlation matrix of selected variables.
+
+```{r}
+#| label: fig-corr
+#| fig-cap: "This graph represents the correlation between variables after log transformation"
+#| fig-format: png
+
+df_corr <- df  %>%
+  select(Badges.per.Active.User,
+         Active.Users...Total,
+         Minutes.per.Active.User,
+         Tower.Alerts.per.Tower.Completion,
+         User.Session,
+         tch_min) %>%
+  rename("Badges" = Badges.per.Active.User,
+         "Minutes per Student" = Minutes.per.Active.User,
+         "Tower Alerts" = Tower.Alerts.per.Tower.Completion,
+         "# of Students" = Active.Users...Total,
+         "Teacher Logins" = User.Session,
+         "Teacher Minutes" = tch_min)
+
+chart.Correlation(df_corr, histogram = TRUE, method = "pearson",
+                  pch = 20, cex = 0.5, col = rgb(0, 0, 1, 0.5))
+
+```
+
+#### Are Some Badges Harder than Other?
+
+### Dimensionality Reduction
+
+In order to capture the choices and trade-offs that teachers make, we used a Principal Component Analysis (PCA). This approach was taken to condense the multifaceted nature of our variables: Teacher Minutes, Teacher Sessions, and a series of data points including resources downloaded.
+
+PCA was performed to mitigate the high-dimensionality of the dataset, seeking to encapsulate the maximum statistical information. We then calculated the correlations between the "Badges per Student" and the following variables: Teacher Minutes, and the three principal components (PC1, PC2, PC3). This facet of the analysis, which had a unit of analysis at the teacher level, was conducted to analyze the relationship between badges and the selected variables for each Teacher.
+
+@fig-pca displays the Scree plot showing the optimal number of principal components.
+
+The Non-negative Matrix Factorization (NMF) operates as follows:
+
+The original matrix can be seen as a detailed description of all the teachers' behaviors. Each row in the matrix represents a unique teacher, and each column represents a specific behavior or action the teacher might take. The entry in a specific row and column then corresponds to the occurrence, frequency, or intensity of that behavior for that particular teacher. After the NMF, we have two matrices:
+
+1.  **Basis Matrix (W)**: This matrix represents underlying behavior patterns. Each column can be seen as a "meta-behavior" or a group of behaviors that tend to occur together. It is an abstraction or summary of the original behaviors.
+2.  **Mixture Matrix (H)**: This matrix shows the extent to which each "meta-behavior" is present in each teacher. Each entry in this matrix represents the contribution of a "meta-behavior" to a particular teacher's behaviors.
+
+By looking at these matrices, we can identify underlying patterns of behaviors (from the basis matrix) and see how these patterns are mixed and matched in different teachers (from the mixture matrix). This can be a powerful way of summarizing and interpreting complex behavioral data.
+
+```{r pca nmf data-prep}
+
+## Prep data for PCA
+df_pca <- df %>%
+  arrange(Classroom.ID, week) %>%
+  group_by(Classroom.ID, week) %>%
+  dplyr::select(c("tch_min",
+                  "User.Session",
+                  "RD.elementary_schedule":"RD.grade_level_teacher_materials",
+                  "Badges.per.Active.User",)) %>%
+  mutate(across(everything(), ~ifelse(is.na(.), 0, .)))
+
+```
+
+```{python nmf}
+#| cache: true
+import numpy as np
+import pandas as pd
+from sklearn.decomposition import PCA, NMF
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import silhouette_score
+from scipy.spatial.distance import pdist, squareform
+from scipy.cluster.hierarchy import cophenet
+
+# Import data from R
+dfpca_py = pd.DataFrame(r.df_pca)
+dfpca_py.sort_values(['Classroom.ID', 'week'], inplace=True)
+# Split data into train and test set
+X = dfpca_py.drop(
+  ["Badges.per.Active.User", 'Classroom.ID', 'week'],
+  axis=1
+)
+
+# Select Minutes and Sessions
+first_two_columns = X.iloc[:, :2]
+# Store the column names
+column_names = first_two_columns.columns
+# Initialize the transformer
+scaler = MinMaxScaler()
+first_two_columns_scaled = scaler.fit_transform(first_two_columns)
+# Transform the scaled data back to a dataframe and reassign the column names
+first_two_columns_scaled_df = pd.DataFrame(first_two_columns_scaled, columns=column_names)
+rest_of_columns = X.iloc[:, 2:]
+X_scaled = pd.concat(
+  [first_two_columns_scaled_df, rest_of_columns.reset_index(drop=True)],
+  axis=1
+)
+
+
+components = {}
+results = {}
+residuals = {}
+silhouette = {}
+
+# Number of components
+n_comp = min(X_scaled.shape) // 2
+
+for n in range(2, n_comp):
+  # PCA
+  pca = PCA(n_components=n)
+  X_pca = pca.fit_transform(X_scaled)
+  pca_comp = pca.components_
+  X_hat = pca.inverse_transform(X_pca)
+  labels = np.argmax(pca_comp, axis=0)
+  
+  results.setdefault("PCA", {})[n] = X_pca
+  components.setdefault("PCA", {})[n] = pca_comp
+  residuals.setdefault("PCA", {})[n] =((X_scaled - X_hat)**2).sum().sum()  # RSS
+  silhouette.setdefault("PCA", {})[n] = silhouette_score(pca_comp.transpose(), labels)
+
+  # NMF
+  for method in {'frobenius', 'kullback-leibler'}:
+    for initial in {'nndsvd', 'nndsvda'}:
+      
+      solv = 'mu'
+      if method == 'frobenius':
+        method_name = f"{method.title()} {initial.upper()}"
+        if initial == 'nndsvd':
+          solv = 'cd'
+      else:
+        if initial == 'nndsvd':
+          continue
+        method_name = f"{method.title()}"
+        
+      nmf = NMF(
+        n_components=n,
+        init=initial,
+        beta_loss=method,
+        solver=solv,
+        max_iter=4_000,
+      )
+      
+      X_nmf = nmf.fit_transform(X_scaled)
+      nmf_comp = nmf.components_
+      X_hat = nmf.inverse_transform(X_nmf)
+      labels = np.argmax(nmf_comp, axis=0)
+      
+      results.setdefault(method_name, {})[n] = X_nmf
+      components.setdefault(method_name, {})[n] = nmf_comp
+      residuals.setdefault(method_name, {})[n] = ((X_scaled - X_hat)**2).sum().sum()  # RSS
+      silhouette.setdefault(method_name, {})[n] = silhouette_score(nmf_comp.transpose(), labels)
+
+```
+
+```{r}
+#| cache: true
+#| label: fig-nmf-pca-comparison
+#| fig-cap: "Comparison of residuals and silhouette scores for PCA, Frobenius, and Kullback-Leibler methods."
+# Importing from Python
+residuals_list <- py$residuals
+silhouette_list <- py$silhouette
+
+# Creating dataframes
+df_residuals <- do.call(rbind, lapply(names(residuals_list), function(method) {
+  do.call(rbind, lapply(names(residuals_list[[method]]), function(n) {
+    data.frame(
+      Method = method,
+      Components = as.integer(n),
+      Residuals = residuals_list[[method]][[n]]
+    )
+  }))
+}))
+df_silhouette <- do.call(rbind, lapply(names(silhouette_list), function(method) {
+  do.call(rbind, lapply(names(silhouette_list[[method]]), function(n) {
+    data.frame(
+      Method = method,
+      Components = as.integer(n),
+      Silhouette = silhouette_list[[method]][[n]]
+    )
+  }))
+}))
+
+# Plotting residuals
+p1 <- ggplot(df_residuals, aes(x = Components, y = Residuals, color = Method)) +
+  geom_line(show.legend = FALSE) +
+  labs(title = "Sum of Square Residuals",
+       x = "Number of Components") +
+  scale_x_continuous(breaks = seq(min(df_residuals$Components),
+                                  max(df_residuals$Components),
+                                  by = 1)) +
+  coord_cartesian(ylim = c(NA, (mean(df_residuals$Residuals) +
+                                  2*sd(df_residuals$Residuals)))) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank())
+# Plotting silhouette scores
+p2 <- ggplot(df_silhouette, aes(x = Components, y = Silhouette, color = Method)) +
+  geom_line() +
+  labs(title = "Silhouette Score",
+       x = "Number of Components") +
+  scale_x_continuous(breaks = seq(min(df_silhouette$Components),
+                                  max(df_silhouette$Components),
+                                  by = 1)) +
+  coord_cartesian(ylim = c(NA, (mean(df_silhouette$Silhouette) +
+                                  2*sd(df_silhouette$Silhouette)))) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank())
+
+# Combine the plots and place the legend at the bottom
+comparison_plot <- ggarrange(p1, p2,
+                           ncol = 2,
+                           common.legend = TRUE,
+                           legend = "bottom")
+comparison_plot
+
+```
+
+### Interpreting Components
+
+<!-- To ensure a more intuitive interpretation, we adjust each component to ensure a positive correlation with Student Badges (multiplying them by $-1$ if necessary). -->
+
+
+``` {r}
+#| cache: true
+#| label: fig-nmf-heatmap
+#| fig-cap: ""
+library(pheatmap)
+
+components_list <- py$components
+df_heatmap <- components_list[["Kullback-Leibler"]][["4"]] %>%
+  t() %>% as.data.frame()
+row.names(df_heatmap) <- names(df_pca)[-c(1:2,ncol(df_pca))]
+names(df_heatmap) <- paste0("Component ", 1:4)
+df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
+
+color_scheme <- colorRampPalette(
+  c("#F7F7F7",brewer.pal(n = 9, name ="YlOrRd"))
+  )(100)
+breaks <- seq(0, 1, by = 0.01)
+minmax <- function(x) ((x - min(x))/(max(x) - min(x)))
+pheatmap(df_heatmap %>%
+           mutate_all(minmax),
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         angle_col = 0,
+         main = "Loadings of NMF components",
+         color = color_scheme,  # Use the color scheme defined above
+         breaks = breaks,  # Use breaks defined above
+         border_color = NA,
+         show_colnames = TRUE,
+         show_rownames = TRUE)
+
+```
+
+
+## Connecting Variables to Reinforcement Learning Model
+
+**States**
+
+-   Tower Alerts points to how many students are struggling with the content.
+
+-   Minutes per Student / Badges per Student
+
+-   Total Active Students
+
+-   Different combinations of these variables to create unique states.
+
+**Rewards**
+
+-   Learning progress through objective measures such as badges, boosts.
+
+-   Quantify the effectiveness of teacher actions in promoting student learning.
+
+**Actions**
+
+-   Teachers can download resources, engage in different teaching methods or activities.
+
+-   Teachers can choose how much time they spend online.
+
+-   RL optimizes the action selection based on the rewards observed.
+
+<!-- ![Student View](https://help.zearn.org/hc/article_attachments/5698093595927/HC_-_StudentFeed_3.PNG) -->
+
+<!-- *Image of Zearn's classroom structure* -->
+
+![Badges](https://help.zearn.org/hc/article_attachments/5547000521495/HC_-_LockedLessons.PNG) *Image of the badge system for student achievement*
+
+# Methods
+
+## Dynamic Analysis (Lau & Glimcher, 2005)
+
+**Introduction to dynamic analysis**
+
+-   Uses response-by-response models to predict choice on each trial based on past reinforcers and choices
+
+-   Based on logistic regression, it captures the linear combination of past reinforcers and choices on each trial
+
+-   Flexible model incorporating effects of past reinforcers, choice history, and biases
+
+**Advantages of dynamic analysis in the context of Zearn dataset**
+
+-   Captures the temporal dependencies and complex interactions between teacher actions, student outcomes, and learning environment
+
+-   Allows for the identification of optimal teaching strategies that evolve over time
+
+-   Enables the evaluation of the impact of various factors (e.g., curriculum, student engagement, etc.) on the decision-making process
+
+**Model Formulation**
+
+$$
+\begin{aligned}\log \left(\frac{p_{R, i}}{p_{L, i}}\right)= & \sum_{j=1} \alpha_{ j}( r_{R, i-j}-r_{L, i-j}) \\& +\sum_{j=1} \beta_{j} (c_{R, i-j}-c_{L, i-j})+\gamma,\end{aligned}
+$$
+
+**Preliminary insights and findings**
+
+-   Identification of key factors that influence teacher decision-making and student outcomes
+
+-   Evidence of adaptive teaching strategies that change in response to student progress and engagement
+
+-   Estimation of the relative impact of different teaching actions on student learning
+
+## Variable Selection
+
+## Q-learning Model
+
+-   Teacher Specific reward sensitivity
+-   Reward is a linear function of badges (reward sensitivity minus cost)
+
+## Actor-Critic Model
+
+## Gaussian Policy Model
+
+## Model Fit
+
+### Base Models: Random Effects Panel Logit
+
+### Hierarchical Bayesian Method
+
+Bayesian updating using Stan software package Priors informed by grid search
+
+## Model Comparison
+
+## Heterogeneity
+
+### Across Teachers
+
+### Across Schools
+
+### Across Demographics
+
+# Results
+
+## Component Selection
+
+``` {r}
+bic_plm <- function(object) {
+  # object is "plm", "panelmodel" 
+  sp = summary(object)
+  if(class(object)[1]=="plm"){
+    u.hat <- residuals(sp) # extract residuals
+    model_data <- cbind(as.vector(u.hat), attr(u.hat, "index"))
+    names(model_data)[1] <- "resid"
+    c = length(unique(model_data[,"Classroom.ID"])) # extract classroom dimensions
+    t = length(unique(model_data[,"week"])) # extract time dimension
+    np = length(sp$coefficients[,1]) # number of parameters
+    n.N = nrow(sp$model) # number of data
+    s.sq  <- log( (sum(u.hat^2)/(n.N))) # log sum of squares
+    
+    # effect = c("individual", "time", "twoways", "nested"),
+    # model = c("within", "random", "ht", "between", "pooling", "fd")
+    
+    if (sp$args$model == "within" & sp$args$effect == "individual"){
+      np = np+c+1 # update number of parameters
+    }
+    
+    if (sp$args$model == "within" & sp$args$effect == "time"){
+      np = np+t+1 # update number of parameters
+    }
+    
+    if (sp$args$model == "within" & sp$args$effect == "twoways"){
+      np = np+c+t # update number of parameters
+    }
+    
+    if (sp$args$model == "random" & sp$args$effect == "twoways"){
+      np = np+length(sp$ercomp$sigma2) # update number of parameters
+    }
+    
+    bic <- round(log(n.N)*np  +  n.N * (  log(2*pi) + s.sq  + 1 ),1)
+    names(bic) = "BIC"
+    return(bic)
+  }
+}
+
+```
+
+``` {r}
+#| cache: true
+#| label: fig-nmf-pca-bic
+#| fig-cap: "BICs"
+
+results_list <- py$results
+# create empty list to store model results
+model_nloglik_min <- list()
+model_nloglik_avg <- list()
+model_bic_min <- list()
+model_bic_avg <- list()
+names(results_list)[names(results_list) == "Kullback-Leibler"] <- "KullbackLeibler"
+names(results_list)[names(results_list) == "Frobenius NNDSVDA"] <- "FrobeniusNNDSVDA"
+names(results_list)[names(results_list) == "Frobenius NNDSVD"] <- "FrobeniusNNDSVD"
+# Choose which Teacher.User.IDs will be train vs test
+df$set <- ifelse(df$Teacher.User.ID %in%
+                 sample(unique(df$Teacher.User.ID),
+                        size = floor(0.8 * length(unique(df$Teacher.User.ID)))),
+                 "train", "test")
+
+# Create base data.table for models (faster than data.frame)
+df_comp <- as.data.table(df)
+df_comp <- df_comp[, .(Classroom.ID, week, Teacher.User.ID, Badges.per.Active.User, set)]
+# Create the lags for Badges
+df_comp[, Badges.per.Active.User :=
+          nafill(Badges.per.Active.User[match(week, week + 1)], fill=0),
+        by=Classroom.ID]
+# Arrange
+setorder(df_comp, Classroom.ID, week)
+
+for (method in names(results_list)) {
+  for (n_comp in names(results_list[[method]])) {
+    n_comp <- as.numeric(n_comp)
+    df_temp <- as.data.table(results_list[[method]][[n_comp - 1]])
+    df_temp <- cbind(df_comp, df_temp)
+    # Change new column names
+    setnames(df_temp,
+             names(df_temp)[(ncol(df_temp)-n_comp+1):ncol(df_temp)],
+             paste0(method, 1:n_comp))
+    for (comp in 1:n_comp) {
+      df_temp[, (paste0(method, comp, "_1")) :=
+                nafill(get(paste0(method, comp))[match(week, week + 1)], fill=0),
+              by=Classroom.ID]
+    }
+
+    # Split the data into training and testing sets
+    train_data <- df_temp[set == "train"]
+    test_data <- df_temp[set == "test"]
+    train_data <- pdata.frame(train_data,
+                              index = c("Classroom.ID", "week", "Teacher.User.ID"))
+    test_data  <- pdata.frame(test_data,
+                              index = c("Classroom.ID", "week", "Teacher.User.ID"))
+    bic_min = 0
+    bic_avg = 0
+    nloglik_min = 0
+    nloglik_avg = 0
+    
+    # Register the parallel backend
+    cl <- makeCluster(detectCores())
+    registerDoParallel(cl)
+    results <- foreach(comp = 1:n_comp,
+                       .multicombine = TRUE,
+                       .noexport = c("bic_plm", "method",
+                                     "formula", "model", "re", "wi",
+                                     "n", "sigma2", "residuals", "predictions",
+                                     "test_data", "train_data"),
+                       .export = ls()) %dopar% 
+      {
+        require(plm)
+        formula <- as.formula(
+          paste0(paste0(method, comp), " ~ ",
+                 paste0(method, comp, "_1"), " + ",
+                 "Badges.per.Active.User"))
+        
+        # Run models and store results
+        wi <- plm(formula,
+                  data = train_data,
+                  effect = "twoway",
+                  model = "within")
+        re <- plm(formula, 
+                  data = train_data,
+                  effect = "twoway",
+                  model = "random")
+        model <- if (phtest(wi, re)$p.value < 0.05) wi else re
+        
+        # Out of Sample Log Likelihood
+        predictions <- predict(model, newdata = test_data, na.fill = TRUE)
+        residuals <- test_data[,paste0(method, comp)] - predictions
+        n <- length(residuals)
+        sigma2 <- sum(residuals^2) / n
+        nloglik <- n/2 * ( log(2 * pi) + log(sigma2) + 1 ) # Negative log likelihood
+        
+        # Return the results as a list
+        list(nloglik = as.numeric(nloglik),
+             bic = as.numeric(bic_plm(model)))
+      }
+    # Extract the results
+    nloglik_min = min(sapply(results, `[[`, "nloglik"))
+    nloglik_avg = mean(sapply(results, `[[`, "nloglik"))
+    bic_min = min(sapply(results, `[[`, "bic"))
+    bic_avg = mean(sapply(results, `[[`, "bic"))
+    # Stop the cluster
+    stopCluster(cl)
+    
+    model_nloglik_min[[paste(method, n_comp, sep = "_")]] <- nloglik_min
+    model_nloglik_avg[[paste(method, n_comp, sep = "_")]] <- nloglik_avg
+    model_bic_min[[paste(method, n_comp, sep = "_")]] <- bic_min
+    model_bic_avg[[paste(method, n_comp, sep = "_")]] <- bic_avg
+  }
+}
+
+# Create data frame for plotting
+df_bic <- data.frame(
+  Method = gsub("_.*", "", names(model_bic_min)),
+  N_components = as.integer(gsub("_.*", "", gsub(".*_", "", names(model_bic_min)))),
+  bic_Minimum = unlist(model_bic_min),
+  bic_Mean = unlist(model_bic_avg)
+) %>%
+  mutate(
+    Method = case_when(Method == "KullbackLeibler" ~ "Kullback-Leibler",
+                       Method == "FrobeniusNNDSVDA" ~ "Frobenius NNDSVDA",
+                       Method == "FrobeniusNNDSVD" ~ "Frobenius NNDSVD",
+                       .default = Method)
+  ) %>% 
+  pivot_longer(
+    cols = c(bic_Minimum, bic_Mean),
+    names_prefix = "bic_",
+    names_to = "type", 
+    values_to = "BIC"
+  )
+
+df_nll <- data.frame(
+  Method = gsub("_.*", "", names(model_nloglik_min)),
+  N_components = as.integer(gsub("_.*", "", gsub(".*_", "", names(model_nloglik_min)))),
+  nloglik_Minimum = unlist(model_nloglik_min),
+  nloglik_Mean =  unlist(model_nloglik_avg)
+) %>%
+  mutate(
+    Method = case_when(Method == "KullbackLeibler" ~ "Kullback-Leibler",
+                       Method == "FrobeniusNNDSVDA" ~ "Frobenius NNDSVDA",
+                       Method == "FrobeniusNNDSVD" ~ "Frobenius NNDSVD",
+                       .default = Method)
+  ) %>% 
+  pivot_longer(
+    cols = c(nloglik_Minimum, nloglik_Mean), 
+    names_prefix = "nloglik_",
+    names_to = "type", 
+    values_to = "NLL"
+  )
+# Plot BIC values
+p1 <- ggplot(df_bic, aes(x = N_components, y = BIC, color = Method, linetype = type)) +
+  geom_line() +
+  labs(
+    title = "In-Sample BIC",
+    x = "Number of Components",
+    y = "BIC",
+    color = "Method",
+    linetype = "Summary Across Components"
+  ) +
+  scale_x_continuous(breaks = seq(min(df_bic$N_components),
+                                  max(df_bic$N_components),
+                                  by = 1)) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank())
+p2 <- ggplot(df_nll, aes(x = N_components, y = NLL, color = Method, linetype = type)) +
+  geom_line() +
+  labs(
+    title = "Out-of-Sample Negative Log-likelihood",
+    x = "Number of Components",
+    y = "NLL",
+    color = "Method",
+    linetype = "Summary Across Components"
+  ) +
+  scale_x_continuous(breaks = seq(min(df_nll$N_components),
+                                  max(df_nll$N_components),
+                                  by = 1)) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank())
+model_comparison_plot <- ggarrange(p1, p2,
+                                  ncol = 2,
+                                  common.legend = TRUE,
+                                  legend = "bottom")
+model_comparison_plot
+
+```
+
+
+``` {r}
+# Function to get lagged value
+get_lag_value <- function(df, col, lag_period) {
+  df %>%
+    group_by(Classroom.ID) %>%
+    mutate(!!paste0(col, "_", lag_period) := 
+             replace_na(
+               eval(sym(col), df)[match(week, (week + lag_period))],
+               0)
+           )
+}
+```
+
+## Meta-Analysis Overall Results
+
+Subsequently, we performed a meta-analysis of these correlations to reveal the pooled effect of our variables. In this case, we conducted a multivariate meta-analysis, offering the advantage of modeling multiple, potentially correlated, outcomes. We transformed the correlations using Fisher's z-transformation (to ensure a normal distribution of the correlations) and ran a random effects model with each unique combination of "Teacher" and "School".
+
+The resulting multivariate meta-analysis provides a comprehensive estimate of the correlations for each outcome, considering the hierarchical structure of the data. Thus, we can understand the overarching relationships between the different outcomes and the Badges across diverse schools and teachers. This robust conclusion, therefore, provides a more resilient analysis than a simple correlation analysis.
+
+@fig-meta-analysis presents the results of a meta-analysis on the correlation.
+
+```{r}
+#| cache: true
+#| label: fig-meta-analysis
+#| fig-cap: "Results of the correlation meta-analysis."
+library(metafor)
+
+n_comp <- 4
+method <- "KullbackLeibler"
+selected_cols <- c("Classroom.ID", "week", "Usage.Week", "Active.Users...Total",
+                   "Minutes.per.Active.User", "Badges.per.Active.User",
+                   "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion",
+                   "Teacher.User.ID", "teacher_number_classes", "year", "Grade.Level",
+                   "MDR.School.ID", "Students...Total", "District.Rollup.ID",
+                   "poverty", "income", "charter.school", "school.account",
+                   "zipcode", "tch_min", "User.Session", "n_weeks")  # Column to select
+
+df_corr <- df %>%
+  ungroup() %>%
+  arrange(Classroom.ID, week) %>%
+  select(all_of(selected_cols)) %>%
+  bind_cols(results_list[[method]][[n_comp - 1]]) %>%
+  rename_with(~paste0("Component", seq_len(n_comp)), last_col() - (n_comp - 1):0) %>%
+  group_by(Classroom.ID,Teacher.User.ID,MDR.School.ID,District.Rollup.ID)
+for (col in paste0("Component", seq_len(n_comp))) {
+  df_corr <- df_corr %>%
+    get_lag_value(col, 1)
+}
+
+df_corr <- df_corr %>%
+  summarise(
+    n = n(),
+    Component1 = cor(Badges.per.Active.User, Component1_1),
+    Component2 = cor(Badges.per.Active.User, Component2_1),
+    Component3 = cor(Badges.per.Active.User, Component3_1),
+    Component4 = cor(Badges.per.Active.User, Component4_1),
+    n_weeks = mean(n_weeks),
+    teacher_number_classes = mean(teacher_number_classes),
+    poverty = first(poverty),
+    income = first(income),
+    school.account = mean(school.account)
+  ) %>%
+  filter(!is.na(Component1) &
+           !is.na(Component2) &
+           !is.na(Component3) &
+           !is.na(Component4))
+
+df_corr_sub <- df_corr %>%
+  as_tibble() %>%
+  slice_sample(prop = 0.05) %>%
+  mutate_at(vars(paste0("Component", seq_len(n_comp))),
+            list(~atanh(.))) %>%  # Fisher's z transformation
+  mutate_at(vars(paste0("Component", seq_len(n_comp))),
+            list(se = ~sqrt(1/(n - 3)))) %>%  # standard error
+  gather(key = "outcome", value = "correlation", paste0("Component", seq_len(n_comp))) %>%
+  gather(key = "outcome_se", value = "se", paste0("Component", seq_len(n_comp), "_se")) %>%
+  filter(str_replace(outcome, "_se", "") == str_replace(outcome_se, "_se", "")) %>%
+  dplyr::select(-"outcome_se") %>%
+  filter(!is.na(se))
+
+# Run multivariate meta-analysis
+res <- rma.mv(yi = correlation,
+              V = se^2,
+              random = ~ 1 | Classroom.ID/Teacher.User.ID/MDR.School.ID/District.Rollup.ID,
+              mods = ~ -1 + outcome,
+              data = df_corr_sub)
+
+# Add columns for back-transformed effect sizes and their standard errors
+res_df <- data.frame(
+  estimate = coef(res),
+  outcome = str_replace(names(coef(res)), "outcome", ""),
+  # se = sqrt(diag(vcov(res)))
+  ci.lb = res$ci.lb,
+  ci.ub = res$ci.ub
+  ) %>%
+  mutate(
+    estimate_r = tanh(estimate),
+    ci.lb = tanh(ci.lb),
+    ci.ub = tanh(ci.ub)
+    # se_r = se / (1 - estimate^2)  # delta method for SE
+  )
+# Reverse the Fisher's Z transformation
+df_corr_sub <- df_corr_sub %>%
+  mutate(correlation = tanh(correlation))
+
+# Create the plot
+ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
+  geom_histogram(binwidth = 0.1, fill = "lightblue") +
+  geom_density(aes(weight = weights(res)),
+               alpha = 0.5) +
+  geom_vline(data = res_df,
+             aes(xintercept = estimate_r,
+                 color = outcome),
+             linetype = "dashed") +
+  geom_segment(data = res_df,
+               aes(x = ci.lb,
+                   y = 0,
+                   xend = ci.ub,
+                   yend = 0,
+                   color = outcome),
+               linewidth = 1.5) +
+  geom_text(data = res_df,
+            aes(x = estimate_r,
+                y = 0.15,
+                label = sub('0\\.', '.', round(estimate_r, 2))),
+            color = "black",
+            size = 3.5,
+            check_overlap = TRUE) +
+  facet_wrap(~outcome, scales = "free",  ncol = 3) +
+  labs(x = "Correlation", y = "Density") +
+  theme_light() +
+  scale_color_discrete(name = "Pooled effects \n (with 95% C.I.)")
+  theme(legend.position = c(0.85, 0.24),
+        legend.direction = "vertical")  # Set legend position and direction
+
+```
+
+``` {r data cleaning}
+# Filter out the IDs with sd == 0
+df <- df %>%
+  filter(Classroom.ID %in% unique(df_corr$Classroom.ID))
+```
+
+```{r meta-analysis summary}
+#| eval: false
+summary(res)
+```
+
+## Base Models
+
+In order to get a baseline understanding of the influence of our key variables on the number of badges per active user, we employed a series of panel data models, with control variables: 1) the number of classes each teacher is responsible for, 2) the grade level of the classes, and 3) the total number of students. The 'Minutes Model' considers the number of minutes each teacher spends on the platform. The 'PCA Models' incorporate the three principal components we derived earlier.
+
+Both of these models use a random effects approach, which is suitable for our panel data structure and accounts for unobserved heterogeneity.
+
+```{r create lags}
+#| eval: false
+
+# Define number of lags and columns
+n_lags = 8
+n_lags_short = 4
+columns <- c("tch_min", "pca1", "pca2", "pca3",
+             "Badges.per.Active.User","User.Session")
+
+# Add lagged variables
+for (col in columns) {
+  for (lag_period in 1:n_lags) {
+    df <- df %>%
+      arrange(Classroom.ID, week) %>%
+      get_lag_value(col, lag_period) %>%
+      ungroup()
+  }
+}
+
+# Add 1-8 lags
+## Define the reinforcer, choice, and preference variables
+columns_lagged <- paste0(rep(columns, each = n_lags),
+                         "_",
+                         rep(1:n_lags, length(columns)))
+formulas <- sapply(columns[-5], function(col) 
+  as.formula(paste(col, " ~",
+                   paste(columns_lagged[grepl(col, columns_lagged)],
+                         collapse = " + "), " + ",
+                   paste(columns_lagged[grepl("Badges.per.Active.User",
+                                              columns_lagged)],
+                         collapse = " + "))))
+# Add 1-4 lags
+## Define the reinforcer, choice, and preference variables
+columns_lagged <- paste0(rep(columns, each = n_lags_short),
+                         "_",
+                         rep(1:n_lags_short, length(columns)))
+formulas_short <- sapply(columns[-5], function(col) 
+  as.formula(paste(col, " ~",
+                   paste(columns_lagged[grepl(col, columns_lagged)],
+                         collapse = " + "), " + ",
+                   paste(columns_lagged[grepl("Badges.per.Active.User",
+                                              columns_lagged)],
+                         collapse = " + "))))
+
+```
+
+```{r panel models}
+#| eval: false
+library(pglm)
+library(performance)
+
+df_panel <- pdata.frame(df,index = c("Classroom.ID", "week", "Teacher.User.ID"))
+
+### Minutes
+formula <- as.formula("User.Session ~ Badges.per.Active.User_1 + User.Session_1")
+# First test which model is appropriate
+# Random or Fixed Effects by the Hausman test:
+hausman <- phtest(User.Session ~ Badges.per.Active.User_1 + User.Session_1,
+                  data = df_panel)
+if (hausman$p.value < 0.05) {
+  panel_min <- plm(formula,
+                     data = df_panel,
+                     model = "within")
+} else {
+  panel_min <- plm(formula, 
+                   data = df_panel,
+                   model = "random")
+}
+
+### Minutes
+formula <- as.formula("tch_min ~ Badges.per.Active.User_1 + tch_min_1")
+# First test which model is appropriate
+# Random or Fixed Effects by the Hausman test:
+hausman <- phtest(tch_min ~ Badges.per.Active.User_1 + tch_min_1,
+                  data = df_panel)
+if (hausman$p.value < 0.05) {
+  panel_min <- plm(formula,
+                     data = df_panel,
+                     model = "within")
+} else {
+  panel_min <- plm(formula, 
+                   data = df_panel,
+                   model = "random")
+}
+
+### PC1
+formula <- as.formula("pca1 ~ Badges.per.Active.User_1 + pca1_1")
+# First test which model is appropriate
+# Random or Fixed Effects by the Hausman test:
+hausman <- phtest(pca1 ~ Badges.per.Active.User_1 + pca1_1,
+                  data = df_panel)
+if (hausman$p.value < 0.05) {
+  panel_pca1 <- plm(formula,
+                     data = df_panel,
+                     model = "within")
+} else {
+  panel_pca1 <- plm(formula, 
+                   data = df_panel,
+                   model = "random")
+}
+
+### PC2
+formula <- as.formula("pca2 ~ Badges.per.Active.User_1 + pca2_1")
+hausman <- phtest(pca2 ~ Badges.per.Active.User_1 + pca2_1,
+                  data = df_panel)
+if (hausman$p.value < 0.05) {
+  panel_pca2 <- plm(formula,
+                     data = df_panel,
+                     model = "within")
+} else {
+  panel_pca2 <- plm(formula, 
+                   data = df_panel,
+                   model = "random")
+}
+
+### PC3
+formula <- as.formula("pca3 ~ Badges.per.Active.User_1 + pca3_1")
+hausman <- phtest(pca3 ~ Badges.per.Active.User_1 + pca3_1,
+                  data = df_panel)
+if (hausman$p.value < 0.05) {
+  panel_pca3 <- plm(formula,
+                    data = df_panel,
+                    model = "within")
+} else {
+  panel_pca3 <- plm(formula, 
+                    data = df_panel,
+                    model = "random")
+}
+
+# summary(panel_min)
+# summary(panel_pca)
+
+```
+
+## Models with Lags
+
+Subsequently, we accounted for the temporal dynamics of our dataset by applying the Lau & Glimcher (2005) method. We introduced lagged variables into the models, thereby allowing us to account for temporal autocorrelation and potential delayed effects. We included lagged versions of the variables 'Teacher Minutes', 'PC1', 'PC2', 'PC3', and 'Badges per Students', with eight lags for each.
+
+We then ran models with these lagged variables using the same random effects approach as in the base models.
+
+```{r model lags}
+#| eval: false
+
+# Run models
+models <- lapply(formulas, function(formula) {
+  panel_fe <- plm(formula,
+                   data = df_panel,
+                   # family = "tobit",
+                   model = "within")
+  panel_re <- plm(formula,
+                   data = df_panel,
+                   # family = "tobit",
+                   model = "random")
+  hausman <- phtest(panel_fe, panel_re)
+  if (hausman$p.value < 0.05) {
+    return(panel_fe)
+  } else {
+    return(panel_re)
+  }
+})
+# Run short models
+models_short <- lapply(formulas_short, function(formula) {
+  panel_fe <- plm(formula,
+                   data = df_panel,
+                   # family = "tobit",
+                   model = "within")
+  panel_re <- plm(formula, 
+                   data = df_panel,
+                   # effect = "nested",
+                   model = "random")
+  hausman <- phtest(panel_fe, panel_re)
+  if (hausman$p.value < 0.05) {
+    return(panel_fe)
+  } else {
+    return(panel_re)
+  }
+})
+
+# Print summaries
+# lapply(models, summary)
+
+```
+
+In order to better understand and interpret the output of our models, we created a plot of the coefficients associated with each of the lagged variables. This plot allows us to see how the influence of each variable changes as the lag increases, and to compare these dynamics across variables.
+
+```{r}
+#| eval: false
+#| label: fig-lags
+#| fig-cap: "The estimated coefficients of the lagged variables in the random effects models. The lines represent different variables, and the shaded areas indicate the standard errors of the coefficients. The grey line and shaded area represent the coefficients for the lagged Badges per Student."
+
+# Extract coefficients from models
+model_coeffs <- lapply(models, function(model) coef(summary(model)))
+
+# Create data frame with model coefficients
+df_coeffs <- do.call(rbind, model_coeffs)
+df_coeffs <- as.data.frame(df_coeffs) %>%
+  # Remove intercept
+  filter(!grepl(pattern = "Intercept",
+                x = rownames(.)))
+# Create columns for lag and variable
+df_coeffs$lag <- rep(1:n_lags, nrow(df_coeffs) / n_lags)
+df_coeffs$variable <- rep(columns[-5], each = nrow(df_coeffs) / length(columns[-5]))
+
+# Convert the coefficient data to long format
+df_estimates <- df_coeffs %>%
+  dplyr::select("variable", "lag", "Estimate") %>%
+  mutate(badges = case_when(grepl(pattern = "Badges",
+                                  x = rownames(.)) ~ TRUE,
+                            .default = FALSE)) %>%
+  rename(coeff_value_estimate = Estimate)
+
+df_se <- df_coeffs %>%
+  dplyr::select(variable, lag, `Std. Error`) %>%
+  mutate(badges = case_when(grepl(pattern = "Badges",
+                                  x = rownames(.)) ~ TRUE,
+                            .default = FALSE)) %>%
+  rename(coeff_value_se = `Std. Error`)
+# Merge the two data frames
+df_coeffs_long <- full_join(df_estimates,
+                            df_se,
+                            by = c("variable", "lag", "badges")) %>%
+  mutate(Action = factor(variable, 
+                         levels = c("pca1", "pca2", "pca3",
+                                    "tch_min", "User.Session",
+                                    "Badges.per.Active.User"),
+                         labels = c("PC1", "PC2", "PC3",
+                                    "Teacher Minutes", "Teacher Logins",
+                                    "Badges")),
+         Action = case_when(badges ~ "Badges",
+                            .default = Action))
+# Separate other coefficients
+df_coeffs_long <- df_coeffs_long %>%
+  filter(Action != "Badges") %>%
+  inner_join(df_coeffs_long %>%
+               filter(Action == "Badges") %>%
+               dplyr::select(variable, lag, coeff_value_estimate, coeff_value_se) %>%
+               rename(Badges = coeff_value_estimate,
+                      Badges_se = coeff_value_se),
+             by = c("variable", "lag")) %>%
+  dplyr::select(!c("badges","variable"))
+
+ggplot(df_coeffs_long, aes(x = lag,
+                           y = coeff_value_estimate,
+                           color = Action,
+                           group = Action)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = coeff_value_estimate - 1.96*coeff_value_se,
+                  ymax = coeff_value_estimate + 1.96*coeff_value_se),
+              alpha = 0.2) +
+  geom_line(data = df_coeffs_long,
+            aes(x = lag,
+                y = Badges,
+                group = Action,
+                linetype = "Badges"),
+            color = "black") +
+  geom_ribbon(data = df_coeffs_long,
+              aes(ymin = Badges - Badges_se,
+                  ymax = Badges + Badges_se),
+              alpha = 0.1,
+              fill = "grey",
+              color = "grey") +  # set color to gray
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", size = 0.2) +
+  facet_wrap(~Action, scales = "free_y") +
+  labs(x = "Lag", y = "Coefficient", linetype = "") +
+  scale_linetype_manual(values = c("solid", "dashed")) +
+  theme_light()
+
+```
+
+## Variable selection
+
+To ensure that our models are parsimonious and to help determine which set of variables provides the best fit for the data, we compared the Bayesian Information Criterion (BIC) of the different models: the Minutes Model, PCA Model, and Lag Models. @tbl-bic displays the BICs, with each row corresponding to a different model.
+
+```{r}
+#| eval: false
+#| label: tbl-bic
+#| tbl-cap: "Comparison of BIC values across different models. Lower BIC values indicate better model fit."
+
+library(stringi)
+
+# Calculate BIC for each model
+min_model_bic <- BIC(panel_min)
+pca1_model_bic <- BIC(panel_pca1)
+pca2_model_bic <- BIC(panel_pca2)
+pca3_model_bic <- BIC(panel_pca3)
+lag_models_bic <- sapply(models, BIC)
+lag_models_short_bic <- sapply(models_short, BIC)
+
+# Create a vector with the names of the models
+model_names <- c("Minutes 1",
+                 "PC1 1",
+                 "PC2 1",
+                 "PC3 1",
+                 sapply(columns[-5],
+                        function(col) paste(col, "4")),
+                 sapply(columns[-5],
+                        function(col) paste(col, "8")))
+
+# Create a data frame to store the results
+model_comparison <- data.frame(
+  Model = model_names,
+  BIC = c(min_model_bic,
+          pca1_model_bic, pca2_model_bic, pca3_model_bic,
+          lag_models_short_bic, lag_models_bic)
+  ) %>%
+  # Replace specific strings in model names
+  mutate(Model = stri_replace_all_regex(Model,
+                                        pattern=c('pca1',
+                                                  'pca2',
+                                                  'pca3',
+                                                  'tch_min'),
+                                        replacement=c('PC1',
+                                                      'PC2',
+                                                      'PC3',
+                                                      'Minutes'),
+                                        vectorize=FALSE)) %>%
+  separate(Model, into = c("Model","Lag"), sep = " ")
+# Identify the row with the smallest BIC
+model_comparison <- model_comparison %>%
+  pivot_wider(
+    names_from = Lag,
+    values_from = BIC
+  )
+
+# Find the row number with the minimum BIC for each Lag
+min_bic_row_1 <- which.min(model_comparison$`1`)
+min_bic_row_4 <- which.min(model_comparison$`4`)
+min_bic_row_8 <- which.min(model_comparison$`8`)
+# Create a gt table
+gt_table <- model_comparison %>%
+  gt() %>%
+  cols_label(
+    Model = "Model",
+    `1` = "1-week lag",
+    `4` = "4-week lag",
+    `8` = "8-week lag"
+  ) %>%
+  tab_spanner(label = "BIC",
+              columns = c(2:ncol(model_comparison))) %>%
+# Highlight the cell with the smallest BIC for each Lag
+  tab_style(
+    style = cell_fill(color = "yellow"),  # Adjust color as needed
+    locations = cells_body(
+      columns = c(`1`),
+      rows = min_bic_row_1
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "yellow"),  # Adjust color as needed
+    locations = cells_body(
+      columns = c(`4`),
+      rows = min_bic_row_4
+    )
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "yellow"),  # Adjust color as needed
+    locations = cells_body(
+      columns = c(`8`),
+      rows = min_bic_row_8
+    )
+  )
+
+
+# Print the table
+gt_table
+
+```
+
+BIC penalizes models based on their complexity (number of parameters used) and the number of observations, favoring simpler models and models that fit the data better. In @tbl-bic, the 8-lag PC1 Model has the lowest BIC value, suggesting that it provides the best fit to the data when considering both complexity and fit.
+
+## Q-Learning Analysis
+
+<!-- Find a graph that displays results better (rather than the one user to fit) -->
+
+## Actor-Critic Analysis
+
+## Gaussian Policy
+
+## Model Comparison
+
+<!-- BICs, summary stats on fit -->
+
+## Heterogeneity
+
+# Discussion
+
+6.  Comparing the performance of the models
+7.  Advantages and limitations of each model
+8.  Insights from each model
+
+## Implications for Teachers and Schools
+
+3.  Decision-making patterns
+4.  Optimal strategies
+5.  Implications for the education field
+6.  Potential impact on teaching practices
+7.  Policy recommendations
+
+## Limitations
+
+3.  Data limitations and biases
+4.  Model assumptions and simplifications
+5.  Generalizability of results
+
+## Challenges
+
+## Future research
+
+6.  Application to other educational contexts
+7.  Integration with other models and approaches
+8.  Expanding the scope of variables and data sources
