@@ -918,6 +918,10 @@ Bayesian updating using Stan software package Priors informed by grid search
 
 # Results
 
+``` {r clean environment}
+rm(list = setdiff(ls(), c("df", "minmax")))
+```
+
 ## Component Selection
 
 ``` {r}
@@ -965,6 +969,7 @@ bic_plm <- function(object) {
 #| cache: true
 #| label: fig-nmf-pca-bic
 #| fig-cap: "BICs"
+library(plm)
 
 results_list <- py$results
 # create empty list to store model results
@@ -1055,13 +1060,15 @@ for (method in names(results_list)) {
         
         # Return the results as a list
         list(nloglik = as.numeric(nloglik),
-             bic = as.numeric(bic_plm(model)))
+             bic = as.numeric(bic_plm(model)),
+             coef = model$coefficients)
       }
     # Extract the results
     nloglik_min = min(sapply(results, `[[`, "nloglik"))
     nloglik_avg = mean(sapply(results, `[[`, "nloglik"))
     bic_min = min(sapply(results, `[[`, "bic"))
     bic_avg = mean(sapply(results, `[[`, "bic"))
+    coefficients_list = sapply(results, `[[`, "coef")
     # Stop the cluster
     stopCluster(cl)
     
@@ -1174,54 +1181,64 @@ The resulting multivariate meta-analysis provides a comprehensive estimate of th
 #| label: fig-meta-analysis
 #| fig-cap: "Results of the correlation meta-analysis."
 library(metafor)
+library(ppcor)
 
 n_comp <- 4
 method <- "KullbackLeibler"
-selected_cols <- c("Classroom.ID", "week", "Usage.Week", "Active.Users...Total",
-                   "Minutes.per.Active.User", "Badges.per.Active.User",
-                   "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion",
-                   "Teacher.User.ID", "teacher_number_classes", "year", "Grade.Level",
-                   "MDR.School.ID", "Students...Total", "District.Rollup.ID",
-                   "poverty", "income", "charter.school", "school.account",
-                   "zipcode", "tch_min", "User.Session", "n_weeks")  # Column to select
+selected_cols <- c("Classroom.ID", "Teacher.User.ID",
+                   "MDR.School.ID", "District.Rollup.ID",
+                   "week", "Usage.Week",
+                   # Main loadings of Components:
+                   "tch_min", "RD.optional_problem_sets",
+                   "Guided.Practice.Completed", "Tower.Completed",
+                   # Student Variables
+                   "Active.Users...Total", "Minutes.per.Active.User",
+                   "Badges.per.Active.User", "Boosts.per.Tower.Completion",
+                   "Tower.Alerts.per.Tower.Completion",
+                   # Classroom and Teacher Variables
+                   "teacher_number_classes", "Grade.Level",
+                   "Students...Total", "n_weeks",
+                   # School Variables
+                   "poverty", "income", "charter.school",
+                   "school.account", "zipcode")  # Column to select
 
 df_corr <- df %>%
   ungroup() %>%
   arrange(Classroom.ID, week) %>%
-  select(all_of(selected_cols)) %>%
+  dplyr::select(all_of(selected_cols)) %>%
   bind_cols(results_list[[method]][[n_comp - 1]]) %>%
-  rename_with(~paste0("Component", seq_len(n_comp)), last_col() - (n_comp - 1):0) %>%
-  group_by(Classroom.ID,Teacher.User.ID,MDR.School.ID,District.Rollup.ID)
-for (col in paste0("Component", seq_len(n_comp))) {
+  rename_with(~paste0("Component", seq_len(n_comp)), last_col() - (n_comp - 1):0) 
+for (col in c(paste0("Component", seq_len(n_comp)),
+              "tch_min", "Badges.per.Active.User")) {
   df_corr <- df_corr %>%
     get_lag_value(col, 1)
 }
 
+# Define a safe version of pcor.test that returns NA when there's an error
+safe_pcor <- possibly(~pcor.test(..1, ..2, ..3, method = "spearman")$estimate,
+                      otherwise = NA)
 df_corr <- df_corr %>%
+  group_by(Classroom.ID,Teacher.User.ID,MDR.School.ID,District.Rollup.ID) %>%
   summarise(
     n = n(),
-    Component1 = cor(Badges.per.Active.User, Component1_1),
-    Component2 = cor(Badges.per.Active.User, Component2_1),
-    Component3 = cor(Badges.per.Active.User, Component3_1),
-    Component4 = cor(Badges.per.Active.User, Component4_1),
+    Component1 = safe_pcor(Component1, Badges.per.Active.User_1, Component1_1),
+    Component2 = safe_pcor(Component2, Badges.per.Active.User_1, Component2_1),
+    Component3 = safe_pcor(Component3, Badges.per.Active.User_1, Component3_1),
+    Component4 = safe_pcor(Component4, Badges.per.Active.User_1, Component4_1),
     n_weeks = mean(n_weeks),
     teacher_number_classes = mean(teacher_number_classes),
     poverty = first(poverty),
     income = first(income),
     school.account = mean(school.account)
-  ) %>%
-  filter(!is.na(Component1) &
-           !is.na(Component2) &
-           !is.na(Component3) &
-           !is.na(Component4))
+  )
 
 df_corr_sub <- df_corr %>%
   as_tibble() %>%
-  slice_sample(prop = 0.05) %>%
+  slice_sample(prop = 0.1) %>%
   mutate_at(vars(paste0("Component", seq_len(n_comp))),
             list(~atanh(.))) %>%  # Fisher's z transformation
   mutate_at(vars(paste0("Component", seq_len(n_comp))),
-            list(se = ~sqrt(1/(n - 3)))) %>%  # standard error
+            list(se = ~sqrt(1/(n - 2 - 2)))) %>%  # standard error sqrt(1/N−2−g)
   gather(key = "outcome", value = "correlation", paste0("Component", seq_len(n_comp))) %>%
   gather(key = "outcome_se", value = "se", paste0("Component", seq_len(n_comp), "_se")) %>%
   filter(str_replace(outcome, "_se", "") == str_replace(outcome_se, "_se", "")) %>%
@@ -1252,7 +1269,6 @@ res_df <- data.frame(
 # Reverse the Fisher's Z transformation
 df_corr_sub <- df_corr_sub %>%
   mutate(correlation = tanh(correlation))
-
 # Create the plot
 ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
   geom_histogram(binwidth = 0.1, fill = "lightblue") +
@@ -1276,7 +1292,7 @@ ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
             color = "black",
             size = 3.5,
             check_overlap = TRUE) +
-  facet_wrap(~outcome, scales = "free",  ncol = 3) +
+  facet_wrap(~outcome, scales = "free",  ncol = 2) +
   labs(x = "Correlation", y = "Density") +
   theme_light() +
   scale_color_discrete(name = "Pooled effects \n (with 95% C.I.)")
