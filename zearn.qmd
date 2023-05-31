@@ -279,9 +279,9 @@ dt[, min_week := week(min(Usage.Week)),
    by = Teacher.User.ID]
 dt[, `:=`(
   week = ifelse(week >= min_week, week - min_week + 1, week - min_week + 53),
-  Tsubj = max(week),
   mean_act_st = mean(Active.Users...Total)
 ), by = .(Classroom.ID)]
+dt[, Tsubj := max(week), by = .(Classroom.ID)]
 dt[, `:=`(
   st_login = ifelse(Minutes.per.Active.User > 0, 1, 0),
   tch_login = ifelse(tch_min > 0, 1, 0)
@@ -437,7 +437,8 @@ address_geodata <- furrr::future_map_dfr(.x = unique_zipcodes,
                                ~ geo(postalcode = .x,
                                      country = "United States",
                                      method = 'geocodio',
-                                     full_results = TRUE)) %>%
+                                     full_results = TRUE,
+                                     progress_bar = FALSE)) %>%
   select(postalcode,
          address_components.city,
          address_components.county,
@@ -550,26 +551,21 @@ gt(summary_table)
 
 ### Change in Active Users and Badges per Active User Over Time
 
-The average number of active students over time is shown in @fig-active-users, and the total number of student logins over time is illustrated in @fig-logins-week.
+The average number of weeks of data available per classroom is shown in @fig-classroom-weeks, and the total number of student logins over time is illustrated in @fig-logins-week.
 
 ```{r}
-#| label: fig-active-users
-#| fig-cap: "Change in the average number of active students over time."
+#| label: fig-classroom-weeks
+#| fig-cap: "Total number of weeks of data per classroom."
 
-# Group data by Classroom.ID or Teacher.User.ID
-grouped_data <- df %>%
-  group_by(week) %>%
-  summarise(
-    total_active_users = mean(Active.Users...Total),
-    total_badges = mean(Badges.per.Active.User)
-  )
-
-# Visualize the change over time
-ggplot(grouped_data, aes(x = week, y = total_active_users)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Active Students Over Time",
-       x = "Number of Weeks from First Use",
-       y = "Total Active Students") +
+# Create the histogram
+ggplot(df %>%
+         group_by(Classroom.ID) %>%
+         summarize(Tsubj = max(Tsubj)),
+       aes(x = Tsubj)) +
+  geom_histogram(fill = "steelblue", color = "black") +
+  labs(title = "Histogram of Total Number of Weeks",
+       x = "Total Number of Weeks",
+       y = "Frequency") +
   theme_minimal()
 
 ```
@@ -615,7 +611,7 @@ bar_plot +
 Given the diverse user base of the platform, we select teachers who most likely come from traditional schools and classrooms that use the platform consistently. Specifically, we select virtual classrooms with at least five active students weekly, indicating students are enrolled by a school, and not their parents or tutors only. We also consider only classes that were active for more than 5 months during the year. That is, at least one student logged in for a period of at least 20 weeks, and we removed classes inactive for more than 7 months. This deletion most likely ensures that teachers and schools that have not used Zearn consistently will not affect the robustness of our results.
 
 1.  Traditional schools and consistent platform usage
-2.  Criteria for inclusion in the study We remove teachers with more than 4 classrooms and those who have logged in for less than 12 weeks in total. We exclude classrooms in the 6th to 8th grades, as those are a small proportion of our dataset.
+2.  Criteria for inclusion in the study We remove teachers with more than 4 classrooms and those who have logged in for less than 16 weeks in total. We exclude classrooms in the 6th to 8th grades, as those are a small proportion of our dataset.
 
 ```{r preprocess data}
 
@@ -623,7 +619,7 @@ dt[, n_weeks := .N,
    by = Classroom.ID]
 
 dt <- dt[
-  n_weeks > 11 & # At least 3 months cumulative activity
+  n_weeks > 15 & # At least 4 months cumulative activity
     # Tsubj < 4*n_weeks & # At least activity once a month on average
     teacher_number_classes < 5 &
     Students...Total > 5 &
@@ -706,105 +702,242 @@ By looking at these matrices, we can identify underlying patterns of behaviors (
 
 ```{r pca nmf data-prep}
 
+# Choose which Teacher.User.IDs will be train vs test
+df$set <- ifelse(df$Teacher.User.ID %in%
+                 sample(unique(df$Teacher.User.ID),
+                        size = floor(0.8 * length(unique(df$Teacher.User.ID)))),
+                 "train", "test")
+
+# Create base data.table for models (faster than data.frame)
+df_comp <- as.data.table(df %>% 
+                           select(Classroom.ID, week, Badges.per.Active.User,
+                                  set, tch_min, User.Session, 
+                                  RD.elementary_schedule:RD.grade_level_teacher_materials))
+# Arrange
+setorder(df_comp, Classroom.ID, week)
+
 ## Prep data for PCA
-df_pca <- df %>%
+df_pca <- as.data.frame(df_comp) %>%
   arrange(Classroom.ID, week) %>%
-  group_by(Classroom.ID, week) %>%
-  dplyr::select(c("tch_min",
-                  "User.Session",
-                  "RD.elementary_schedule":"RD.grade_level_teacher_materials",
-                  "Badges.per.Active.User",)) %>%
-  mutate(across(everything(), ~ifelse(is.na(.), 0, .)))
+  ungroup() %>%
+  mutate(across(everything(), ~ifelse(is.na(.), 0, .))) %>%
+  mutate(across("RD.elementary_schedule":"RD.grade_level_teacher_materials", ~log1p(.)))
 
 ```
 
 ```{python nmf}
-
+#| cache: true
 import numpy as np
 import pandas as pd
-from sklearn.decomposition import PCA, NMF
+from sklearn.decomposition import NMF
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import silhouette_score
-from scipy.spatial.distance import pdist, squareform
-from scipy.cluster.hierarchy import cophenet
+from keras.models import Model, load_model
+from keras.layers import Input, Dense, LSTM, GRU, RepeatVector, TimeDistributed, Reshape, Flatten
+from keras.constraints import NonNeg
+from keras.callbacks import EarlyStopping
+from keras_tuner import RandomSearch
+from keras_tuner.engine.hyperparameters import HyperParameters
+
+## Basic Variables
 
 # Import data from R
 dfpca_py = pd.DataFrame(r.df_pca)
-dfpca_py.sort_values(['Classroom.ID', 'week'], inplace=True)
-# Split data into train and test set
-X = dfpca_py.drop(
-  ["Badges.per.Active.User", 'Classroom.ID', 'week'],
-  axis=1
-)
 
-# Select Minutes and Sessions
-first_two_columns = X.iloc[:, :2]
-# Store the column names
-column_names = first_two_columns.columns
-# Initialize the transformer
+# Initialize scaler
 scaler = MinMaxScaler()
-first_two_columns_scaled = scaler.fit_transform(first_two_columns)
-# Transform the scaled data back to a dataframe and reassign the column names
-first_two_columns_scaled_df = pd.DataFrame(first_two_columns_scaled, columns=column_names)
-rest_of_columns = X.iloc[:, 2:]
-X_scaled = pd.concat(
-  [first_two_columns_scaled_df, rest_of_columns.reset_index(drop=True)],
-  axis=1
-)
 
+# Drop unnecessary columns
+X = dfpca_py.drop(['Badges.per.Active.User', 'set', 'Classroom.ID', 'week'], axis=1)
+X_cols  = X.columns
 
+# Scale the data
+X_scaled = scaler.fit_transform(X)
+
+# Dictionaries for export
 components = {}
 results = {}
 residuals = {}
 silhouette = {}
 
-# Number of components
-n_comp = min(X_scaled.shape) // 2
+# Number of components for NMF and LSTM
+n_comp = min(X.shape) // 3
+n_LSTM = min(X.shape) // 2
 
-for n in range(2, n_comp):
-  # PCA
-  pca = PCA(n_components=n)
-  X_pca = pca.fit_transform(X_scaled)
-  pca_comp = pca.components_
-  X_hat = pca.inverse_transform(X_pca)
-  labels = np.argmax(pca_comp, axis=0)
-  
-  results.setdefault("PCA", {})[n] = X_pca
-  components.setdefault("PCA", {})[n] = pca_comp
-  residuals.setdefault("PCA", {})[n] =((X_scaled - X_hat)**2).sum().sum()  # RSS
-  silhouette.setdefault("PCA", {})[n] = silhouette_score(pca_comp.transpose(), labels)
+# Create training and testing data frames
+train_df = dfpca_py[dfpca_py['set'] == 'train']
+test_df = dfpca_py[dfpca_py['set'] == 'test']
 
-  # NMF
-  for method in {'frobenius', 'kullback-leibler'}:
-    for initial in {'nndsvd', 'nndsvda'}:
-      
-      solv = 'mu'
-      if method == 'frobenius':
+# Define early stopping callback
+early_stopping_callback = EarlyStopping(monitor='val_loss', patience=3)
+
+################ Non-negative Matrix Factorization
+# Function for NMF
+def nmf_method(n, method, initial, X_scaled):
+    solv = 'mu'
+    if method == 'frobenius':
         method_name = f"{method.title()} {initial.upper()}"
         if initial == 'nndsvd':
-          solv = 'cd'
-      else:
+            solv = 'cd'
+    else:
         if initial == 'nndsvd':
-          continue
+            return
         method_name = f"{method.title()}"
         
-      nmf = NMF(
-        n_components=n,
-        init=initial,
-        beta_loss=method,
-        solver=solv,
-        max_iter=4_000,
-      )
-      
-      X_nmf = nmf.fit_transform(X_scaled)
-      nmf_comp = nmf.components_
-      X_hat = nmf.inverse_transform(X_nmf)
-      labels = np.argmax(nmf_comp, axis=0)
-      
-      results.setdefault(method_name, {})[n] = X_nmf
-      components.setdefault(method_name, {})[n] = nmf_comp
-      residuals.setdefault(method_name, {})[n] = ((X_scaled - X_hat)**2).sum().sum()  # RSS
-      silhouette.setdefault(method_name, {})[n] = silhouette_score(nmf_comp.transpose(), labels)
+    nmf = NMF(n_components=n, init=initial, beta_loss=method, solver=solv, max_iter=4_000)
+    X_nmf = nmf.fit_transform(X_scaled)
+    nmf_comp = nmf.components_
+    X_hat = nmf.inverse_transform(X_nmf)
+    labels = np.argmax(nmf_comp, axis=0)
+    
+    results.setdefault(method_name, {})[n] = X_nmf
+    components.setdefault(method_name, {})[n] = nmf_comp
+    residuals.setdefault(method_name, {})[n] = ((X_scaled - X_hat)**2).sum().sum()  # RSS
+    silhouette.setdefault(method_name, {})[n] = silhouette_score(nmf_comp.transpose(), labels)
+
+# Call the function for NMF
+for n in range(2, n_comp):
+    for method in {'frobenius', 'kullback-leibler'}:
+        for initial in {'nndsvd', 'nndsvda'}:
+            nmf_method(n, method, initial, X_scaled)
+
+
+################ Neural Net
+# Function to reshape a 2D DataFrame into a 3D array
+def reshape_data(df, num_samples, num_timesteps, num_features):
+    X_reshaped = np.zeros((num_samples, num_timesteps, num_features))
+    grouped = df.groupby('Classroom.ID')
+    for i, (classroom_id, group) in enumerate(grouped):
+        group = group.sort_values('week')
+        group_features = group.drop(['Classroom.ID', 'week'], axis=1)
+        X_reshaped[i, :len(group), :] = group_features.values
+    X_reshaped = np.nan_to_num(X_reshaped)
+    return X_reshaped
+# Function to prepare the data
+def prepare_data(df):
+    df_id_week = df[['Classroom.ID', 'week']]
+    df = df.drop(['Classroom.ID', 'week'], axis=1)
+    df = scaler.transform(df)
+    df = pd.DataFrame(df, columns=X_cols)
+    df = pd.concat([df_id_week, df], axis=1)
+    df_reshaped = reshape_data(
+      df,
+      df['Classroom.ID'].nunique(),
+      df['week'].nunique(),
+      len(df.columns) - 2
+    )
+    return df_reshaped
+
+# Separate predictors and target variable for both training and testing data
+X_train = train_df.drop(['Badges.per.Active.User', 'set'], axis=1)
+Y_train = train_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
+X_test = test_df.drop(['Badges.per.Active.User', 'set'], axis=1)
+Y_test = test_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
+
+# Prepare the data
+X_train_reshaped = prepare_data(X_train)
+X_test_reshaped = prepare_data(X_test)
+Y_train_reshaped = prepare_data(Y_train)
+Y_test_reshaped = prepare_data(Y_test)
+
+# Function to build model
+def build_model(hp):
+    n_timesteps = X_train_reshaped.shape[1]
+    n_features = X_train_reshaped.shape[2]
+    n_labels = 1 # Regression: just one output node
+    
+    input_data = Input(shape=(n_timesteps, n_features))
+    x = input_data
+    
+    # Add a variable number of hidden LSTM layers for decoder
+    for i in range(hp.Int('num_layers', 1, 5)):
+        x = LSTM(
+          units=hp.Int('units_' + str(i), min_value=2, max_value=n_LSTM, step=1),
+          activation='relu',
+          return_sequences=True)(x)
+    
+    # Encoding layer
+    encoding_units = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
+    encoding = TimeDistributed(
+      Dense(units=encoding_units, activation='relu', kernel_constraint=NonNeg()),
+      name='encoding')(x)
+    decoded = TimeDistributed(
+      Dense(units=n_features, activation='sigmoid'),
+      name='decoding')(encoding)
+    label_output = Dense(1, activation='linear', name='label_output')(encoding)
+
+    autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
+    autoencoder.compile(optimizer='adadelta',
+                        loss={
+                          'decoding': 'mean_squared_error',
+                          'label_output': 'mean_squared_error'
+                        },
+                        loss_weights={
+                          'decoding': .5,
+                          'label_output': .5
+                        })
+    return autoencoder
+
+# Set up hyperparameter tuner
+tuner = RandomSearch(build_model,
+                     objective='val_loss',
+                     max_trials=10,
+                     executions_per_trial=3,
+                     directory='autoencoder_tuning',
+                     project_name='autoencoder_tuning')
+
+# Perform hyperparameter search
+early_stopping_callback = EarlyStopping(monitor='val_loss', patience=3)
+tuner.search(x=X_train_reshaped, 
+             y=[X_train_reshaped, Y_train_reshaped],
+             epochs=100,
+             validation_data=(X_test_reshaped, [X_test_reshaped, Y_test_reshaped]),
+             callbacks=[early_stopping_callback])
+
+# Get the best model
+best_model = tuner.get_best_models()[0]
+best_hyperparameters = tuner.get_best_hyperparameters()[0]
+
+# Function to get encoded representation and components
+def get_encoded_representation_and_components(best_model, X):
+    X_reshaped = reshape_data(
+      X,
+      X['Classroom.ID'].nunique(),
+      X['week'].nunique(),
+      len(X.columns) - 2
+    )
+    # Get index of encoding layer
+    encoding_layer_index = next(
+      i for i,
+      layer in enumerate(best_model.layers) if layer.name == 'encoding'
+    )
+    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
+    input_data = Input(shape=(X_reshaped.shape[1], X_reshaped.shape[2]))
+    x = input_data
+    for layer in encoder_layers[1:]:
+      x = layer(x)
+    encoder = Model(input_data, x)
+    
+    # Copy weights for each layer from the best model
+    for i, layer in enumerate(encoder.layers):
+      layer.set_weights(best_model.layers[i].get_weights())
+    
+    X_encoded = encoder.predict(X_reshaped)
+    ae_comp = best_model.get_layer('encoding').get_weights()[0]
+    X_hat = best_model.predict(X_reshaped)[0]
+    res = ((X_reshaped - X_hat)**2).sum(axis=(1,2)).sum()
+    labels = np.argmax(ae_comp, axis=1)
+    n_components = X_encoded.shape[2]
+    
+    results.setdefault("Autoencoder", {})[n_components] = X_encoded
+    components.setdefault("Autoencoder", {})[n_components] = ae_comp
+    residuals.setdefault("Autoencoder", {})[n_components] = res
+    silhouette.setdefault("Autoencoder", {})[n_components] = silhouette_score(ae_comp, labels)
+
+# Get encoded representation and components
+X_scaled = pd.DataFrame(X_scaled, columns=X_cols)
+X = pd.concat([dfpca_py[['Classroom.ID', 'week']], X_scaled], axis=1)
+get_encoded_representation_and_components(best_model, X)
 
 ```
 
@@ -888,7 +1021,7 @@ names(df_heatmap) <- paste0("Component ", 1:4)
 df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
 
 color_scheme <- colorRampPalette(
-  c("#F7F7F7",brewer.pal(n = 9, name ="YlOrRd"))
+  c("#F7F7F7",brewer.pal(n = 9, name = "YlOrRd"))
   )(100)
 breaks <- seq(0, 1, by = 0.01)
 minmax <- function(x) ((x - min(x))/(max(x) - min(x)))
@@ -1015,38 +1148,38 @@ rm(list = setdiff(ls(), c("df", "minmax")))
 
 ```{r}
 bic_plm <- function(object) {
-  # object is "plm", "panelmodel" 
+  # object is "plm", "panelmodel"
   sp = summary(object)
-  if(class(object)[1]=="plm"){
+  if (class(object)[1] == "plm") {
     u.hat <- residuals(sp) # extract residuals
     model_data <- cbind(as.vector(u.hat), attr(u.hat, "index"))
     names(model_data)[1] <- "resid"
-    c = length(unique(model_data[,"Classroom.ID"])) # extract classroom dimensions
-    t = length(unique(model_data[,"week"])) # extract time dimension
-    np = length(sp$coefficients[,1]) # number of parameters
+    c = length(unique(model_data[, "Classroom.ID"])) # extract classroom dimensions
+    t = length(unique(model_data[, "week"])) # extract time dimension
+    np = length(sp$coefficients[, 1]) # number of parameters
     n.N = nrow(sp$model) # number of data
-    s.sq  <- log( (sum(u.hat^2)/(n.N))) # log sum of squares
+    s.sq  <- log((sum(u.hat ^ 2) / (n.N))) # log sum of squares
     
     # effect = c("individual", "time", "twoways", "nested"),
     # model = c("within", "random", "ht", "between", "pooling", "fd")
     
-    if (sp$args$model == "within" & sp$args$effect == "individual"){
-      np = np+c+1 # update number of parameters
+    if (sp$args$model == "within" & sp$args$effect == "individual") {
+      np = np + c + 1 # update number of parameters
     }
     
-    if (sp$args$model == "within" & sp$args$effect == "time"){
-      np = np+t+1 # update number of parameters
+    if (sp$args$model == "within" & sp$args$effect == "time") {
+      np = np + t + 1 # update number of parameters
     }
     
-    if (sp$args$model == "within" & sp$args$effect == "twoways"){
-      np = np+c+t # update number of parameters
+    if (sp$args$model == "within" & sp$args$effect == "twoways") {
+      np = np + c + t # update number of parameters
     }
     
-    if (sp$args$model == "random" & sp$args$effect == "twoways"){
-      np = np+length(sp$ercomp$sigma2) # update number of parameters
+    if (sp$args$model == "random" & sp$args$effect == "twoways") {
+      np = np + length(sp$ercomp$sigma2) # update number of parameters
     }
     
-    bic <- round(log(n.N)*np  +  n.N * (  log(2*pi) + s.sq  + 1 ),1)
+    bic <- round(log(n.N) * np  +  n.N * (log(2 * pi) + s.sq  + 1), 1)
     names(bic) = "BIC"
     return(bic)
   }
@@ -1069,35 +1202,29 @@ model_bic_avg <- list()
 names(results_list)[names(results_list) == "Kullback-Leibler"] <- "KullbackLeibler"
 names(results_list)[names(results_list) == "Frobenius NNDSVDA"] <- "FrobeniusNNDSVDA"
 names(results_list)[names(results_list) == "Frobenius NNDSVD"] <- "FrobeniusNNDSVD"
-# Choose which Teacher.User.IDs will be train vs test
-df$set <- ifelse(df$Teacher.User.ID %in%
-                 sample(unique(df$Teacher.User.ID),
-                        size = floor(0.8 * length(unique(df$Teacher.User.ID)))),
-                 "train", "test")
-
-# Create base data.table for models (faster than data.frame)
-df_comp <- as.data.table(df)
-df_comp <- df_comp[, .(Classroom.ID, week, Teacher.User.ID, Badges.per.Active.User, set)]
-# Create the lags for Badges
-df_comp[, Badges.per.Active.User :=
-          nafill(Badges.per.Active.User[match(week, week + 1)], fill=0),
-        by=Classroom.ID]
-# Arrange
-setorder(df_comp, Classroom.ID, week)
+Minutes <- list(df$tch_min)
+names(Minutes) <- "1"
+results_list <- append(results_list, list(Minutes))
+names(results_list)[length(results_list)] <- "Minutes"
+Logins <- list(df$User.Session)
+names(Logins) <- "1"
+results_list <- append(results_list, list(Logins))
+names(results_list)[length(results_list)] <- "Logins"
 
 for (method in names(results_list)) {
   for (n_comp in names(results_list[[method]])) {
     n_comp <- as.numeric(n_comp)
-    df_temp <- as.data.table(results_list[[method]][[n_comp - 1]])
+    df_temp <- as.data.table(results_list[[method]][[as.character(n_comp)]])
     df_temp <- cbind(df_comp, df_temp)
     # Change new column names
     setnames(df_temp,
-             names(df_temp)[(ncol(df_temp)-n_comp+1):ncol(df_temp)],
+             names(df_temp)[(ncol(df_temp) - n_comp + 1):ncol(df_temp)],
              paste0(method, 1:n_comp))
     for (comp in 1:n_comp) {
       df_temp[, (paste0(method, comp, "_1")) :=
-                nafill(get(paste0(method, comp))[match(week, week + 1)], fill=0),
-              by=Classroom.ID]
+                nafill(get(paste0(method, comp))[match(week, week + 1)], fill =
+                         0),
+              by = Classroom.ID]
     }
 
     # Split the data into training and testing sets
@@ -1209,6 +1336,10 @@ df_nll <- data.frame(
 # Plot BIC values
 p1 <- ggplot(df_bic, aes(x = N_components, y = BIC, color = Method, linetype = type)) +
   geom_line() +
+  geom_hline(data = subset(df_bic, Method == "Minutes" & N_components == 1 & type %in% c("Minimum", "Mean")), 
+             aes(yintercept = BIC), linetype = "dashed", color = "red") +
+  geom_hline(data = subset(df_bic, Method == "Logins" & N_components == 1 & type %in% c("Minimum", "Mean")), 
+             aes(yintercept = BIC), linetype = "dashed", color = "blue") +
   labs(
     title = "In-Sample BIC",
     x = "Number of Components",
