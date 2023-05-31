@@ -47,4 +47,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
-/.quarto/
+.quarto/
+
+# Python Virtual Environment
+py-zearn/
+
