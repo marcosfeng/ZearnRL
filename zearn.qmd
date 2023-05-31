@@ -620,7 +620,7 @@ dt[, n_weeks := .N,
 
 dt <- dt[
   n_weeks > 15 & # At least 4 months cumulative activity
-    # Tsubj < 4*n_weeks & # At least activity once a month on average
+    Tsubj < 2*n_weeks & # At least activity twice a month on average
     teacher_number_classes < 5 &
     Students...Total > 5 &
     mean_act_st > 3 &
@@ -637,7 +637,7 @@ df <- as.data.frame(dt) %>%
   ungroup() %>%
   arrange(Classroom.ID, week)
 # Clean environment
-rm(list = setdiff(ls(), "df"))
+rm(list = setdiff(ls(), c("df","random_py")))
 
 ```
 
@@ -712,7 +712,7 @@ df$set <- ifelse(df$Teacher.User.ID %in%
 df_comp <- as.data.table(df %>% 
                            select(Classroom.ID, week, Badges.per.Active.User,
                                   set, tch_min, User.Session, 
-                                  RD.elementary_schedule:RD.grade_level_teacher_materials))
+                                  RD.elementary_schedule:RD.pd_course_guide))
 # Arrange
 setorder(df_comp, Classroom.ID, week)
 
@@ -721,7 +721,15 @@ df_pca <- as.data.frame(df_comp) %>%
   arrange(Classroom.ID, week) %>%
   ungroup() %>%
   mutate(across(everything(), ~ifelse(is.na(.), 0, .))) %>%
-  mutate(across("RD.elementary_schedule":"RD.grade_level_teacher_materials", ~log1p(.)))
+  mutate(across(matches("RD\\.elementary_schedule:RD\\.pd_course_guide"), ~log1p(.)))
+# Calculate standard deviations
+std_devs <- apply(df_pca %>% select(-c("Classroom.ID", "week", "set")), 2, sd)
+# Identify columns with defined standard deviations (not NaN or Inf)
+invalid_cols <- names(std_devs[is.na(std_devs) | is.infinite(std_devs)])
+df_pca <- df_pca %>% select(-all_of(invalid_cols))
+
+# Clean environment
+rm(list = setdiff(ls(), c("df", "df_pca", "df_comp")))
 
 ```
 
@@ -736,7 +744,7 @@ from keras.models import Model, load_model
 from keras.layers import Input, Dense, LSTM, GRU, RepeatVector, TimeDistributed, Reshape, Flatten
 from keras.constraints import NonNeg
 from keras.callbacks import EarlyStopping
-from keras_tuner import RandomSearch
+from keras_tuner import BayesianOptimization
 from keras_tuner.engine.hyperparameters import HyperParameters
 
 ## Basic Variables
@@ -750,9 +758,9 @@ scaler = MinMaxScaler()
 # Drop unnecessary columns
 X = dfpca_py.drop(['Badges.per.Active.User', 'set', 'Classroom.ID', 'week'], axis=1)
 X_cols  = X.columns
-
 # Scale the data
 X_scaled = scaler.fit_transform(X)
+X_scaled = pd.DataFrame(X_scaled, columns=X_cols)
 
 # Dictionaries for export
 components = {}
@@ -768,43 +776,36 @@ n_LSTM = min(X.shape) // 2
 train_df = dfpca_py[dfpca_py['set'] == 'train']
 test_df = dfpca_py[dfpca_py['set'] == 'test']
 
-# Define early stopping callback
-early_stopping_callback = EarlyStopping(monitor='val_loss', patience=3)
-
 ################ Non-negative Matrix Factorization
 # Function for NMF
 def nmf_method(n, method, initial, X_scaled):
-    solv = 'mu'
-    if method == 'frobenius':
-        method_name = f"{method.title()} {initial.upper()}"
-        if initial == 'nndsvd':
-            solv = 'cd'
-    else:
-        if initial == 'nndsvd':
-            return
-        method_name = f"{method.title()}"
-        
-    nmf = NMF(n_components=n, init=initial, beta_loss=method, solver=solv, max_iter=4_000)
+    nmf = NMF(
+      n_components=n,
+      init=initial,
+      beta_loss=method)
     X_nmf = nmf.fit_transform(X_scaled)
     nmf_comp = nmf.components_
     X_hat = nmf.inverse_transform(X_nmf)
     labels = np.argmax(nmf_comp, axis=0)
     
-    results.setdefault(method_name, {})[n] = X_nmf
-    components.setdefault(method_name, {})[n] = nmf_comp
-    residuals.setdefault(method_name, {})[n] = ((X_scaled - X_hat)**2).sum().sum()  # RSS
-    silhouette.setdefault(method_name, {})[n] = silhouette_score(nmf_comp.transpose(), labels)
+    results.setdefault(initial, {})[n] = X_nmf
+    components.setdefault(initial, {})[n] = nmf_comp
+    residuals.setdefault(initial, {})[n] = ((X_scaled - X_hat)**2).sum().sum()  # RSS
+    silhouette.setdefault(initial, {})[n] = silhouette_score(nmf_comp.transpose(), labels)
 
 # Call the function for NMF
 for n in range(2, n_comp):
-    for method in {'frobenius', 'kullback-leibler'}:
-        for initial in {'nndsvd', 'nndsvda'}:
-            nmf_method(n, method, initial, X_scaled)
+  for initial in {'nndsvd', 'nndsvda'}:
+    try:
+      nmf_method(n, 'frobenius', initial, X_scaled)
+    except Exception:
+      continue
 
 
 ################ Neural Net
 # Function to reshape a 2D DataFrame into a 3D array
-def reshape_data(df, num_samples, num_timesteps, num_features):
+def reshape_data(df, num_samples, num_features):
+    num_timesteps = X['week'].nunique()
     X_reshaped = np.zeros((num_samples, num_timesteps, num_features))
     grouped = df.groupby('Classroom.ID')
     for i, (classroom_id, group) in enumerate(grouped):
@@ -823,7 +824,6 @@ def prepare_data(df):
     df_reshaped = reshape_data(
       df,
       df['Classroom.ID'].nunique(),
-      df['week'].nunique(),
       len(df.columns) - 2
     )
     return df_reshaped
@@ -837,8 +837,12 @@ Y_test = test_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
 # Prepare the data
 X_train_reshaped = prepare_data(X_train)
 X_test_reshaped = prepare_data(X_test)
-Y_train_reshaped = prepare_data(Y_train)
-Y_test_reshaped = prepare_data(Y_test)
+Y_train_reshaped = reshape_data(
+  Y_train,
+  Y_train['Classroom.ID'].nunique(), 1)
+Y_test_reshaped = reshape_data(
+  Y_test,
+  Y_test['Classroom.ID'].nunique(), 1)
 
 # Function to build model
 def build_model(hp):
@@ -879,18 +883,18 @@ def build_model(hp):
     return autoencoder
 
 # Set up hyperparameter tuner
-tuner = RandomSearch(build_model,
-                     objective='val_loss',
-                     max_trials=10,
-                     executions_per_trial=3,
-                     directory='autoencoder_tuning',
-                     project_name='autoencoder_tuning')
+tuner = BayesianOptimization(build_model,
+                             objective='val_loss',
+                             max_trials=50,
+                             num_initial_points=2,
+                             directory='autoencoder_tuning',
+                             project_name='autoencoder_tuning')
 
 # Perform hyperparameter search
 early_stopping_callback = EarlyStopping(monitor='val_loss', patience=3)
 tuner.search(x=X_train_reshaped, 
              y=[X_train_reshaped, Y_train_reshaped],
-             epochs=100,
+             epochs=50,
              validation_data=(X_test_reshaped, [X_test_reshaped, Y_test_reshaped]),
              callbacks=[early_stopping_callback])
 
@@ -903,7 +907,6 @@ def get_encoded_representation_and_components(best_model, X):
     X_reshaped = reshape_data(
       X,
       X['Classroom.ID'].nunique(),
-      X['week'].nunique(),
       len(X.columns) - 2
     )
     # Get index of encoding layer
@@ -935,7 +938,6 @@ def get_encoded_representation_and_components(best_model, X):
     silhouette.setdefault("Autoencoder", {})[n_components] = silhouette_score(ae_comp, labels)
 
 # Get encoded representation and components
-X_scaled = pd.DataFrame(X_scaled, columns=X_cols)
 X = pd.concat([dfpca_py[['Classroom.ID', 'week']], X_scaled], axis=1)
 get_encoded_representation_and_components(best_model, X)
 
