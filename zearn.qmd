@@ -561,15 +561,15 @@ The average number of weeks of data available per classroom is shown in @fig-cla
 df %>%
   group_by(Classroom.ID) %>%
   summarize(Tsubj = max(Tsubj)) %>%
-  mutate(Tsubj_category = if_else(Tsubj < 14, "less than 14", "14 or more")) %>%
+  mutate(Tsubj_category = if_else(Tsubj < 16, "less than 16", "16 or more")) %>%
   ggplot(aes(x = Tsubj, fill = Tsubj_category)) +
   geom_histogram(color = "black", breaks = seq(min(df$Tsubj), max(df$Tsubj) + 1, by = 2)) +
-  geom_vline(xintercept = 13, color = "darkgray", linetype = "dashed", size = 0.8) +
-  annotate("text", x = 8, y = 3000, label = "Excluded\nClassrooms", vjust = 1, color = "red") +
+  geom_vline(xintercept = 15, color = "darkgray", linetype = "dashed", size = 0.8) +
+  annotate("text", x = 9, y = 3500, label = "Excluded\nClassrooms", vjust = 1, color = "red") +
   labs(title = "Histogram of Total Number of Weeks",
        x = "Total Number of Weeks",
        y = "Frequency") +
-  scale_fill_manual(values = c("less than 14" = "red", "14 or more" = "steelblue")) +
+  scale_fill_manual(values = c("less than 16" = "red", "16 or more" = "steelblue")) +
   theme_minimal() +
   theme(legend.position = "none") +
   scale_x_continuous(breaks = c(1, seq(5, max(df$Tsubj), by = 5)))
@@ -625,8 +625,8 @@ dt[, n_weeks := .N,
    by = Classroom.ID]
 
 dt <- dt[
-  n_weeks > 13 & # At least 4 months cumulative activity
-    # Tsubj < 3*n_weeks & # At least activity once a month on average
+  n_weeks > 15 & # At least 4 months cumulative activity
+    Tsubj < 2*n_weeks & # At least activity twice a month on average
     teacher_number_classes < 5 &
     Students...Total > 5 &
     mean_act_st > 3 &
@@ -718,7 +718,7 @@ df$set <- ifelse(df$Teacher.User.ID %in%
 df_comp <- as.data.table(df %>% 
                            select(Classroom.ID, week, Badges.per.Active.User,
                                   set, tch_min, User.Session, 
-                                  RD.elementary_schedule:RD.grade_level_teacher_materials))
+                                  RD.elementary_schedule:RD.pd_course_guide))
 # Arrange
 setorder(df_comp, Classroom.ID, week)
 
@@ -727,7 +727,7 @@ df_pca <- as.data.frame(df_comp) %>%
   arrange(Classroom.ID, week) %>%
   ungroup() %>%
   mutate(across(everything(), ~ifelse(is.na(.), 0, .))) %>%
-  mutate(across(matches("RD\\.elementary_schedule:RD\\.grade_level_teacher_materials"), ~log1p(.)))
+  mutate(across(RD.elementary_schedule:RD.pd_course_guide, ~log1p(.)))
 # Calculate standard deviations
 std_devs <- apply(df_pca %>% select(-c("Classroom.ID", "week", "set")), 2, sd)
 # Identify columns with defined standard deviations (not NaN or Inf)
@@ -772,10 +772,6 @@ silhouette = {}
 
 # Number of components for NMF
 n_comp = min(X.shape) // 3
-
-# Create training and testing data frames
-train_df = dfpca_py[dfpca_py['set'] == 'train']
-test_df = dfpca_py[dfpca_py['set'] == 'test']
 
 ################ PCA
 for n in range(2, n_comp):
@@ -826,155 +822,130 @@ for n in range(2, n_comp):
 
 ``` {python autoencoder}
 #| cache: true
-
-from keras.models import Model, load_model
-from keras.layers import Input, Dense, LSTM, GRU, RepeatVector, TimeDistributed, Reshape, Flatten
+import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from keras.models import Model
+from keras.layers import Input, Dense
+from kerastuner.tuners import Hyperband
+from kerastuner.engine.hyperparameters import HyperParameters
 from keras.constraints import NonNeg
 from keras.callbacks import EarlyStopping
 from keras.regularizers import L1
-from keras_tuner import Hyperband
-from keras_tuner.engine.hyperparameters import HyperParameters
 
-# Function to reshape a 2D DataFrame into a 3D array
-def reshape_data(df, num_samples, num_features):
-    num_timesteps = dfpca_py['week'].nunique()
-    X_reshaped = np.zeros((num_samples, num_timesteps, num_features))
-    grouped = df.groupby('Classroom.ID')
-    for i, (classroom_id, group) in enumerate(grouped):
-        group = group.sort_values('week')
-        group_features = group.drop(['Classroom.ID', 'week'], axis=1)
-        X_reshaped[i, :len(group), :] = group_features.values
-    X_reshaped = np.nan_to_num(X_reshaped)
-    return X_reshaped
-# Function to prepare the data
-def prepare_data(df):
-    df_id_week = df[['Classroom.ID', 'week']]
-    df = df.drop(['Classroom.ID', 'week'], axis=1)
-    df = scaler.transform(df)
-    df = pd.DataFrame(df, columns=X_cols)
-    df = pd.concat([df_id_week, df], axis=1)
-    df_reshaped = reshape_data(
-      df,
-      df['Classroom.ID'].nunique(),
-      len(df.columns) - 2
-    )
-    return df_reshaped
+# Create training and testing data frames
+train_df = dfpca_py[dfpca_py['set'] == 'train']
+test_df = dfpca_py[dfpca_py['set'] == 'test']
 
-# Separate predictors and target variable for both training and testing data
-X_train = train_df.drop(['Badges.per.Active.User', 'set'], axis=1)
-Y_train = train_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
-X_test = test_df.drop(['Badges.per.Active.User', 'set'], axis=1)
-Y_test = test_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
+# Predictors
+X_train = train_df.drop(['Badges.per.Active.User', 'set', 'Classroom.ID', 'week'], axis=1)
+X_test = test_df.drop(['Badges.per.Active.User', 'set', 'Classroom.ID', 'week'], axis=1)
+# Scale the data
+X_train = scaler.transform(X_train)
+X_train = pd.DataFrame(X_train, columns=X_cols)
+X_test = scaler.transform(X_test)
+X_test = pd.DataFrame(X_test, columns=X_cols)
 
-# Prepare the data
-X_train_reshaped = prepare_data(X_train)
-X_test_reshaped = prepare_data(X_test)
-Y_train_reshaped = reshape_data(
-  Y_train,
-  Y_train['Classroom.ID'].nunique(), 1)
-Y_test_reshaped = reshape_data(
-  Y_test,
-  Y_test['Classroom.ID'].nunique(), 1)
+# Get the target variable
+Y = dfpca_py[['Badges.per.Active.User']]
+Y_train = train_df[['Badges.per.Active.User']]
+Y_test = test_df[['Badges.per.Active.User']]
+Y = scaler.fit_transform(Y)
+Y_train = scaler.transform(Y_train)
+Y_test = scaler.transform(Y_test)
 
-################ Neural Net
+# Define the number of components and features
+n_features = X_scaled.shape[1]
+n_labels = 1  # For regression, we usually have just one output node
+
 # Determine loss weights according to the data structure:
-decoding_weight = Y_train_reshaped.std() / (Y_train_reshaped.std() + X_train_reshaped.std())
+decoding_weight = Y.std() / (Y.std() + X_scaled.std(numeric_only=True).mean())
 prediction_weight = 1 - decoding_weight
-# Function to build model
 def build_model(hp):
-    n_timesteps = X_train_reshaped.shape[1]
-    n_features = X_train_reshaped.shape[2]
-    n_labels = 1 # Regression: just one output node
+    # Define the input layer
+    input_data = Input(shape=(n_features,))
     
-    input_data = Input(shape=(n_timesteps, n_features))
-    x = input_data
-    
-    # Add a variable number of hidden LSTM layers for encoder
-    num_layers = hp.Int('num_layers', 1, 4)
-    lstm_units = [
-      hp.Choice('units_' + str(i), values=[2, 4, 8, 16, 32, 64, 128])
-      for i in range(num_layers)
+    # Define the encoding layer(s)
+    n_layers = hp.Int('n_layers', min_value=1, max_value=4, step=1)
+    n_units = [
+      hp.Choice('units_' + str(i), values=[8, 16, 32, 64, 128, 256, 512])
+      for i in range(n_layers)
     ]
-    for i in range(num_layers):
-        x = LSTM(
-          units=lstm_units[i],
-          activation='tanh',
-          return_sequences=True)(x)
-    
+    encoded = input_data
+    for i in range(n_layers):
+        encoded = Dense(
+          units=n_units[i],
+          activation='relu')(encoded)
+          
     # Generate the latent vector
     latent_dim = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
-    l1_value = hp.Float('l1_value', min_value=0.001, max_value=0.1, default=0.01, step=0.002)
-    latent = TimeDistributed(Dense(
+    l1_value = hp.Float('l1_value', min_value=0.0001, max_value=0.001, default=0.0005, step=0.0001)
+    latent = Dense(
       units=latent_dim,
       activation='linear',
       activity_regularizer= L1(l1=l1_value),
       kernel_constraint=NonNeg(),
-      name='encoded-vector'))(x)
+      name='latent')(encoded)      
     
     # Decoder
-    x = latent
-    for i in range(num_layers):
-        x = LSTM(
-          units=lstm_units[i],
-          activation='tanh',
-          return_sequences=True)(x)
-          
-    decoded = TimeDistributed(
-      Dense(units=n_features,
-            activation='linear'),
-      name='decoding')(x)
+    decoded = latent
+    for i in range(n_layers):
+        decoded = Dense(
+          units=n_units[n_layers - i - 1],
+          activation='relu')(decoded)
+    decoded = Dense(n_features, activation='sigmoid', name='decoded')(decoded)
     
-    label_output = TimeDistributed(
-      Dense(1, activation='linear'),
-      name='prediction')(latent)
+    # Define the label output layer
+    label_output = Dense(n_labels, activation='linear', name='label_output')(latent)
     
-    # Instantiate Autoencoder Model using Input and Output
+    # Define the autoencoder model
     autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
+    # Compile the model
     autoencoder.compile(optimizer='adadelta',
-                        loss={
-                          'decoding': 'mean_squared_error',
-                          'prediction': 'mean_squared_error'
-                        },
-                        loss_weights={
-                          'decoding': decoding_weight,
-                          'prediction': prediction_weight
-                        })
+                    loss={
+                      'decoded': 'mean_squared_error',
+                      'label_output': 'mean_squared_error'
+                    },
+                    loss_weights={
+                      'decoded': decoding_weight,
+                      'label_output': prediction_weight
+                    })
+    
     return autoencoder
 
 # Set up hyperparameter tuner
 tuner = Hyperband(build_model,
                   objective='val_loss',
-                  max_epochs=100,
-                  factor=3,
+                  max_epochs=20,
                   directory='autoencoder_tuning',
-                  project_name='autoencoder_tuning')
+                  project_name='autoencoder_2nd_tuning')
 
 # Perform hyperparameter search
 early_stopping_callback = EarlyStopping(monitor='val_loss', patience=3)
-tuner.search(x=X_train_reshaped, 
-             y=[X_train_reshaped, Y_train_reshaped],
-             epochs=100,
-             validation_data=(X_test_reshaped, [X_test_reshaped, Y_test_reshaped]),
-             callbacks=[early_stopping_callback])
-
-# Get the best model
-best_model = tuner.get_best_models()[0]
+tuner.search(x=X_train, 
+            y=[X_train, Y_train],
+            epochs=50,
+            validation_data=(X_test, [X_test, Y_test]),
+            callbacks=[early_stopping_callback])
+# tuner.results_summary()
+# Get the optimal hyperparameters
 best_hyperparameters = tuner.get_best_hyperparameters()[0]
+model = tuner.hypermodel.build(best_hyperparameters)
+history = model.fit(x=X_train, 
+                    y=[X_train, Y_train_reshaped],
+                    epochs=2_000,
+                    validation_data=(X_test, [X_test, Y_test]))
+best_model = history
+
 
 # Function to get encoded representation and components
 def get_encoded_representation_and_components(best_model, X):
-    X_reshaped = reshape_data(
-      X,
-      X['Classroom.ID'].nunique(),
-      len(X.columns) - 2
-    )
     # Get index of encoding layer
     encoding_layer_index = next(
       i for i,
-      layer in enumerate(best_model.layers) if layer.name == 'encoding'
+      layer in enumerate(best_model.layers) if layer.name == 'latent'
     )
     encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
-    input_data = Input(shape=(X_reshaped.shape[1], X_reshaped.shape[2]))
+    input_data = Input(shape=(n_features,))
     x = input_data
     for layer in encoder_layers[1:]:
       x = layer(x)
@@ -984,23 +955,19 @@ def get_encoded_representation_and_components(best_model, X):
     for i, layer in enumerate(encoder.layers):
       layer.set_weights(best_model.layers[i].get_weights())
     
-    X_encoded = encoder.predict(X_reshaped)
-    ae_comp = best_model.get_layer('encoding').get_weights()[0]
-    X_hat = best_model.predict(X_reshaped)[0]
-    res = ((X_reshaped - X_hat)**2).sum(axis=(1,2)).sum()
-    labels = np.argmax(ae_comp, axis=1)
+    X_encoded = encoder.predict(X)
+    X_hat = best_model.predict(X)[0]
+    res = ((X - X_hat)**2).sum(axis=(1,2)).sum()
     n_components = X_encoded.shape[2]
     
     results.setdefault("Autoencoder", {})[n_components] = X_encoded
-    components.setdefault("Autoencoder", {})[n_components] = ae_comp
     residuals.setdefault("Autoencoder", {})[n_components] = res
-    silhouette.setdefault("Autoencoder", {})[n_components] = silhouette_score(ae_comp, labels)
 
 # Get encoded representation and components
-X = pd.concat([dfpca_py[['Classroom.ID', 'week']], X_scaled], axis=1)
-get_encoded_representation_and_components(best_model, X)
+get_encoded_representation_and_components(best_model, X_scaled)
 
 ```
+
 
 ```{r}
 #| cache: true
@@ -2190,4 +2157,190 @@ The parameters were estimated using Hamiltonian Monte Carlo, as implemented in t
 
 For the Q-learning model, we used the sampled parameters to compute per-trial Q values for each action, week, and teacher. We also calculated the probability of each choice through the softmax function. For the Gaussian model, we used the sampled parameters to compute per-trial mean and standard deviations, along with state values for each action, week, and teacher.
 
-# Acknowledgments {.appendix}
+# Alternative models {.appendix}
+
+
+``` {python LSTM autoencoder}
+#| eval: false
+import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from keras.models import Model, load_model
+from keras.layers import Input, Dense, LSTM, GRU, RepeatVector, TimeDistributed, Reshape, Flatten
+from keras.constraints import NonNeg
+from keras.callbacks import EarlyStopping
+from keras.regularizers import L1
+from keras_tuner import Hyperband
+from keras_tuner.engine.hyperparameters import HyperParameters
+
+# Function to reshape a 2D DataFrame into a 3D array
+def reshape_data(df, num_samples, num_features):
+    num_timesteps = dfpca_py['week'].nunique()
+    X_reshaped = np.zeros((num_samples, num_timesteps, num_features))
+    grouped = df.groupby('Classroom.ID')
+    for i, (classroom_id, group) in enumerate(grouped):
+        group = group.sort_values('week')
+        group_features = group.drop(['Classroom.ID', 'week'], axis=1)
+        X_reshaped[i, :len(group), :] = group_features.values
+    X_reshaped = np.nan_to_num(X_reshaped)
+    return X_reshaped
+# Function to prepare the data
+def prepare_data(df):
+    df_id_week = df[['Classroom.ID', 'week']]
+    df = df.drop(['Classroom.ID', 'week'], axis=1)
+    df = scaler.transform(df)
+    df = pd.DataFrame(df, columns=X_cols)
+    df = pd.concat([df_id_week, df], axis=1)
+    df_reshaped = reshape_data(
+      df,
+      df['Classroom.ID'].nunique(),
+      len(df.columns) - 2
+    )
+    return df_reshaped
+
+# Separate predictors and target variable for both training and testing data
+X_train = train_df.drop(['Badges.per.Active.User', 'set'], axis=1)
+Y_train = train_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
+X_test = test_df.drop(['Badges.per.Active.User', 'set'], axis=1)
+Y_test = test_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
+
+# Prepare the data
+X_train_reshaped = prepare_data(X_train)
+X_test_reshaped = prepare_data(X_test)
+Y_train_reshaped = reshape_data(
+  Y_train,
+  Y_train['Classroom.ID'].nunique(), 1)
+Y_test_reshaped = reshape_data(
+  Y_test,
+  Y_test['Classroom.ID'].nunique(), 1)
+
+################ Neural Net
+# Determine loss weights according to the data structure:
+decoding_weight = Y_train_reshaped.std() / (Y_train_reshaped.std() + X_train_reshaped.std())
+prediction_weight = 1 - decoding_weight
+# Function to build model
+def build_model(hp):
+    n_timesteps = X_train_reshaped.shape[1]
+    n_features = X_train_reshaped.shape[2]
+    n_labels = 1 # Regression: just one output node
+    
+    input_data = Input(shape=(n_timesteps, n_features))
+    x = input_data
+    
+    # Add a variable number of hidden LSTM layers for encoder
+    num_layers = hp.Int('num_layers', 2, 4)
+    lstm_units = [
+      hp.Choice('units_' + str(i), values=[2, 4, 8, 16, 32, 64, 128])
+      for i in range(num_layers)
+    ]
+    for i in range(num_layers):
+        x = LSTM(
+          units=lstm_units[i],
+          activation='tanh',
+          return_sequences=True)(x)
+    
+    # Generate the latent vector
+    latent_dim = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
+    l1_value = hp.Float('l1_value', min_value=0.005, max_value=0.05, default=0.01, step=0.001)
+    latent = TimeDistributed(Dense(
+      units=latent_dim,
+      activation='linear',
+      activity_regularizer= L1(l1=l1_value),
+      kernel_constraint=NonNeg(),
+      name='encoded-vector'),
+      name='latent')(x)
+    
+    # Decoder
+    x = latent
+    for i in range(num_layers):
+        x = LSTM(
+          units=lstm_units[i],
+          activation='tanh',
+          return_sequences=True)(x)
+          
+    decoded = TimeDistributed(
+      Dense(units=n_features,
+            activation='linear'),
+      name='decoding')(x)
+    
+    label_output = TimeDistributed(
+      Dense(1, activation='linear'),
+      name='prediction')(latent)
+    
+    # Instantiate Autoencoder Model using Input and Output
+    autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
+    autoencoder.compile(optimizer='adadelta',
+                        loss={
+                          'decoding': 'mean_squared_error',
+                          'prediction': 'mean_squared_error'
+                        },
+                        loss_weights={
+                          'decoding': decoding_weight,
+                          'prediction': prediction_weight
+                        })
+    return autoencoder
+
+# Set up hyperparameter tuner
+tuner = Hyperband(build_model,
+                  objective='val_loss',
+                  max_epochs=50,
+                  factor=3,
+                  directory='autoencoder_tuning',
+                  project_name='LSTM_2nd_tuning')
+
+# Perform hyperparameter search
+early_stopping_callback = EarlyStopping(monitor='val_loss', patience=3)
+tuner.search(x=X_train_reshaped, 
+            y=[X_train_reshaped, Y_train_reshaped],
+            epochs=500,
+            validation_data=(X_test_reshaped, [X_test_reshaped, Y_test_reshaped]),
+            callbacks=[early_stopping_callback])
+# tuner.results_summary()
+# Get the optimal hyperparameters
+best_hyperparameters = tuner.get_best_hyperparameters()[0]
+model = tuner.hypermodel.build(best_hyperparameters)
+history = model.fit(x=X_train_reshaped, 
+                    y=[X_train_reshaped, Y_train_reshaped],
+                    epochs=5_000,
+                    validation_data=(X_test_reshaped, [X_test_reshaped, Y_test_reshaped]))
+best_model = history
+
+# Function to get encoded representation and components
+def get_encoded_representation_and_components(best_model, X):
+    X_reshaped = reshape_data(
+      X,
+      X['Classroom.ID'].nunique(),
+      len(X.columns) - 2
+    )
+    # Get index of encoding layer
+    encoding_layer_index = next(
+      i for i,
+      layer in enumerate(best_model.layers) if layer.name == 'latent'
+    )
+    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
+    input_data = Input(shape=(X_reshaped.shape[1], X_reshaped.shape[2]))
+    x = input_data
+    for layer in encoder_layers[1:]:
+      x = layer(x)
+    encoder = Model(input_data, x)
+    
+    # Copy weights for each layer from the best model
+    for i, layer in enumerate(encoder.layers):
+      layer.set_weights(best_model.layers[i].get_weights())
+    
+    X_encoded = encoder.predict(X_reshaped)
+    X_hat = best_model.predict(X_reshaped)[0]
+    res = ((X_reshaped - X_hat)**2).sum(axis=(1,2)).sum()
+    n_components = X_encoded.shape[2]
+    
+    results.setdefault("Autoencoder", {})[n_components] = X_encoded
+    residuals.setdefault("Autoencoder", {})[n_components] = res
+
+# Get encoded representation and components
+X = pd.concat([dfpca_py[['Classroom.ID', 'week']], X_scaled], axis=1)
+get_encoded_representation_and_components(best_model, X)
+
+```
+
+
+
+
