@@ -52,3 +52,5 @@ rsconnect/
 # Python Virtual Environment
 py-zearn/
 
+
+/.quarto/

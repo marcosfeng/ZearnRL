@@ -32,10 +32,9 @@ model {
 
   // subject loop and trial loop
   for (i in 1:N) {
-    vector[2] ev; // expected value
+    vector[2] ev = initV; // expected value
     real PE;      // prediction error
 
-    ev = initV;
     for (t in 1:(Tsubj[i] - 1)) {
       // compute action probabilities
       choice[i, t] ~ categorical_logit(tau * ev);
@@ -49,7 +48,7 @@ model {
               - ev[choice[i, t]];
       }
       // value updating (learning)
-      ???ev[choice[i, t]] += alpha * PE;
+      ev[choice[i, t]] += alpha * PE;
     }
     //Last weeks:
     // compute action probabilities

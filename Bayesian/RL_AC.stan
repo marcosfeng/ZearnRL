@@ -12,13 +12,13 @@ data {
   matrix[T * N, S] states; // State Variables
 }
 transformed data {
-  row_vector[S] init;  // initial values for theta and new_states 
+  row_vector[S] init;  // initial values for theta and new_states
   init = rep_row_vector(0, S);
 }
 parameters {
   // Declare all parameters as vectors for vectorizing
   real<lower=0, upper=1> cost;        // cost in badge-units
-  real<lower=0.6, upper=0.9> gamma;      // discount rate
+  real<lower=0.6, upper=0.99> gamma;      // discount rate
   vector<lower=0, upper=0.5>[2] alpha;    // step-sizes
 }
 model {
@@ -26,7 +26,7 @@ model {
   alpha[1]      ~ beta(4, 13);
   alpha[2]      ~ beta(4, 13);
   cost          ~ beta(1, 1);
-  gamma         ~ beta(12, 4);
+  gamma         ~ uniform(0.6, 0.99);
 
   // subject loop and trial loop
   for (i in 1:N) {
@@ -40,20 +40,22 @@ model {
     theta = init;
 
     for (t in 1:Tsubj[i]) {
+      //Assign current state to a temporary variable
+      row_vector[S] current_state = states[(T * (i - 1) + t)];
       //Find choice probability
-      choice[i, t] ~ bernoulli_logit( dot_product(theta, states[(T * (i - 1) + t)]) );
+      choice[i, t] ~ bernoulli_logit( dot_product(theta, current_state) );
       if (t != Tsubj[i])
         new_states = states[(T * (i - 1) + (t + 1))];
       else if (t == Tsubj[i])
         new_states = rep_row_vector(0.0, S);
-        
+
       delta = outcome[i, t] - cost*choice[i, t]
               + gamma * dot_product(w, new_states)
-              - dot_product(w, states[(T * (i - 1) + t)]);
+              - dot_product(w, current_state);
       // Update w:
-      w += alpha[1] * delta * states[(T * (i - 1) +  t)];
+      w += alpha[1] * delta * current_state;
       // Update theta:
-      theta += alpha[2] * delta * states[(T * (i - 1) +  t)];
+      theta += alpha[2] * delta * current_state;
     }
   }
 }
