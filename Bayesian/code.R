@@ -1,5 +1,5 @@
 # This R script loads and preprocesses data files,
-# creates a list of model data, compiles and fits 
+# creates a list of model data, compiles and fits
 # a Stan model using 'stan_model()' and 'sampling()' functions.
 library(tidyverse)
 library(data.table)
@@ -8,76 +8,16 @@ library(stats)
 library(lubridate)
 library(cmdstanr)
 
-df <- read.csv(file = "Data/df_clean.csv")
-# Convert columns to appropriate data types
-dt <- as.data.table(df)
-# Rename variable
-dt[, `:=`(
-  Usage.Week = as.Date(Usage.Week),
-  week = week(Usage.Week),
-  poverty = factor(poverty, ordered = TRUE, exclude = c("")),
-  income = factor(income, ordered = TRUE, exclude = c("")),
-  charter.school = ifelse(charter.school == "Yes", 1, ifelse(charter.school == "No", 0, NA)),
-  school.account = ifelse(school.account == "Yes", 1, ifelse(school.account == "No", 0, NA)),
-  # Log Transform
-  Minutes.per.Active.User = log(Minutes.per.Active.User + 1),
-  Badges.per.Active.User = log(Badges.per.Active.User + 1),
-  Tower.Alerts.per.Tower.Completion = log(Tower.Alerts.per.Tower.Completion + 1),
-  User.Session = log(User.Session + 1),
-  tch_min = log(tch_min + 1)
-)]
-# Create new variables using data.table syntax
-dt[, min_week := week(min(Usage.Week)),
-   by = Classroom.ID]
-dt[, `:=`(
-  week = ifelse(week >= min_week, week - min_week + 1, week - min_week + 53),
-  n_weeks = .N,
-  mean_act_st = mean(Active.Users...Total)
-), by = .(Classroom.ID, Teacher.User.ID)]
-dt[, `:=`(
-  st_login = ifelse(Minutes.per.Active.User > 0, 1, 0),
-  tch_login = ifelse(tch_min > 0, 1, 0)
-), by = .(Classroom.ID, Teacher.User.ID, week)]
-# Update the Grade.Level values and labels
-dt <- dt[!(Grade.Level %in% c(-1, 11))] # Ignore -1 and 11
-dt[, Grade.Level := factor(Grade.Level,
-                           ordered = TRUE,
-                           exclude = c(""))]
-dt[, Grade.Level := factor(Grade.Level,
-                           levels = c(0:8),
-                           labels = c("Kindergarten", "1st", "2nd",
-                                      "3rd", "4th", "5th",
-                                      "6th", "7th", "8th"))]
-dt[, Tsubj := max(week), by = Teacher.User.ID]
-dt <- dt[
-  n_weeks > 11 &
-    Tsubj < 3*n_weeks &
-    teacher_number_classes < 5 &
-    Students...Total > 5 &
-    mean_act_st > 3 &
-    !(Grade.Level %in% c("6th","7th","8th")) &
-    !(month(Usage.Week) %in% c(6, 7, 8)),
-]
-
-## PCA
-df <- as.data.frame(dt)
-df_pca <- df %>%
-  select(c("tch_min",
-           "User.Session",
-           "RD.elementary_schedule":"RD.grade_level_teacher_materials")) %>%
-  mutate(across(everything(), ~ifelse(is.na(.), 0, .)))
-pca <- prcomp(df_pca,
-              center = TRUE,
-              scale. = TRUE)
-df$pca1 <- pca$x[,1]
-df$pca2 <- pca$x[,2]
-df$pca3 <- pca$x[,3]
+df <- read.csv(file = "Bayesian/df.csv")
+df$PC1 <- ifelse(df$Component1 > 0, 1, 0)
+df$PC2 <- ifelse(df$Component2 > 0, 1, 0)
+df$PC3 <- ifelse(df$Component3 > 0, 1, 0)
 
 # Function to get lagged value
 get_lag_value <- function(df, col, lag_period) {
   df %>%
     group_by(Classroom.ID) %>%
-    mutate(!!paste0(col, "_", lag_period) := 
+    mutate(!!paste0(col, "_", lag_period) :=
              replace_na(
                eval(sym(col), df)[match(week, (week - lag_period))],
                0)
@@ -85,7 +25,7 @@ get_lag_value <- function(df, col, lag_period) {
 }
 # Define number of lags and columns
 n_lags = 1
-columns <- c("tch_min", "pca1", "pca2", "pca3")
+columns <- c("PC1", "PC2", "PC3")
 # Add lagged variables
 for (col in columns) {
   for (lag_period in 1:n_lags) {
