@@ -9,9 +9,12 @@ library(lubridate)
 library(cmdstanr)
 
 df <- read.csv(file = "Bayesian/df.csv")
-df$PC1 <- ifelse(df$Component1 > 0, 1, 0)
-df$PC2 <- ifelse(df$Component2 > 0, 1, 0)
-df$PC3 <- ifelse(df$Component3 > 0, 1, 0)
+df$PC1bin <- ifelse(df$PC1 > 0, 1, 0)
+df$PC2bin <- ifelse(df$PC2 > 0, 1, 0)
+df$PC3bin <- ifelse(df$PC3 > 0, 1, 0)
+df$AE1bin <- ifelse(df$AE1 > 0, 1, 0)
+df$AE2bin <- ifelse(df$AE2 > 0, 1, 0)
+df$AE3bin <- ifelse(df$AE3 > 0, 1, 0)
 
 # Function to get lagged value
 get_lag_value <- function(df, col, lag_period) {
@@ -25,7 +28,7 @@ get_lag_value <- function(df, col, lag_period) {
 }
 # Define number of lags and columns
 n_lags = 1
-columns <- c("PC1", "PC2", "PC3")
+columns <- c("PC1bin", "PC2bin", "PC3bin", "AE1bin", "AE2bin", "AE3bin")
 # Add lagged variables
 for (col in columns) {
   for (lag_period in 1:n_lags) {
@@ -36,61 +39,69 @@ for (col in columns) {
   }
 }
 dt <- as.data.table(df)
-
-# Use pca1_1 as the first model:
 ## Get unique teacher IDs
-unique_teachers <- unique(dt$Teacher.User.ID)
+unique_classrooms <- unique(dt$Classroom.ID)
 ## Sample 10% of unique teacher IDs
-sampled_teachers <- sample(unique_teachers, size = length(unique_teachers) * 0.10)
+sampled_classrooms <- sample(unique_classrooms, size = length(unique_classrooms) * 0.05)
 # Filter dt to include only sampled teachers
-dt_sampled <- dt[Teacher.User.ID %in% sampled_teachers]
-setorder(dt_sampled, Teacher.User.ID, week)
+dt_sampled <- dt[Classroom.ID %in% sampled_classrooms]
+setorder(dt_sampled, Classroom.ID, week)
 
-dt_collapsed <- dt_sampled[, .(
-  Badges.per.Active.User = weighted.mean(Badges.per.Active.User, Active.Users...Total),
-  Tower.Alerts.per.Tower.Completion = mean(Tower.Alerts.per.Tower.Completion),
-  Active.Users...Total = sum(Active.Users...Total),
-  st_login = sum(st_login),
-  pca1_1 = mean(pca1_1)
-), by = .(Teacher.User.ID, week)]
-dt_collapsed[, `:=`(
-  Tsubj = .N,
+dt_sampled[, `:=`(
   row_n = seq_len(.N)
-), by = .(Teacher.User.ID)]
+), by = .(Classroom.ID)]
 
-# Create binary choice
-dt_collapsed[, choice := ifelse(pca1_1 < 0, 0, 1)]
+# Prepare the choice array
+choices_df <- dt_sampled %>%
+  select(Classroom.ID, row_n, PC1bin, PC2bin, PC3bin)
+# Combine choices into a single column and create an array
+choices_df <- choices_df %>%
+  mutate(choice = ifelse(PC1bin == 1, 1,
+                         ifelse(PC2bin == 1, 2,
+                                ifelse(PC3bin == 1, 3, 4)))) %>%
+  dcast(Classroom.ID ~ row_n, value.var = "choice")
+# Convert to array
+choice_array <- array(0, dim = c(nrow(choices_df), max(dt_sampled$row_n), 4))
+for (i in 1:nrow(choices_df)) {
+  for (j in 2:ncol(choices_df)) {
+    choice_array[i, j - 1, choices_df[[i,j]]] <- 1
+  }
+}
+# Remove unnecessary columns and objects
+rm(choices_df)
 
+week_matrix <- replace(as.matrix(dcast(dt_sampled,
+                                       Classroom.ID ~ row_n,
+                                       value.var = "week")), # Week matrix
+                       is.na(as.matrix(dcast(dt_sampled,
+                                             Classroom.ID ~ row_n,
+                                             value.var = "week"))), 0)[,-1]
 
-## Q-learning
-my_model <- stan_model(file = "Bayesian/RL_Q-learning.stan",
-                       verbose = FALSE)
 # Generate stan data
 stan_data <- list(
-  N = length(unique(dt_collapsed$Teacher.User.ID)), # Number of teachers
-  T = max(dt_collapsed[, row_n]), # Maximum Tsubj across all teachers
-  S = 4, # Number of states
-  Tsubj = dt_collapsed[, .N, by = .(Teacher.User.ID)][,N], # Number of rows by Teacher
-  choice = replace(as.matrix(dcast(dt_collapsed,
-                                   Teacher.User.ID ~ row_n,
-                                   value.var = "choice")), # Choice matrix
-                   is.na(as.matrix(dcast(dt_collapsed,
-                                         Teacher.User.ID ~ row_n,
-                                         value.var = "choice"))), 0)[,-1],
-  outcome = replace(as.matrix(dcast(dt_collapsed,
-                                    Teacher.User.ID ~ row_n,
+  N = length(unique(dt_sampled$Classroom.ID)), # Number of teachers
+  T = max(dt_sampled[, row_n]), # Maximum Tsubj across all teachers
+  # S = 4, # Number of states
+  Tsubj = dt_sampled[, .N, by = .(Classroom.ID)][,N], # Number of rows by Teacher
+  choice = choice_array,
+  outcome = replace(as.matrix(dcast(dt_sampled,
+                                    Classroom.ID ~ row_n,
                                     value.var = "Badges.per.Active.User")), # Outcome matrix
-                    is.na(as.matrix(dcast(dt_collapsed,
-                                          Teacher.User.ID ~ row_n,
-                                          value.var = "choice"))), 0)[,-1]
+                    is.na(as.matrix(dcast(dt_sampled,
+                                          Classroom.ID ~ row_n,
+                                          value.var = "Badges.per.Active.User"))), 0)[,-1],
+  week = week_matrix
 )
 
+## Q-learning
+my_model <- stan_model(file = "Bayesian/Q-learning-PCA.stan",
+                       verbose = FALSE)
 sample <- sampling(object = my_model,
                    data = stan_data,
                    iter = 200,
-                   chains = 10,
+                   chains = 3,
                    cores = 3)
-save(sample, file = "Bayesian/sample.Rdata")
+save(sample, file = "Bayesian/Q-learning-PCA.Rdata")
 
 
 ## Actor-Critic
