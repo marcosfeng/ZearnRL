@@ -820,7 +820,7 @@ for n in range(2, n_comp):
         continue
 ```
 
-``` {python autoencoder}
+``` {python train autoencoder}
 #| eval: false
 import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -972,6 +972,45 @@ model.save('./autoencoder_tuning/final_model.h5')
 
 ```
 
+``` {python load autoencoder}
+from tensorflow.keras.models import load_model
+from keras.models import Model
+from keras.layers import Input
+
+# Function to get encoded representation and components
+loaded_model = load_model('./autoencoder_tuning/final_model.h5')
+def get_encoded_representation_and_components(best_model, X):
+    # Get index of encoding layer
+    encoding_layer_index = next(
+      i for i,
+      layer in enumerate(best_model.layers) if layer.name == 'latent'
+    )
+    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
+    input_data = Input(shape=(n_features,))
+    x = input_data
+    for layer in encoder_layers[1:]:
+      x = layer(x)
+    encoder = Model(input_data, x)
+    
+    # Copy weights for each layer from the best model
+    for i, layer in enumerate(encoder.layers):
+      layer.set_weights(best_model.layers[i].get_weights())
+    
+    X_encoded = encoder.predict(X)
+    X_hat = best_model.predict(X)[0]
+    res = ((X - X_hat)**2).sum().sum()
+    n_components = X_encoded.shape[1]
+    
+    results.setdefault("Autoencoder", {})[n_components] = X_encoded
+    residuals.setdefault("Autoencoder", {})[n_components] = res
+
+n_features = X_scaled.shape[1]
+# Get encoded representation and components
+get_encoded_representation_and_components(loaded_model, X_scaled)
+
+
+```
+
 ```{r}
 #| cache: true
 #| label: fig-nmf-pca-comparison
@@ -990,6 +1029,10 @@ df_residuals <- do.call(rbind, lapply(names(residuals_list), function(method) {
     )
   }))
 }))
+# Creating separate dataframes for 'Autoencoder' and the rest of the methods
+df_residuals_autoencoder <- df_residuals[df_residuals$Method == "Autoencoder", ]
+df_residuals_others <- df_residuals[df_residuals$Method != "Autoencoder", ]
+
 df_silhouette <- do.call(rbind, lapply(names(silhouette_list), function(method) {
   do.call(rbind, lapply(names(silhouette_list[[method]]), function(n) {
     data.frame(
@@ -999,22 +1042,28 @@ df_silhouette <- do.call(rbind, lapply(names(silhouette_list), function(method) 
     )
   }))
 }))
+# Add nuisance row for Autoencoder to unify legends
+df_silhouette <- rbind(df_silhouette,
+                       data.frame(Method = "Autoencoder",
+                                  Components = 4,
+                                  Silhouette = mean(df_silhouette$Silhouette)))
 
 # Plotting residuals
-p1 <- ggplot(df_residuals, aes(x = Components, y = Residuals, color = Method)) +
-  geom_line(show.legend = FALSE) +
+p1 <- ggplot() +
+  geom_line(data = df_residuals_others,
+            aes(x = Components, y = Residuals, color = Method)) +
+  geom_point(data = df_residuals_autoencoder,
+             aes(x = Components, y = Residuals, color = Method)) +
   labs(title = "Sum of Square Residuals",
        x = "Number of Components") +
   scale_x_continuous(breaks = seq(min(df_residuals$Components),
                                   max(df_residuals$Components),
                                   by = 1)) +
-  coord_cartesian(ylim = c(NA, (mean(df_residuals$Residuals) +
-                                  2*sd(df_residuals$Residuals)))) +
   theme_minimal() +
   theme(axis.title.y = element_blank())
 # Plotting silhouette scores
 p2 <- ggplot(df_silhouette, aes(x = Components, y = Silhouette, color = Method)) +
-  geom_line() +
+  geom_line(show.legend = FALSE) +
   labs(title = "Silhouette Score",
        x = "Number of Components") +
   scale_x_continuous(breaks = seq(min(df_silhouette$Components),
@@ -1035,17 +1084,27 @@ comparison_plot
 ```
 
 ``` {r export results}
+# Importing results from Python
 results_list <- py$results
 
-pca_3 <- results_list[["PCA"]][["3"]]
-ae_3 <- results_list[["Autoencoder"]][["3"]]
-df_components <- df %>%
-  bind_cols(pca_3)
-names(df_components)[c((ncol(df_components)-2):ncol(df_components))] <- paste0("PC", 1:3)
-df_components <- df_components %>%
-  bind_cols(ae_3)
-names(df_components)[c((ncol(df_components)-2):ncol(df_components))] <- paste0("AE", 1:3)
+# List of method names
+methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
+names(results_list) <- methods
+# Initialize df_components
+df_components <- df
 
+# Loop over each method, extract the results at 3 components and bind to df_components
+for (method in methods) {
+  result_3 <- results_list[[method]][["3"]]
+  df_components <- df_components %>%
+    bind_cols(result_3)
+  
+  # Adjust column names
+  new_cols <- paste0(method, 1:3)
+  names(df_components)[(ncol(df_components)-2):ncol(df_components)] <- new_cols
+}
+
+# Write to csv
 write.csv(df_components, "./Bayesian/df.csv")
 
 ```
@@ -1061,10 +1120,10 @@ write.csv(df_components, "./Bayesian/df.csv")
 library(pheatmap)
 
 components_list <- py$components
-df_heatmap <- components_list[["Kullback-Leibler"]][["4"]] %>%
+df_heatmap <- components_list[["Kullback-Leibler"]][["3"]] %>%
   t() %>% as.data.frame()
 row.names(df_heatmap) <- names(df_pca)[-c(1:4)]
-names(df_heatmap) <- paste0("Component ", 1:4)
+names(df_heatmap) <- paste0("Component ", 1:3)
 df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
 
 color_scheme <- colorRampPalette(
@@ -1188,6 +1247,7 @@ For Bayesian updating, we use the Stan software package (http://mc-stan.org/), w
 # Results
 
 ```{r clean environment}
+df <- df_components
 rm(list = setdiff(ls(), c("df", "minmax", "random_py")))
 ```
 
@@ -1240,183 +1300,154 @@ bic_plm <- function(object) {
 #| fig-cap: "BICs"
 library(plm)
 
-results_list <- py$results
-# create empty list to store model results
-model_nloglik_min <- list()
-model_nloglik_avg <- list()
-model_bic_min <- list()
-model_bic_avg <- list()
-names(results_list)[names(results_list) == "Kullback-Leibler"] <- "KullbackLeibler"
-names(results_list)[names(results_list) == "Frobenius NNDSVDA"] <- "FrobeniusNNDSVDA"
-names(results_list)[names(results_list) == "Frobenius NNDSVD"] <- "FrobeniusNNDSVD"
-Minutes <- list(df$tch_min)
-names(Minutes) <- "1"
-results_list <- append(results_list, list(Minutes))
-names(results_list)[length(results_list)] <- "Minutes"
-Logins <- list(df$User.Session)
-names(Logins) <- "1"
-results_list <- append(results_list, list(Logins))
-names(results_list)[length(results_list)] <- "Logins"
-
-for (method in names(results_list)) {
-  for (n_comp in names(results_list[[method]])) {
-    n_comp <- as.numeric(n_comp)
-    df_temp <- as.data.table(results_list[[method]][[as.character(n_comp)]])
-    df_temp <- cbind(df_comp, df_temp)
-    # Change new column names
-    setnames(df_temp,
-             names(df_temp)[(ncol(df_temp) - n_comp + 1):ncol(df_temp)],
-             paste0(method, 1:n_comp))
-    for (comp in 1:n_comp) {
-      df_temp[, (paste0(method, comp, "_1")) :=
-                nafill(get(paste0(method, comp))[match(week, week + 1)], fill =
-                         0),
-              by = Classroom.ID]
-    }
-
-    # Split the data into training and testing sets
-    train_data <- df_temp[set == "train"]
-    test_data <- df_temp[set == "test"]
-    train_data <- pdata.frame(train_data,
-                              index = c("Classroom.ID", "week", "Teacher.User.ID"))
-    test_data  <- pdata.frame(test_data,
-                              index = c("Classroom.ID", "week", "Teacher.User.ID"))
-    bic_min = 0
-    bic_avg = 0
-    nloglik_min = 0
-    nloglik_avg = 0
-    
-    # Register the parallel backend
-    cl <- makeCluster(detectCores())
-    registerDoParallel(cl)
-    results <- foreach(comp = 1:n_comp,
-                       .multicombine = TRUE,
-                       .noexport = c("bic_plm", "method",
-                                     "formula", "model", "re", "wi",
-                                     "n", "sigma2", "residuals", "predictions",
-                                     "test_data", "train_data"),
-                       .export = ls()) %dopar% 
-      {
-        require(plm)
-        formula <- as.formula(
-          paste0(paste0(method, comp), " ~ ",
-                 paste0(method, comp, "_1"), " + ",
-                 "Badges.per.Active.User"))
-        
-        # Run models and store results
-        wi <- plm(formula,
-                  data = train_data,
-                  effect = "twoway",
-                  model = "within")
-        re <- plm(formula, 
-                  data = train_data,
-                  effect = "twoway",
-                  model = "random")
-        model <- if (phtest(wi, re)$p.value < 0.05) wi else re
-        
-        # Out of Sample Log Likelihood
-        predictions <- predict(model, newdata = test_data, na.fill = TRUE)
-        residuals <- test_data[,paste0(method, comp)] - predictions
-        n <- length(residuals)
-        sigma2 <- sum(residuals^2) / n
-        nloglik <- n/2 * ( log(2 * pi) + log(sigma2) + 1 ) # Negative log likelihood
-        
-        # Return the results as a list
-        list(nloglik = as.numeric(nloglik),
-             bic = as.numeric(bic_plm(model)),
-             coef = model$coefficients)
-      }
-    # Extract the results
-    nloglik_min = min(sapply(results, `[[`, "nloglik"))
-    nloglik_avg = mean(sapply(results, `[[`, "nloglik"))
-    bic_min = min(sapply(results, `[[`, "bic"))
-    bic_avg = mean(sapply(results, `[[`, "bic"))
-    coefficients_list = sapply(results, `[[`, "coef")
-    # Stop the cluster
-    stopCluster(cl)
-    
-    model_nloglik_min[[paste(method, n_comp, sep = "_")]] <- nloglik_min
-    model_nloglik_avg[[paste(method, n_comp, sep = "_")]] <- nloglik_avg
-    model_bic_min[[paste(method, n_comp, sep = "_")]] <- bic_min
-    model_bic_avg[[paste(method, n_comp, sep = "_")]] <- bic_avg
-  }
+# Helper functions
+model_selection <- function(wi, re) {
+  if (phtest(wi, re)$p.value < 0.05) return(wi) else return(re)
 }
 
-# Create data frame for plotting
-df_bic <- data.frame(
-  Method = gsub("_.*", "", names(model_bic_min)),
-  N_components = as.integer(gsub("_.*", "", gsub(".*_", "", names(model_bic_min)))),
-  bic_Minimum = unlist(model_bic_min),
-  bic_Mean = unlist(model_bic_avg)
-) %>%
-  mutate(
-    Method = case_when(Method == "KullbackLeibler" ~ "Kullback-Leibler",
-                       Method == "FrobeniusNNDSVDA" ~ "Frobenius NNDSVDA",
-                       Method == "FrobeniusNNDSVD" ~ "Frobenius NNDSVD",
-                       .default = Method)
-  ) %>% 
-  pivot_longer(
-    cols = c(bic_Minimum, bic_Mean),
-    names_prefix = "bic_",
-    names_to = "type", 
-    values_to = "BIC"
-  )
+compute_nloglik <- function(residuals, n) {
+  sigma2 <- sum(residuals^2) / n
+  nll <- n/2 * ( log(2 * pi) + log(sigma2) + 1 ) # Negative log likelihood
+  return(as.numeric(nll))
+}
 
-df_nll <- data.frame(
-  Method = gsub("_.*", "", names(model_nloglik_min)),
-  N_components = as.integer(gsub("_.*", "", gsub(".*_", "", names(model_nloglik_min)))),
-  nloglik_Minimum = unlist(model_nloglik_min),
-  nloglik_Mean =  unlist(model_nloglik_avg)
-) %>%
-  mutate(
-    Method = case_when(Method == "KullbackLeibler" ~ "Kullback-Leibler",
-                       Method == "FrobeniusNNDSVDA" ~ "Frobenius NNDSVDA",
-                       Method == "FrobeniusNNDSVD" ~ "Frobenius NNDSVD",
-                       .default = Method)
-  ) %>% 
-  pivot_longer(
-    cols = c(nloglik_Minimum, nloglik_Mean), 
-    names_prefix = "nloglik_",
-    names_to = "type", 
-    values_to = "NLL"
-  )
+# Importing results from Python
+methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
+results_list <- py$results
+names(results_list) <- methods
+df <- setDT(df)
+
+# Adding Minutes and Logins to results_list
+results_list$Minutes <- list(df$tch_min)
+results_list$Logins <- list(df$User.Session)
+
+# Preparing the results data frame
+results_df <- data.frame(Method = character(),
+                         N_components = numeric(),
+                         bic_Minimum = numeric(),
+                         bic_Mean = numeric(),
+                         nloglik_Minimum = numeric(),
+                         nloglik_Mean = numeric(),
+                         stringsAsFactors = FALSE)
+
+# Iterating over methods
+n_comp = 3
+for (method in methods) {
+  # Create lags
+  for (comp in 1:n_comp) {
+    df[, (paste0(method, comp, "_1")) :=
+              nafill(get(paste0(method, comp))[match(week, week + 1)], fill =
+                       0),
+            by = Classroom.ID]
+  }
+  
+  # Splitting the data
+  train_data <- pdata.frame(df[set == "train"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
+  test_data <- pdata.frame(df[set == "test"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
+  
+  # Multicore processing
+  cl <- makeCluster(detectCores())
+  registerDoParallel(cl)
+  
+  results <- foreach(comp = 1:n_comp,
+                     .multicombine = TRUE,
+                     .noexport = c("bic_plm", "method",
+                                   "formula", "model", "re", "wi",
+                                   "n", "sigma2", "residuals", "predictions",
+                                   "test_data", "train_data"),
+                     .export = ls(),
+                     .packages = "plm") %dopar% {
+    formula <- as.formula(
+      paste0(paste0(method, comp), " ~ ",
+             paste0(method, comp, "_1"), " + ",
+             "Badges.per.Active.User"))
+    
+    # Models
+    wi <- plm(formula, data = train_data, effect = "twoway", model = "within")
+    re <- plm(formula, data = train_data, effect = "twoway", model = "random")
+    model <- model_selection(wi, re)
+    
+    # Out of Sample Log Likelihood
+    predictions <- predict(model, newdata = test_data, na.fill = TRUE)
+    residuals <- test_data[,paste0(method, comp)] - predictions
+    n <- length(residuals)
+    
+    # Return the results as a list
+    list(nloglik = compute_nloglik(residuals, n),
+         bic = as.numeric(bic_plm(model)),
+         coef = model$coefficients)
+  }
+  
+  # Stop the cluster
+  stopCluster(cl)
+  
+  # Add results to the results data frame
+  results_df <- rbind(results_df, data.frame(Method = method,
+                                             N_components = n_comp,
+                                             bic_Minimum = min(sapply(results, `[[`, "bic")),
+                                             bic_Mean = mean(sapply(results, `[[`, "bic")),
+                                             nloglik_Minimum = min(sapply(results, `[[`, "nloglik")),
+                                             nloglik_Mean = mean(sapply(results, `[[`, "nloglik")),
+                                             stringsAsFactors = FALSE))
+}
+
+# Wrangling the results data frame for plotting
+df_bic <- results_df %>%
+  pivot_longer(cols = c(bic_Minimum, bic_Mean), names_to = "type", values_to = "BIC") %>%
+  mutate(type = str_replace(type, "bic_", ""))
+# Convert type column to a factor for ordering
+df_bic$type <- factor(df_bic$type, levels = c("Minimum", "Mean"))
+
+df_nll <- results_df %>%
+  pivot_longer(cols = c(nloglik_Minimum, nloglik_Mean), names_to = "type", values_to = "NLL") %>%
+  mutate(type = str_replace(type, "nloglik_", ""))
+
+# Create new color palette
+palette <- c("#56B4E9", "#E69F00", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+# Define common plot theme
+common_theme <- theme_minimal() +
+  theme(axis.title.y = element_blank(), 
+        axis.text.x = element_blank(),
+        legend.position = "top",
+        legend.box = "horizontal",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
 # Plot BIC values
-p1 <- ggplot(df_bic, aes(x = N_components, y = BIC, color = Method, linetype = type)) +
-  geom_line() +
-  geom_hline(data = subset(df_bic, Method == "Minutes" & N_components == 1 & type %in% c("Minimum", "Mean")), 
-             aes(yintercept = BIC), linetype = "dashed", color = "red") +
-  geom_hline(data = subset(df_bic, Method == "Logins" & N_components == 1 & type %in% c("Minimum", "Mean")), 
-             aes(yintercept = BIC), linetype = "dashed", color = "blue") +
+p1 <- ggplot(df_bic, aes(x = Method, y = BIC, fill = Method)) +
+  geom_col(data = subset(df_bic, type == "Mean"), width = 0.6, position = position_dodge()) +
+  geom_point(data = subset(df_bic, type == "Minimum"),
+             position = position_dodge(0.6), size = 3, color = "black") +
   labs(
     title = "In-Sample BIC",
-    x = "Number of Components",
+    x = "Method",
     y = "BIC",
-    color = "Method",
-    linetype = "Summary Across Components"
+    fill = "Method"
   ) +
-  scale_x_continuous(breaks = seq(min(df_bic$N_components),
-                                  max(df_bic$N_components),
-                                  by = 1)) +
-  theme_minimal() +
-  theme(axis.title.y = element_blank())
-p2 <- ggplot(df_nll, aes(x = N_components, y = NLL, color = Method, linetype = type)) +
-  geom_line() +
+  common_theme +
+  scale_fill_manual(values = palette)
+
+# Plot NLL values
+p2 <- ggplot(df_nll, aes(x = Method, y = NLL, fill = Method)) +
+  geom_col(data = subset(df_nll, type == "Mean"), width = 0.6, position = position_dodge()) +
+  geom_point(data = subset(df_nll, type == "Minimum"),
+             position = position_dodge(0.6), size = 3, color = "black") +
   labs(
     title = "Out-of-Sample Negative Log-likelihood",
-    x = "Number of Components",
+    x = "Method",
     y = "NLL",
-    color = "Method",
-    linetype = "Summary Across Components"
+    fill = "Method"
   ) +
-  scale_x_continuous(breaks = seq(min(df_nll$N_components),
-                                  max(df_nll$N_components),
-                                  by = 1)) +
-  theme_minimal() +
-  theme(axis.title.y = element_blank())
+  common_theme +
+  scale_fill_manual(values = palette)
+
+# Combine the two plots
 model_comparison_plot <- ggarrange(p1, p2,
                                   ncol = 2,
                                   common.legend = TRUE,
-                                  legend = "bottom")
+                                  legend = "top")
+
 model_comparison_plot
 
 ```
@@ -1449,7 +1480,7 @@ The resulting multivariate meta-analysis provides a comprehensive estimate of th
 library(metafor)
 library(ppcor)
 
-n_comp <- 4
+n_comp <- 3
 method <- "KullbackLeibler"
 selected_cols <- c("Classroom.ID", "Teacher.User.ID",
                    "MDR.School.ID", "District.Rollup.ID",
@@ -1490,7 +1521,6 @@ df_corr <- df_corr %>%
     Component1 = safe_pcor(Component1, Badges.per.Active.User_1, Component1_1),
     Component2 = safe_pcor(Component2, Badges.per.Active.User_1, Component2_1),
     Component3 = safe_pcor(Component3, Badges.per.Active.User_1, Component3_1),
-    Component4 = safe_pcor(Component4, Badges.per.Active.User_1, Component4_1),
     n_weeks = mean(n_weeks),
     teacher_number_classes = mean(teacher_number_classes),
     poverty = first(poverty),
@@ -1499,8 +1529,7 @@ df_corr <- df_corr %>%
   ) %>%
   filter(!is.na(Component1) &
            !is.na(Component2) &
-           !is.na(Component3) &
-           !is.na(Component4))
+           !is.na(Component3))
 
 df_corr_sub <- df_corr %>%
   as_tibble() %>%
@@ -1589,13 +1618,12 @@ In order to get a baseline understanding of the influence of our key variables o
 Both of these models use a random effects approach, which is suitable for our panel data structure and accounts for unobserved heterogeneity.
 
 ```{r create lags}
-#| eval: false
 
 # Define number of lags and columns
 n_lags = 8
 n_lags_short = 4
-columns <- c("tch_min", "pca1", "pca2", "pca3",
-             "Badges.per.Active.User","User.Session")
+columns <- c("tch_min", "KullbackLeibler1", "KullbackLeibler2", "KullbackLeibler3",
+             "Badges.per.Active.User")
 
 # Add lagged variables
 for (col in columns) {
@@ -1642,22 +1670,6 @@ library(performance)
 df_panel <- pdata.frame(df,index = c("Classroom.ID", "week", "Teacher.User.ID"))
 
 ### Minutes
-formula <- as.formula("User.Session ~ Badges.per.Active.User_1 + User.Session_1")
-# First test which model is appropriate
-# Random or Fixed Effects by the Hausman test:
-hausman <- phtest(User.Session ~ Badges.per.Active.User_1 + User.Session_1,
-                  data = df_panel)
-if (hausman$p.value < 0.05) {
-  panel_min <- plm(formula,
-                     data = df_panel,
-                     model = "within")
-} else {
-  panel_min <- plm(formula, 
-                   data = df_panel,
-                   model = "random")
-}
-
-### Minutes
 formula <- as.formula("tch_min ~ Badges.per.Active.User_1 + tch_min_1")
 # First test which model is appropriate
 # Random or Fixed Effects by the Hausman test:
@@ -1673,46 +1685,46 @@ if (hausman$p.value < 0.05) {
                    model = "random")
 }
 
-### PC1
-formula <- as.formula("pca1 ~ Badges.per.Active.User_1 + pca1_1")
+### Component 1
+formula <- as.formula("KullbackLeibler1 ~ Badges.per.Active.User_1 + KullbackLeibler1_1")
 # First test which model is appropriate
 # Random or Fixed Effects by the Hausman test:
-hausman <- phtest(pca1 ~ Badges.per.Active.User_1 + pca1_1,
+hausman <- phtest(KullbackLeibler1 ~ Badges.per.Active.User_1 + KullbackLeibler1_1,
                   data = df_panel)
 if (hausman$p.value < 0.05) {
-  panel_pca1 <- plm(formula,
+  panel_KL1 <- plm(formula,
                      data = df_panel,
                      model = "within")
 } else {
-  panel_pca1 <- plm(formula, 
+  panel_KL1 <- plm(formula, 
                    data = df_panel,
                    model = "random")
 }
 
-### PC2
-formula <- as.formula("pca2 ~ Badges.per.Active.User_1 + pca2_1")
-hausman <- phtest(pca2 ~ Badges.per.Active.User_1 + pca2_1,
+### Component 2
+formula <- as.formula("KullbackLeibler2 ~ Badges.per.Active.User_1 + KullbackLeibler2_1")
+hausman <- phtest(KullbackLeibler2 ~ Badges.per.Active.User_1 + KullbackLeibler2_1,
                   data = df_panel)
 if (hausman$p.value < 0.05) {
-  panel_pca2 <- plm(formula,
+  panel_KL2 <- plm(formula,
                      data = df_panel,
                      model = "within")
 } else {
-  panel_pca2 <- plm(formula, 
+  panel_KL2 <- plm(formula, 
                    data = df_panel,
                    model = "random")
 }
 
-### PC3
-formula <- as.formula("pca3 ~ Badges.per.Active.User_1 + pca3_1")
-hausman <- phtest(pca3 ~ Badges.per.Active.User_1 + pca3_1,
+### Component 3
+formula <- as.formula("KullbackLeibler3 ~ Badges.per.Active.User_1 + KullbackLeibler3_1")
+hausman <- phtest(KullbackLeibler3 ~ Badges.per.Active.User_1 + KullbackLeibler3_1,
                   data = df_panel)
 if (hausman$p.value < 0.05) {
-  panel_pca3 <- plm(formula,
+  panel_KL3 <- plm(formula,
                     data = df_panel,
                     model = "within")
 } else {
-  panel_pca3 <- plm(formula, 
+  panel_KL3 <- plm(formula, 
                     data = df_panel,
                     model = "random")
 }
@@ -1810,10 +1822,10 @@ df_coeffs_long <- full_join(df_estimates,
                             df_se,
                             by = c("variable", "lag", "badges")) %>%
   mutate(Action = factor(variable, 
-                         levels = c("pca1", "pca2", "pca3",
+                         levels = c("KullbackLeibler1", "KullbackLeibler2", "KullbackLeibler3",
                                     "tch_min", "User.Session",
                                     "Badges.per.Active.User"),
-                         labels = c("PC1", "PC2", "PC3",
+                         labels = c("Kullback-Leibler1", "Kullback-Leibler2", "Kullback-Leibler3",
                                     "Teacher Minutes", "Teacher Logins",
                                     "Badges")),
          Action = case_when(badges ~ "Badges",
@@ -1870,17 +1882,17 @@ library(stringi)
 
 # Calculate BIC for each model
 min_model_bic <- BIC(panel_min)
-pca1_model_bic <- BIC(panel_pca1)
-pca2_model_bic <- BIC(panel_pca2)
-pca3_model_bic <- BIC(panel_pca3)
+pca1_model_bic <- BIC(panel_KL1)
+pca2_model_bic <- BIC(panel_KL2)
+pca3_model_bic <- BIC(panel_KL3)
 lag_models_bic <- sapply(models, BIC)
 lag_models_short_bic <- sapply(models_short, BIC)
 
 # Create a vector with the names of the models
 model_names <- c("Minutes 1",
-                 "PC1 1",
-                 "PC2 1",
-                 "PC3 1",
+                 "KL1 1",
+                 "KL2 1",
+                 "KL3 1",
                  sapply(columns[-5],
                         function(col) paste(col, "4")),
                  sapply(columns[-5],
@@ -1895,13 +1907,13 @@ model_comparison <- data.frame(
   ) %>%
   # Replace specific strings in model names
   mutate(Model = stri_replace_all_regex(Model,
-                                        pattern=c('pca1',
-                                                  'pca2',
-                                                  'pca3',
+                                        pattern=c('KullbackLeibler1',
+                                                  'KullbackLeibler2',
+                                                  'KullbackLeibler3',
                                                   'tch_min'),
-                                        replacement=c('PC1',
-                                                      'PC2',
-                                                      'PC3',
+                                        replacement=c('KL1',
+                                                      'KL2',
+                                                      'KL3',
                                                       'Minutes'),
                                         vectorize=FALSE)) %>%
   separate(Model, into = c("Model","Lag"), sep = " ")
