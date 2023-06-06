@@ -18,9 +18,9 @@ data {
 }
 parameters {
   array[number_teachers, (C - 1)] real<lower=0, upper=1> cost;  // cost in badge-units for each component
-  real<lower=0, upper=1> gamma[number_teachers];  // discount rate
-  vector<lower=0, upper=1>[2] alpha[number_teachers];  // step-sizes
-  real<lower=0> sensi[number_teachers];    // reward sensitivity
+  array[number_teachers] real<lower=0, upper=1> gamma;  // discount rate
+  array[number_teachers] vector<lower=0, upper=1>[2] alpha;  // step-sizes
+  array[number_teachers] real<lower=0> sensi;    // reward sensitivity
   real mu_cost;
   real<lower=0> sigma_cost;
   real mu_gamma;
@@ -43,7 +43,7 @@ model {
   sigma_sensi ~ normal(0, 1);
 
   // group-level parameters
-  for (g in 1:G) {
+  for (g in 1:number_teachers) {
     for (j in 1:(C - 1)) {
       cost[g, j] ~ normal(mu_cost, sigma_cost) T[0,1];
     }

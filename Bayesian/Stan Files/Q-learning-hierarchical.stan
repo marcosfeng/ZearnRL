@@ -31,10 +31,10 @@ parameters {
 
   // Group-level parameters
   array[number_teachers, 3] real<lower=0, upper=1> cost;  // cost in badge-units for each component
-  real<lower=0, upper=1> gamma[number_teachers];      // discount rate
-  real<lower=0, upper=1> alpha[number_teachers];    // step-sizes for each component
-  real<lower=0.001> tau[number_teachers];               // inverse temperature
-  real<lower=0> sensi[number_teachers];    // reward sensitivity for each of the four components
+  array[number_teachers] real<lower=0, upper=1> gamma;      // discount rate
+  array[number_teachers] real<lower=0, upper=1> alpha;    // step-sizes for each component
+  array[number_teachers] real<lower=0.001> tau;       // inverse temperature
+  array[number_teachers] real<lower=0> sensi;    // reward sensitivity for each of the four components
 }
 model {
   // Hyperparameters priors

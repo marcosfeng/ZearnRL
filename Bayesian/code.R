@@ -246,8 +246,8 @@ for (choice in names(choices)) {
                       is.na(as.matrix(dcast(df,
                                             Classroom.ID ~ row_n,
                                             value.var = "state"))), 1)[,-1],
-      group = df[, .GRP, by = .(Teacher.ID)][,GRP],
-      number_teachers = length(unique(df$Teacher.ID))
+      group = df[, .GRP, by = .(Teacher.User.ID)][,GRP],
+      number_teachers = length(unique(df$Teacher.User.ID))
     )
 
     my_model <- cmdstan_model(model)
@@ -318,8 +318,8 @@ for (choice in names(choices)) {
                                            value.var = "week"))), 0)[,-1],
       S = 3, # Number of states
       state = state_array,
-      group = df[, .GRP, by = .(Teacher.ID)][,GRP],
-      number_teachers = length(unique(df$Teacher.ID))
+      group = df[, .GRP, by = .(Teacher.User.ID)][,GRP],
+      number_teachers = length(unique(df$Teacher.User.ID))
     )
 
     my_model <- cmdstan_model(model)
@@ -328,8 +328,8 @@ for (choice in names(choices)) {
       data = stan_data,
       chains = 3,
       parallel_chains = 3,
-      iter_warmup = 2500,
-      iter_sampling = 2500
+      iter_warmup = 5000,
+      iter_sampling = 5000
     )
 
     # Save the fit object
