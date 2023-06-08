@@ -3,10 +3,10 @@
 # a Stan model using 'stan_model()' and 'sampling()' functions.
 library(tidyverse)
 library(data.table)
-library(rstan)
 library(stats)
 library(lubridate)
 library(cmdstanr)
+library(rstan)
 set.seed(683328979)
 # Random.org
 # Timestamp: 2023-06-06 08:01:33 UTC
@@ -35,20 +35,13 @@ prepare_choice_array <- function(df, col1, col2, col3){
   return(choice_array)
 }
 
-choices <- list(
-  PC = c("PCA1bin", "PCA2bin", "PCA3bin"),
-  AE = c("Autoencoder1bin", "Autoencoder2bin", "Autoencoder3bin"),
-  KL = c("Kullback.Leibler1bin", "Kullback.Leibler2bin", "Kullback.Leibler3bin")
-)
-
-
 # Import Data -------------------------------------------------------------
 
 df <- read.csv(file = "Bayesian/df.csv")
 
-pca_cols <- grep("PCA", names(df), value = TRUE)
-ae_cols <- grep("Autoencoder", names(df), value = TRUE)
-kl_cols <- grep("Kullback.Leibler", names(df), value = TRUE)
+FR_cols <- grep("FrobeniusNNDSVD", names(df), value = TRUE)
+FRa_cols <- grep("FrobeniusNNDSVDA", names(df), value = TRUE)
+KL_cols <- grep("Kullback.Leibler", names(df), value = TRUE)
 
 df <- df %>%
   arrange(Classroom.ID, week) %>%
@@ -57,14 +50,19 @@ df <- df %>%
   ungroup() %>% group_by(MDR.School.ID) %>%
   mutate(Badges.per.Active.User = (Badges.per.Active.User - min(Badges.per.Active.User)) /
            (max(Badges.per.Active.User) - min(Badges.per.Active.User))) %>%
-  mutate(across(all_of(pca_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
-  mutate(across(all_of(ae_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
-  mutate(across(all_of(kl_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
+  mutate(across(all_of(FR_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
+  mutate(across(all_of(FRa_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
+  mutate(across(all_of(KL_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
   as.data.table() %>%
   .[Classroom.ID %in% sample(unique(Classroom.ID), size = length(unique(Classroom.ID)) * 0.05)] %>%
   setorder(Classroom.ID, week) %>%
   .[, row_n := seq_len(.N), by = .(Classroom.ID)]
 
+choices <- list(
+  FR = grep("FrobeniusNNDSVD(.)bin", names(df), value = TRUE),
+  FRa = grep("FrobeniusNNDSVDA(.)bin", names(df), value = TRUE),
+  KL = grep("Kullback.Leibler(.)bin", names(df), value = TRUE)
+)
 
 # 1. Q-learning -----------------------------------------------------------
 
@@ -118,8 +116,8 @@ for (choice in names(choices)) {
 
     # Save the fit object
     fit$save_object(file = paste0("Bayesian/Results/",
-                                  gsub("Bayesian/Stan Files/", "", model),
-                                  "-", choice, ".Rdata"))
+                                  gsub("Bayesian/Stan Files/||.stan", "", model),
+                                  "-", choice, ".RDS"))
   }
 }
 
@@ -199,13 +197,15 @@ for (choice in names(choices)) {
 
     # Save the fit object
     fit$save_object(file = paste0("Bayesian/Results/",
-                                  gsub("Bayesian/Stan Files/", "", model),
-                                  "-", choice, ".Rdata"))
+                                  gsub("Bayesian/Stan Files/||.stan", "", model),
+                                  "-", choice, ".RDS"))
   }
 }
 
 
 # 3. Hierarchical Models --------------------------------------------------
+
+df[, Teacher.Rank := .GRP, by = .(Teacher.User.ID)]
 
 ## Q-learning
 
@@ -246,7 +246,7 @@ for (choice in names(choices)) {
                       is.na(as.matrix(dcast(df,
                                             Classroom.ID ~ row_n,
                                             value.var = "state"))), 1)[,-1],
-      group = df[, .GRP, by = .(Teacher.User.ID)][,GRP],
+      group = unique(df[, .(Classroom.ID, Teacher.User.ID, Teacher.Rank)])$Teacher.Rank,
       number_teachers = length(unique(df$Teacher.User.ID))
     )
 
@@ -262,8 +262,8 @@ for (choice in names(choices)) {
 
     # Save the fit object
     fit$save_object(file = paste0("Bayesian/Results/",
-                                  gsub("Bayesian/Stan Files/", "", model),
-                                  "-", choice, ".Rdata"))
+                                  gsub("Bayesian/Stan Files/||.stan", "", model),
+                                  "-", choice, ".RDS"))
   }
 }
 
@@ -318,7 +318,7 @@ for (choice in names(choices)) {
                                            value.var = "week"))), 0)[,-1],
       S = 3, # Number of states
       state = state_array,
-      group = df[, .GRP, by = .(Teacher.User.ID)][,GRP],
+      group = unique(df[, .(Classroom.ID, Teacher.User.ID, Teacher.Rank)])$Teacher.Rank,
       number_teachers = length(unique(df$Teacher.User.ID))
     )
 
@@ -334,12 +334,12 @@ for (choice in names(choices)) {
 
     # Save the fit object
     fit$save_object(file = paste0("Bayesian/Results/",
-                                  gsub("Bayesian/Stan Files/", "", model),
-                                  "-", choice, ".Rdata"))
+                                  gsub("Bayesian/Stan Files/||.stan", "", model),
+                                  "-", choice, ".RDS"))
   }
 }
 
 
-#diagnostics
+#quick diagnostics
 library("shinystan")
 launch_shinystan(fit)
