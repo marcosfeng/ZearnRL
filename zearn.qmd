@@ -233,6 +233,9 @@ library(data.table)
 library(ggrepel)
 library(ggpubr)
 library(RColorBrewer)
+library(grid)
+library(gridExtra)
+library(scales)
 library(gtsummary)
 library(gt)
 library(PerformanceAnalytics)
@@ -820,7 +823,7 @@ for n in range(2, n_comp):
         continue
 ```
 
-``` {python train autoencoder}
+```{python train autoencoder}
 #| eval: false
 import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -972,7 +975,7 @@ model.save('./autoencoder_tuning/final_model.h5')
 
 ```
 
-``` {python load autoencoder}
+```{python load autoencoder}
 from tensorflow.keras.models import load_model
 from keras.models import Model
 from keras.layers import Input
@@ -1083,32 +1086,6 @@ comparison_plot
 
 ```
 
-``` {r export results}
-# Importing results from Python
-results_list <- py$results
-
-# List of method names
-methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
-names(results_list) <- methods
-# Initialize df_components
-df_components <- df
-
-# Loop over each method, extract the results at 3 components and bind to df_components
-for (method in methods) {
-  result_3 <- results_list[[method]][["3"]]
-  df_components <- df_components %>%
-    bind_cols(result_3)
-  
-  # Adjust column names
-  new_cols <- paste0(method, 1:3)
-  names(df_components)[(ncol(df_components)-2):ncol(df_components)] <- new_cols
-}
-
-# Write to csv
-write.csv(df_components, "./Bayesian/df.csv")
-
-```
-
 ### Interpreting Components
 
 <!-- To ensure a more intuitive interpretation, we adjust each component to ensure a positive correlation with Student Badges (multiplying them by $-1$ if necessary). -->
@@ -1142,6 +1119,40 @@ pheatmap(df_heatmap %>%
          border_color = NA,
          show_colnames = TRUE,
          show_rownames = TRUE)
+
+```
+
+```{r export dimension reduction}
+#| eval: false
+# Importing results from Python
+results_list <- py$results
+
+# List of method names
+methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
+names(results_list) <- methods
+# Initialize df_components
+df_components <- df
+
+# Loop over each method, extract the results at 3 components and bind to df_components
+for (method in methods) {
+  result_3 <- results_list[[method]][["3"]]
+  df_components <- df_components %>%
+    bind_cols(result_3)
+  
+  # Adjust column names
+  new_cols <- paste0(method, 1:3)
+  names(df_components)[(ncol(df_components)-2):ncol(df_components)] <- new_cols
+}
+
+# Write to csv
+write.csv(df_components, "./Bayesian/df.csv")
+
+```
+
+```{r load dimension reduction}
+df <- read.csv(file = "./Bayesian/df.csv")
+# Clean environment
+rm(list = setdiff(ls(), c("df", "random_py")))
 
 ```
 
@@ -1246,11 +1257,6 @@ For Bayesian updating, we use the Stan software package (http://mc-stan.org/), w
 
 # Results
 
-```{r clean environment}
-df <- df_components
-rm(list = setdiff(ls(), c("df", "minmax", "random_py")))
-```
-
 ## Component Selection
 
 ```{r}
@@ -1292,323 +1298,204 @@ bic_plm <- function(object) {
   }
 }
 
-```
-
-```{r}
-#| cache: true
-#| label: fig-nmf-pca-bic
-#| fig-cap: "BICs"
-library(plm)
-
-# Helper functions
-model_selection <- function(wi, re) {
-  if (phtest(wi, re)$p.value < 0.05) return(wi) else return(re)
-}
-
-compute_nloglik <- function(residuals, n) {
+compute_nloglik <- function(residuals) {
+  n <- length(residuals)
   sigma2 <- sum(residuals^2) / n
   nll <- n/2 * ( log(2 * pi) + log(sigma2) + 1 ) # Negative log likelihood
   return(as.numeric(nll))
 }
 
-# Importing results from Python
-methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
-results_list <- py$results
-names(results_list) <- methods
-df <- setDT(df)
-
-# Adding Minutes and Logins to results_list
-results_list$Minutes <- list(df$tch_min)
-results_list$Logins <- list(df$User.Session)
-
-# Preparing the results data frame
-results_df <- data.frame(Method = character(),
-                         N_components = numeric(),
-                         bic_Minimum = numeric(),
-                         bic_Mean = numeric(),
-                         nloglik_Minimum = numeric(),
-                         nloglik_Mean = numeric(),
-                         stringsAsFactors = FALSE)
-
-# Iterating over methods
-n_comp = 3
-for (method in methods) {
-  # Create lags
-  for (comp in 1:n_comp) {
-    df[, (paste0(method, comp, "_1")) :=
-              nafill(get(paste0(method, comp))[match(week, week + 1)], fill =
-                       0),
-            by = Classroom.ID]
-  }
-  
-  # Splitting the data
-  train_data <- pdata.frame(df[set == "train"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
-  test_data <- pdata.frame(df[set == "test"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
-  
-  # Multicore processing
-  cl <- makeCluster(detectCores())
-  registerDoParallel(cl)
-  
-  results <- foreach(comp = 1:n_comp,
-                     .multicombine = TRUE,
-                     .noexport = c("bic_plm", "method",
-                                   "formula", "model", "re", "wi",
-                                   "n", "sigma2", "residuals", "predictions",
-                                   "test_data", "train_data"),
-                     .export = ls(),
-                     .packages = "plm") %dopar% {
-    formula <- as.formula(
-      paste0(paste0(method, comp), " ~ ",
-             paste0(method, comp, "_1"), " + ",
-             "Badges.per.Active.User"))
-    
-    # Models
-    wi <- plm(formula, data = train_data, effect = "twoway", model = "within")
-    re <- plm(formula, data = train_data, effect = "twoway", model = "random")
-    model <- model_selection(wi, re)
-    
-    # Out of Sample Log Likelihood
-    predictions <- predict(model, newdata = test_data, na.fill = TRUE)
-    residuals <- test_data[,paste0(method, comp)] - predictions
-    n <- length(residuals)
-    
-    # Return the results as a list
-    list(nloglik = compute_nloglik(residuals, n),
-         bic = as.numeric(bic_plm(model)),
-         coef = model$coefficients)
-  }
-  
-  # Stop the cluster
-  stopCluster(cl)
-  
-  # Add results to the results data frame
-  results_df <- rbind(results_df, data.frame(Method = method,
-                                             N_components = n_comp,
-                                             bic_Minimum = min(sapply(results, `[[`, "bic")),
-                                             bic_Mean = mean(sapply(results, `[[`, "bic")),
-                                             nloglik_Minimum = min(sapply(results, `[[`, "nloglik")),
-                                             nloglik_Mean = mean(sapply(results, `[[`, "nloglik")),
-                                             stringsAsFactors = FALSE))
-}
-
-# Wrangling the results data frame for plotting
-df_bic <- results_df %>%
-  pivot_longer(cols = c(bic_Minimum, bic_Mean), names_to = "type", values_to = "BIC") %>%
-  mutate(type = str_replace(type, "bic_", ""))
-# Convert type column to a factor for ordering
-df_bic$type <- factor(df_bic$type, levels = c("Minimum", "Mean"))
-
-df_nll <- results_df %>%
-  pivot_longer(cols = c(nloglik_Minimum, nloglik_Mean), names_to = "type", values_to = "NLL") %>%
-  mutate(type = str_replace(type, "nloglik_", ""))
-
-# Create new color palette
-palette <- c("#56B4E9", "#E69F00", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
-
-# Define common plot theme
-common_theme <- theme_minimal() +
-  theme(axis.title.y = element_blank(), 
-        axis.text.x = element_blank(),
-        legend.position = "top",
-        legend.box = "horizontal",
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank())
-
-# Plot BIC values
-p1 <- ggplot(df_bic, aes(x = Method, y = BIC, fill = Method)) +
-  geom_col(data = subset(df_bic, type == "Mean"), width = 0.6, position = position_dodge()) +
-  geom_point(data = subset(df_bic, type == "Minimum"),
-             position = position_dodge(0.6), size = 3, color = "black") +
-  labs(
-    title = "In-Sample BIC",
-    x = "Method",
-    y = "BIC",
-    fill = "Method"
-  ) +
-  common_theme +
-  scale_fill_manual(values = palette)
-
-# Plot NLL values
-p2 <- ggplot(df_nll, aes(x = Method, y = NLL, fill = Method)) +
-  geom_col(data = subset(df_nll, type == "Mean"), width = 0.6, position = position_dodge()) +
-  geom_point(data = subset(df_nll, type == "Minimum"),
-             position = position_dodge(0.6), size = 3, color = "black") +
-  labs(
-    title = "Out-of-Sample Negative Log-likelihood",
-    x = "Method",
-    y = "NLL",
-    fill = "Method"
-  ) +
-  common_theme +
-  scale_fill_manual(values = palette)
-
-# Combine the two plots
-model_comparison_plot <- ggarrange(p1, p2,
-                                  ncol = 2,
-                                  common.legend = TRUE,
-                                  legend = "top")
-
-model_comparison_plot
-
 ```
 
-```{r}
-# Function to get lagged value
-get_lag_value <- function(df, col, lag_period) {
-  df %>%
-    group_by(Classroom.ID) %>%
-    mutate(!!paste0(col, "_", lag_period) := 
-             replace_na(
-               eval(sym(col), df)[match(week, (week + lag_period))],
-               0)
-           )
-}
-```
-
-## Meta-Analysis Overall Results
-
-Subsequently, we performed a meta-analysis of these correlations to reveal the pooled effect of our variables. In this case, we conducted a multivariate meta-analysis, offering the advantage of modeling multiple, potentially correlated, outcomes. We transformed the correlations using Fisher's z-transformation (to ensure a normal distribution of the correlations) and ran a random effects model with each unique combination of "Teacher" and "School".
-
-The resulting multivariate meta-analysis provides a comprehensive estimate of the correlations for each outcome, considering the hierarchical structure of the data. Thus, we can understand the overarching relationships between the different outcomes and the Badges across diverse schools and teachers. This robust conclusion, therefore, provides a more resilient analysis than a simple correlation analysis.
-
-@fig-meta-analysis presents the results of a meta-analysis on the correlation.
-
-```{r}
+```{r panel model comparison}
 #| cache: true
-#| label: fig-meta-analysis
-#| fig-cap: "Results of the correlation meta-analysis."
-library(metafor)
-library(ppcor)
+library(plm)
 
-n_comp <- 3
-method <- "KullbackLeibler"
-selected_cols <- c("Classroom.ID", "Teacher.User.ID",
-                   "MDR.School.ID", "District.Rollup.ID",
-                   "week", "Usage.Week",
-                   # Main loadings of Components:
-                   "tch_min", "RD.optional_problem_sets",
-                   "Guided.Practice.Completed", "Tower.Completed",
-                   # Student Variables
-                   "Active.Users...Total", "Minutes.per.Active.User",
-                   "Badges.per.Active.User", "Boosts.per.Tower.Completion",
-                   "Tower.Alerts.per.Tower.Completion",
-                   # Classroom and Teacher Variables
-                   "teacher_number_classes", "Grade.Level",
-                   "Students...Total", "n_weeks",
-                   # School Variables
-                   "poverty", "income", "charter.school",
-                   "school.account", "zipcode")  # Column to select
+# Helper functions
+get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
+  # Add a column for week_lag
+  datatable[, week_lag := c(0, diff(week)), by = Classroom.ID]
 
-df_corr <- df %>%
-  ungroup() %>%
-  arrange(Classroom.ID, week) %>%
-  dplyr::select(all_of(selected_cols)) %>%
-  bind_cols(results_list[[method]][[n_comp - 1]]) %>%
-  rename_with(~paste0("Component", seq_len(n_comp)), last_col() - (n_comp - 1):0) 
-for (col in c(paste0("Component", seq_len(n_comp)),
-              "tch_min", "Badges.per.Active.User")) {
-  df_corr <- df_corr %>%
-    get_lag_value(col, 1)
+  if (is.null(n_comp)) {
+    # Update the lag column with shift function
+    datatable[, (paste0(col, "_", lag_period)) :=
+                shift(get(col), lag_period, fill = 0, type = "lag"),
+              by = Classroom.ID]
+  } else {
+    for (comp in 1:n_comp) {
+      # Update the lag column with shift function
+      datatable <- datatable[, (paste0(col, comp, "_", lag_period)) :=
+                              shift(get(paste0(col, comp)), lag_period, fill = 0, type = "lag"),
+                            by = Classroom.ID]
+    }
+  }
+  
+  return(datatable)
 }
 
-# Define a safe version of pcor.test that returns NA when there's an error
-safe_pcor <- possibly(~pcor.test(..1, ..2, ..3, method = "spearman")$estimate,
-                      otherwise = NA)
-df_corr <- df_corr %>%
-  group_by(Classroom.ID,Teacher.User.ID,MDR.School.ID,District.Rollup.ID) %>%
-  summarise(
-    n = n(),
-    Component1 = safe_pcor(Component1, Badges.per.Active.User_1, Component1_1),
-    Component2 = safe_pcor(Component2, Badges.per.Active.User_1, Component2_1),
-    Component3 = safe_pcor(Component3, Badges.per.Active.User_1, Component3_1),
-    n_weeks = mean(n_weeks),
-    teacher_number_classes = mean(teacher_number_classes),
-    poverty = first(poverty),
-    income = first(income),
-    school.account = mean(school.account)
-  ) %>%
-  filter(!is.na(Component1) &
-           !is.na(Component2) &
-           !is.na(Component3))
+create_formula <- function(method, lag, comp) {
+  return(as.formula(
+    paste0(method, comp, " ~ ",
+           paste0(method, comp, "_", 1:lag, collapse = " + "), " + ",
+           paste0("Badges.per.Active.User", "_", 1:lag, collapse = " + "),
+           " + ", "week_lag")))
+}
 
-df_corr_sub <- df_corr %>%
-  as_tibble() %>%
-  slice_sample(prop = 0.05) %>%
-  mutate_at(vars(paste0("Component", seq_len(n_comp))),
-            list(~atanh(.))) %>%  # Fisher's z transformation
-  mutate_at(vars(paste0("Component", seq_len(n_comp))),
-            list(se = ~sqrt(1/(n - 2 - 2)))) %>%  # standard error sqrt(1/N−2−g)
-  gather(key = "outcome", value = "correlation", paste0("Component", seq_len(n_comp))) %>%
-  gather(key = "outcome_se", value = "se", paste0("Component", seq_len(n_comp), "_se")) %>%
-  filter(str_replace(outcome, "_se", "") == str_replace(outcome_se, "_se", "")) %>%
-  dplyr::select(-"outcome_se") %>%
-  filter(!is.na(se))
+model_selection <- function(wi, re) {
+  if (phtest(wi, re)$p.value < 0.05) return(wi) else return(re)
+}
 
-# Run multivariate meta-analysis
-res <- rma.mv(yi = correlation,
-              V = se^2,
-              random = ~ 1 | Classroom.ID/Teacher.User.ID/MDR.School.ID/District.Rollup.ID,
-              mods = ~ -1 + outcome,
-              data = df_corr_sub)
+create_model <- function(formula, data) {
+  # Models
+  wi <- plm(formula, data = data, effect = "twoway", model = "within")
+  re <- plm(formula, data = data, effect = "twoway", model = "random")
+  
+  return(model_selection(wi, re))
+}
 
-# Add columns for back-transformed effect sizes and their standard errors
-res_df <- data.frame(
-  estimate = coef(res),
-  outcome = str_replace(names(coef(res)), "outcome", ""),
-  # se = sqrt(diag(vcov(res)))
-  ci.lb = res$ci.lb,
-  ci.ub = res$ci.ub
-  ) %>%
-  mutate(
-    estimate_r = tanh(estimate),
-    ci.lb = tanh(ci.lb),
-    ci.ub = tanh(ci.ub)
-    # se_r = se / (1 - estimate^2)  # delta method for SE
-  )
-# Reverse the Fisher's Z transformation
-df_corr_sub <- df_corr_sub %>%
-  mutate(correlation = tanh(correlation))
-# Create the plot
-ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
-  geom_histogram(binwidth = 0.1, fill = "lightblue") +
-  geom_density(aes(weight = weights(res)),
-               alpha = 0.5) +
-  geom_vline(data = res_df,
-             aes(xintercept = estimate_r,
-                 color = outcome),
-             linetype = "dashed") +
-  geom_segment(data = res_df,
-               aes(x = ci.lb,
-                   y = 0,
-                   xend = ci.ub,
-                   yend = 0,
-                   color = outcome),
-               linewidth = 1.5) +
-  geom_text(data = res_df,
-            aes(x = estimate_r,
-                y = 0.15,
-                label = sub('0\\.', '.', round(estimate_r, 2))),
-            color = "black",
-            size = 3.5,
-            check_overlap = TRUE) +
-  facet_wrap(~outcome, scales = "free",  ncol = 2) +
-  labs(x = "Correlation", y = "Density") +
-  theme_light() +
-  scale_color_discrete(name = "Pooled effects \n (with 95% C.I.)")
-  theme(legend.position = c(0.85, 0.24),
-        legend.direction = "vertical")  # Set legend position and direction
+# Data and Variables
+df <- setDT(df)
+results_df_list <- list()
+lags <- c(1:8)
+n_comp = 3
+n_lags = max(lags)
+# Use map to iterate over methods, paste0 to concatenate strings
+methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "Kullback.Leibler", "Autoencoder")
+columns <- c("tch_min", "Badges.per.Active.User", methods)
 
+# Create lags
+for (col in columns) {
+  for (lag_period in 1:n_lags) {
+    if (!col %in% methods) {
+      df <- get_lag_value(df, col, lag_period)
+      next
+    }
+    df <- get_lag_value(df, col, lag_period, n_comp)
+  }
+}
+
+# Panel data
+train_data <- pdata.frame(df[set == "train"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
+test_data <- pdata.frame(df[set == "test"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
+
+# Estimation
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+params <- expand.grid(col = c("tch_min", methods),
+                      lag = lags,
+                      comp = 1:n_comp) %>%
+  mutate(comp = as.character(comp),
+         comp = case_when(col == "tch_min" ~ "",
+                          .default = comp)) %>%
+  unique()
+results <- foreach(i = 1:nrow(params),
+                   .multicombine = TRUE,
+                   .noexport = c("formula", "model",
+                                 "residuals", "predictions"),
+                   .export = ls(),
+                   .packages = "plm") %dopar% {
+  col <- as.character(params$col[i])
+  lag <- params$lag[i]
+  comp <- params$comp[i]
+  formula <- create_formula(col, lag, comp)
+  model <- create_model(formula, train_data)
+
+  # Out of Sample Log Likelihood
+  predictions <- predict(model, newdata = test_data, na.fill = TRUE)
+  residuals <- test_data[,paste0(col, comp)] - predictions
+
+  # Return the results as a list
+  list(Method = col,
+       Component = comp,
+       Lag = lag,
+       nloglik = compute_nloglik(residuals),
+       bic = as.numeric(bic_plm(model)),
+       coef = model$coefficients)
+}
+# Stop the cluster
+stopCluster(cl)
 ```
 
-```{r data cleaning}
-# Filter out the IDs with sd == 0
-df <- df %>%
-  filter(Classroom.ID %in% unique(df_corr$Classroom.ID))
-```
+```{r}
+#| label: fig-panel-bic
+#| fig-cap: ""
+# Wrangling the results data frame for plotting
+results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
+# Convert variables to appropriate data types
+results_df <- results_df %>%
+  mutate(Method = as.factor(Method),
+         Component = as.numeric(Component),
+         Lag = as.numeric(Lag),
+         nloglik = as.numeric(nloglik),
+         bic = as.numeric(bic)) %>%
+  group_by(Method, Lag) %>%
+  summarise(avg_bic = mean(bic, na.rm = TRUE),
+            avg_nloglik = mean(nloglik, na.rm = TRUE),
+            .groups = "drop")
+# Filter methods for the plots
+methods_for_plots <- c("FrobeniusNNDSVD", "Kullback.Leibler", "FrobeniusNNDSVDA")
+plot_data <- filter(results_df, Method %in% methods_for_plots)
+# Shared aesthetics for the plots
+aes <- ggplot2::aes(x = Lag, y = value, color = Method)
 
-```{r meta-analysis summary}
-#| eval: false
-summary(res)
+# Summarize methods not included in the plots and prepare tables
+methods_for_summary <- setdiff(unique(results_df$Method), methods_for_plots)
+summary_data <- filter(results_df, Method %in% methods_for_summary) %>%
+  group_by(Method) %>%
+  summarise(BIC = mean(avg_bic, na.rm = TRUE),
+            NLL = mean(avg_nloglik, na.rm = TRUE),
+            .groups = "drop")
+# Rename method
+levels(summary_data$Method)[levels(summary_data$Method)=="tch_min"] <- "Minutes"
+# Convert to scientific notation
+summary_data$BIC <- format(summary_data$BIC, scientific = TRUE, digits = 2)
+summary_data$NLL <- format(summary_data$NLL, scientific = TRUE, digits = 2)
+
+# Create tables and remove headers
+bic_table <- summary_data %>% select(Method, BIC) %>%
+  tableGrob(theme = ttheme_minimal(base_size = 8, 
+                                   core=list(bg_params = list(fill = "white", col=NA),
+                                             fg_params=list(fontface=3))),
+             rows = NULL)
+bic_table <- bic_table[-1, ]  # Remove header
+# BIC Plot
+bic_plot <- ggplot(bic_data, aes) + 
+  geom_line() + 
+  labs(title = "BIC", x = "Number of Lags") +
+  scale_y_continuous(labels = scientific) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), legend.position = "none") +
+  annotation_custom(bic_table, xmin = max(bic_data$Lag) - 3.5,
+                    xmax = max(bic_data$Lag) - 0.5,
+                    ymin = 1.01*max(bic_data$value),
+                    ymax = Inf)
+
+nll_table <- summary_data %>% select(Method, NLL) %>%
+  tableGrob(theme = ttheme_minimal(base_size = 8, 
+                                   core=list(bg_params = list(fill = "white", col=NA),
+                                             fg_params=list(fontface=3))), 
+             rows = NULL)
+nll_table <- nll_table[-1, ]  # Remove header
+nll_data <- filter(plot_data, !is.na(avg_nloglik)) %>% 
+  mutate(value = avg_bic, metric = "Negative Log-Likelihood")
+nll_plot <- ggplot(nll_data, aes) + 
+  geom_line() + 
+  labs(title = "Out-of-sample NLL", x = "Number of Lags") +
+  scale_y_continuous(labels = scientific) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), legend.position = "none") +
+  annotation_custom(nll_table, xmin = max(nll_data$Lag) - 3.5,
+                    xmax = max(nll_data$Lag) - 0.5,
+                    ymin = 1.01*max(nll_data$value),
+                    ymax = Inf)
+
+# Combine the plots and add a legend
+combined_plot <- ggarrange(bic_plot, nll_plot,
+                           ncol = 2,
+                           common.legend = TRUE,
+                           legend = "bottom")
+combined_plot
+
 ```
 
 ## Base Models
@@ -1617,171 +1504,11 @@ In order to get a baseline understanding of the influence of our key variables o
 
 Both of these models use a random effects approach, which is suitable for our panel data structure and accounts for unobserved heterogeneity.
 
-```{r create lags}
-
-# Define number of lags and columns
-n_lags = 8
-n_lags_short = 4
-columns <- c("tch_min", "KullbackLeibler1", "KullbackLeibler2", "KullbackLeibler3",
-             "Badges.per.Active.User")
-
-# Add lagged variables
-for (col in columns) {
-  for (lag_period in 1:n_lags) {
-    df <- df %>%
-      arrange(Classroom.ID, week) %>%
-      get_lag_value(col, lag_period) %>%
-      ungroup()
-  }
-}
-
-# Add 1-8 lags
-## Define the reinforcer, choice, and preference variables
-columns_lagged <- paste0(rep(columns, each = n_lags),
-                         "_",
-                         rep(1:n_lags, length(columns)))
-formulas <- sapply(columns[-5], function(col) 
-  as.formula(paste(col, " ~",
-                   paste(columns_lagged[grepl(col, columns_lagged)],
-                         collapse = " + "), " + ",
-                   paste(columns_lagged[grepl("Badges.per.Active.User",
-                                              columns_lagged)],
-                         collapse = " + "))))
-# Add 1-4 lags
-## Define the reinforcer, choice, and preference variables
-columns_lagged <- paste0(rep(columns, each = n_lags_short),
-                         "_",
-                         rep(1:n_lags_short, length(columns)))
-formulas_short <- sapply(columns[-5], function(col) 
-  as.formula(paste(col, " ~",
-                   paste(columns_lagged[grepl(col, columns_lagged)],
-                         collapse = " + "), " + ",
-                   paste(columns_lagged[grepl("Badges.per.Active.User",
-                                              columns_lagged)],
-                         collapse = " + "))))
-
-```
-
-```{r panel models}
-#| eval: false
-library(pglm)
-library(performance)
-
-df_panel <- pdata.frame(df,index = c("Classroom.ID", "week", "Teacher.User.ID"))
-
-### Minutes
-formula <- as.formula("tch_min ~ Badges.per.Active.User_1 + tch_min_1")
-# First test which model is appropriate
-# Random or Fixed Effects by the Hausman test:
-hausman <- phtest(tch_min ~ Badges.per.Active.User_1 + tch_min_1,
-                  data = df_panel)
-if (hausman$p.value < 0.05) {
-  panel_min <- plm(formula,
-                     data = df_panel,
-                     model = "within")
-} else {
-  panel_min <- plm(formula, 
-                   data = df_panel,
-                   model = "random")
-}
-
-### Component 1
-formula <- as.formula("KullbackLeibler1 ~ Badges.per.Active.User_1 + KullbackLeibler1_1")
-# First test which model is appropriate
-# Random or Fixed Effects by the Hausman test:
-hausman <- phtest(KullbackLeibler1 ~ Badges.per.Active.User_1 + KullbackLeibler1_1,
-                  data = df_panel)
-if (hausman$p.value < 0.05) {
-  panel_KL1 <- plm(formula,
-                     data = df_panel,
-                     model = "within")
-} else {
-  panel_KL1 <- plm(formula, 
-                   data = df_panel,
-                   model = "random")
-}
-
-### Component 2
-formula <- as.formula("KullbackLeibler2 ~ Badges.per.Active.User_1 + KullbackLeibler2_1")
-hausman <- phtest(KullbackLeibler2 ~ Badges.per.Active.User_1 + KullbackLeibler2_1,
-                  data = df_panel)
-if (hausman$p.value < 0.05) {
-  panel_KL2 <- plm(formula,
-                     data = df_panel,
-                     model = "within")
-} else {
-  panel_KL2 <- plm(formula, 
-                   data = df_panel,
-                   model = "random")
-}
-
-### Component 3
-formula <- as.formula("KullbackLeibler3 ~ Badges.per.Active.User_1 + KullbackLeibler3_1")
-hausman <- phtest(KullbackLeibler3 ~ Badges.per.Active.User_1 + KullbackLeibler3_1,
-                  data = df_panel)
-if (hausman$p.value < 0.05) {
-  panel_KL3 <- plm(formula,
-                    data = df_panel,
-                    model = "within")
-} else {
-  panel_KL3 <- plm(formula, 
-                    data = df_panel,
-                    model = "random")
-}
-
-# summary(panel_min)
-# summary(panel_pca)
-
-```
-
 ## Models with Lags
 
 Subsequently, we accounted for the temporal dynamics of our dataset by applying the Lau & Glimcher (2005) method. We introduced lagged variables into the models, thereby allowing us to account for temporal autocorrelation and potential delayed effects. We included lagged versions of the variables 'Teacher Minutes', 'PC1', 'PC2', 'PC3', and 'Badges per Students', with eight lags for each.
 
 We then ran models with these lagged variables using the same random effects approach as in the base models.
-
-```{r model lags}
-#| eval: false
-
-# Run models
-models <- lapply(formulas, function(formula) {
-  panel_fe <- plm(formula,
-                   data = df_panel,
-                   # family = "tobit",
-                   model = "within")
-  panel_re <- plm(formula,
-                   data = df_panel,
-                   # family = "tobit",
-                   model = "random")
-  hausman <- phtest(panel_fe, panel_re)
-  if (hausman$p.value < 0.05) {
-    return(panel_fe)
-  } else {
-    return(panel_re)
-  }
-})
-# Run short models
-models_short <- lapply(formulas_short, function(formula) {
-  panel_fe <- plm(formula,
-                   data = df_panel,
-                   # family = "tobit",
-                   model = "within")
-  panel_re <- plm(formula, 
-                   data = df_panel,
-                   # effect = "nested",
-                   model = "random")
-  hausman <- phtest(panel_fe, panel_re)
-  if (hausman$p.value < 0.05) {
-    return(panel_fe)
-  } else {
-    return(panel_re)
-  }
-})
-
-# Print summaries
-# lapply(models, summary)
-
-```
 
 In order to better understand and interpret the output of our models, we created a plot of the coefficients associated with each of the lagged variables. This plot allows us to see how the influence of each variable changes as the lag increases, and to compare these dynamics across variables.
 
@@ -2094,6 +1821,154 @@ If the goal of a teacher is to maximize lesson completion, analyzing the perform
 
 # Supplemental Information {.appendix}
 
+## Meta-Analysis of Correlations between Components and Student Outcomes
+
+Subsequently, we performed a meta-analysis of these correlations to reveal the pooled effect of our variables. In this case, we conducted a multivariate meta-analysis, offering the advantage of modeling multiple, potentially correlated, outcomes. We transformed the correlations using Fisher's z-transformation (to ensure a normal distribution of the correlations) and ran a random effects model with each unique combination of "Teacher" and "School".
+
+The resulting multivariate meta-analysis provides a comprehensive estimate of the correlations for each outcome, considering the hierarchical structure of the data. Thus, we can understand the overarching relationships between the different outcomes and the Badges across diverse schools and teachers. This robust conclusion, therefore, provides a more resilient analysis than a simple correlation analysis.
+
+@fig-meta-analysis presents the results of a meta-analysis on the correlation.
+
+```{r}
+#| cache: true
+#| label: fig-meta-analysis
+#| fig-cap: "Results of the correlation meta-analysis."
+library(metafor)
+library(ppcor)
+
+n_comp <- 3
+method <- "KullbackLeibler"
+selected_cols <- c("Classroom.ID", "Teacher.User.ID",
+                   "MDR.School.ID", "District.Rollup.ID",
+                   "week", "Usage.Week",
+                   # Main loadings of Components:
+                   "tch_min", "RD.optional_problem_sets",
+                   "Guided.Practice.Completed", "Tower.Completed",
+                   # Student Variables
+                   "Active.Users...Total", "Minutes.per.Active.User",
+                   "Badges.per.Active.User", "Boosts.per.Tower.Completion",
+                   "Tower.Alerts.per.Tower.Completion",
+                   # Classroom and Teacher Variables
+                   "teacher_number_classes", "Grade.Level",
+                   "Students...Total", "n_weeks",
+                   # School Variables
+                   "poverty", "income", "charter.school",
+                   "school.account", "zipcode")  # Column to select
+
+df_corr <- df %>%
+  ungroup() %>%
+  arrange(Classroom.ID, week) %>%
+  dplyr::select(all_of(selected_cols)) %>%
+  bind_cols(results_list[[method]][[n_comp - 1]]) %>%
+  rename_with(~paste0("Component", seq_len(n_comp)), last_col() - (n_comp - 1):0) 
+for (col in c(paste0("Component", seq_len(n_comp)),
+              "tch_min", "Badges.per.Active.User")) {
+  df_corr <- df_corr %>%
+    get_lag_value(col, 1)
+}
+
+# Define a safe version of pcor.test that returns NA when there's an error
+safe_pcor <- possibly(~pcor.test(..1, ..2, ..3, method = "spearman")$estimate,
+                      otherwise = NA)
+df_corr <- df_corr %>%
+  group_by(Classroom.ID,Teacher.User.ID,MDR.School.ID,District.Rollup.ID) %>%
+  summarise(
+    n = n(),
+    Component1 = safe_pcor(Component1, Badges.per.Active.User_1, Component1_1),
+    Component2 = safe_pcor(Component2, Badges.per.Active.User_1, Component2_1),
+    Component3 = safe_pcor(Component3, Badges.per.Active.User_1, Component3_1),
+    n_weeks = mean(n_weeks),
+    teacher_number_classes = mean(teacher_number_classes),
+    poverty = first(poverty),
+    income = first(income),
+    school.account = mean(school.account)
+  ) %>%
+  filter(!is.na(Component1) &
+           !is.na(Component2) &
+           !is.na(Component3))
+
+df_corr_sub <- df_corr %>%
+  as_tibble() %>%
+  slice_sample(prop = 0.05) %>%
+  mutate_at(vars(paste0("Component", seq_len(n_comp))),
+            list(~atanh(.))) %>%  # Fisher's z transformation
+  mutate_at(vars(paste0("Component", seq_len(n_comp))),
+            list(se = ~sqrt(1/(n - 2 - 2)))) %>%  # standard error sqrt(1/N−2−g)
+  gather(key = "outcome", value = "correlation", paste0("Component", seq_len(n_comp))) %>%
+  gather(key = "outcome_se", value = "se", paste0("Component", seq_len(n_comp), "_se")) %>%
+  filter(str_replace(outcome, "_se", "") == str_replace(outcome_se, "_se", "")) %>%
+  dplyr::select(-"outcome_se") %>%
+  filter(!is.na(se))
+
+# Run multivariate meta-analysis
+res <- rma.mv(yi = correlation,
+              V = se^2,
+              random = ~ 1 | Classroom.ID/Teacher.User.ID/MDR.School.ID/District.Rollup.ID,
+              mods = ~ -1 + outcome,
+              data = df_corr_sub)
+
+# Add columns for back-transformed effect sizes and their standard errors
+res_df <- data.frame(
+  estimate = coef(res),
+  outcome = str_replace(names(coef(res)), "outcome", ""),
+  # se = sqrt(diag(vcov(res)))
+  ci.lb = res$ci.lb,
+  ci.ub = res$ci.ub
+  ) %>%
+  mutate(
+    estimate_r = tanh(estimate),
+    ci.lb = tanh(ci.lb),
+    ci.ub = tanh(ci.ub)
+    # se_r = se / (1 - estimate^2)  # delta method for SE
+  )
+# Reverse the Fisher's Z transformation
+df_corr_sub <- df_corr_sub %>%
+  mutate(correlation = tanh(correlation))
+# Create the plot
+ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
+  geom_histogram(binwidth = 0.1, fill = "lightblue") +
+  geom_density(aes(weight = weights(res)),
+               alpha = 0.5) +
+  geom_vline(data = res_df,
+             aes(xintercept = estimate_r,
+                 color = outcome),
+             linetype = "dashed") +
+  geom_segment(data = res_df,
+               aes(x = ci.lb,
+                   y = 0,
+                   xend = ci.ub,
+                   yend = 0,
+                   color = outcome),
+               linewidth = 1.5) +
+  geom_text(data = res_df,
+            aes(x = estimate_r,
+                y = 0.15,
+                label = sub('0\\.', '.', round(estimate_r, 2))),
+            color = "black",
+            size = 3.5,
+            check_overlap = TRUE) +
+  facet_wrap(~outcome, scales = "free",  ncol = 2) +
+  labs(x = "Correlation", y = "Density") +
+  theme_light() +
+  scale_color_discrete(name = "Pooled effects \n (with 95% C.I.)")
+  theme(legend.position = c(0.85, 0.24),
+        legend.direction = "vertical")  # Set legend position and direction
+
+```
+
+```{r data cleaning}
+# Filter out the IDs with sd == 0
+df <- df %>%
+  filter(Classroom.ID %in% unique(df_corr$Classroom.ID))
+```
+
+```{r meta-analysis summary}
+#| eval: false
+summary(res)
+```
+
+
+
 ## **Policy Gradient Methods**
 
 R +VS'-VS
@@ -2187,6 +2062,91 @@ The three free parameters (, , and cost for Q-learning; w, , and cost for Gaussi
 The parameters were estimated using Hamiltonian Monte Carlo, as implemented in the Stan programming language (CITE Carpenter et al., 2017). We ran the model with 4 chains of 1000 iterations for each (of which the first 250 were discarded for burn-in). We verified convergence by visual inspection and by verifying that the potential scale reduction statistic R-hat (CITE Gelman and Rubin, 1992) was close to 1.0 (\<0.003 for all parameters) (PASTE Table 1). Note that for the Gaussian model, we limited parameter estimation of w, to very small values \[0, 0.0001\] as simulation demonstrated that values outside this range creates policy parameters and state value weights of extreme magnitudes, pushing the model to diverge with large standard deviations of the policy function.
 
 For the Q-learning model, we used the sampled parameters to compute per-trial Q values for each action, week, and teacher. We also calculated the probability of each choice through the softmax function. For the Gaussian model, we used the sampled parameters to compute per-trial mean and standard deviations, along with state values for each action, week, and teacher.
+
+## Bayesian Model Diagnostics
+
+```{r}
+#| label: tbl-diagnostics
+#| tbl-cap: "Diagnostics for the Bayesian Models used in Q-learning and Q-learning with states. The tables show diagnostics for three Non-negative Matrix Factorization (NMF) models: Frobenius (initialized with a Nonnegative Double Singular Value Decomposition), Frobenius Average (initialized with a Nonnegative Double Singular Value Decomposition with zeros filled with the average of each variable), and Kullback-Leibler. The rows correspond to 'alpha,' the learning rate, 'gamma,' the discount factor, 'tau,' the temperature parameter, 'cost' for each of the components from the NMF, 'sensi,' the reward sensitivity parameter, and 'Log Posterior,' the logarithm of the posterior probability. 'Rhat' indicates the potential scale reduction factor on split chains. Values close to 1.0 imply model convergence. 'ESS Bulk' and 'ESS Tail' represent the effective sample size for the bulk of the posterior distribution and its tail, respectively. An ESS of at least a few hundred is often considered sufficient for estimation purposes."
+
+results_files <- list.files(path = "Bayesian/Results", pattern = "*.RDS", full.names = TRUE)
+diag_df <- data.frame()
+
+for (result_file in results_files) {
+  fit <- readRDS(result_file)
+  
+  # Get summary
+  fit_summary <- fit$summary()
+  
+  # Create a data frame of the Rhat values and ESS
+  result_df <- data.frame(
+    Model = gsub("Bayesian/Results/||.RDS", "", result_file),
+    Variable = fit_summary$variable,
+    Rhat = fit_summary$rhat,
+    ESS_Bulk = fit_summary$ess_bulk,
+    ESS_Tail = fit_summary$ess_tail
+  )
+  
+  # Add result to the overall diagnostics data frame
+  diag_df <- rbind(diag_df, result_df)
+}
+# Reshape the data frame
+diag_df <- diag_df %>%
+  pivot_longer(cols = c(Rhat, ESS_Bulk, ESS_Tail),
+               names_to = "Statistic") %>%
+  pivot_wider(names_from = c(Model, Statistic),
+              values_from = value) %>%
+  mutate(Variable = if_else(Variable == "lp__", "Log Posterior", Variable))
+
+# Split the data into two separate data frames
+diag_df_q_learning_states <- diag_df[,c(TRUE, grepl("Q-learning-states-", names(diag_df))[-1])]
+diag_df_q_learning <- diag_df[,c(TRUE, (!names(diag_df) %in% names(diag_df_q_learning_states))[-1])]
+
+# Define the spanner labels for each model
+diag_df_q_learning %>%
+  gt() %>%
+  fmt_number(columns = c(-Variable), decimals = 2) %>%
+  tab_spanner(
+    label = "Frobenius",
+    columns = c(ends_with("FR_Rhat"), ends_with("FR_ESS_Bulk"), ends_with("FR_ESS_Tail"))
+  ) %>%
+  tab_spanner(
+    label = "Frobenius Average",
+    columns = c(ends_with("FRa_Rhat"), ends_with("FRa_ESS_Bulk"), ends_with("FRa_ESS_Tail"))
+  ) %>%
+  tab_spanner(
+    label = "Kullback-Leibler",
+    columns = c(ends_with("KL_Rhat"), ends_with("KL_ESS_Bulk"), ends_with("KL_ESS_Tail"))
+  ) %>%
+  cols_label(
+    ends_with("Rhat") ~ "Rhat",
+    ends_with("ESS_Bulk") ~ "ESS Bulk",
+    ends_with("ESS_Tail") ~ "ESS Tail"
+  )
+
+diag_df_q_learning %>%
+  gt() %>%
+  fmt_number(columns = c(-Variable), decimals = 2) %>%
+  tab_spanner(
+    label = "Frobenius",
+    columns = c(ends_with("FR_Rhat"), ends_with("FR_ESS_Bulk"), ends_with("FR_ESS_Tail"))
+  ) %>%
+  tab_spanner(
+    label = "Frobenius Average",
+    columns = c(ends_with("FRa_Rhat"), ends_with("FRa_ESS_Bulk"), ends_with("FRa_ESS_Tail"))
+  ) %>%
+  tab_spanner(
+    label = "Kullback-Leibler",
+    columns = c(ends_with("KL_Rhat"), ends_with("KL_ESS_Bulk"), ends_with("KL_ESS_Tail"))
+  ) %>%
+  cols_label(
+    ends_with("Rhat") ~ "Rhat",
+    ends_with("ESS_Bulk") ~ "ESS Bulk",
+    ends_with("ESS_Tail") ~ "ESS Tail"
+  )
+
+```
+
 
 # Alternative models {.appendix}
 
