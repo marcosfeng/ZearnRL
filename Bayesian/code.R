@@ -13,24 +13,17 @@ set.seed(683328979)
 
 # Declare Functions and Variables -----------------------------------------
 
-prepare_choice_array <- function(df, col1, col2, col3){
-  choices_df <- df %>%
-    select(Classroom.ID, row_n, !!col1, !!col2, !!col3)
-  # Combine choices into a single column and create an array
-  choices_df <- choices_df %>%
-    mutate(choice = ifelse(!!sym(col1) == 1, 1,
-                           ifelse(!!sym(col2) == 1, 2,
-                                  ifelse(!!sym(col3) == 1, 3, 4)))) %>%
-    dcast(Classroom.ID ~ row_n, value.var = "choice")
-  # Convert to array
-  choice_array <- array(0, dim = c(nrow(choices_df), max(df$row_n), 4))
-  for (i in 1:nrow(choices_df)) {
-    for (j in 2:ncol(choices_df)) {
-      choice_array[i, j - 1, choices_df[[i,j]]] <- 1
-    }
+prepare_choice_array <- function(df, col1, col2, col3) {
+  # Create zero-filled array with appropriate dimensions
+  classroom_array <- unique(df$Classroom.ID)
+  choice_array <- array(0, dim = c(length(classroom_array), max(df$row_n), 3))
+  # Populate array
+  for (i in 1:length(classroom_array)) {
+    n <- nrow(df[Classroom.ID == classroom_array[i]])
+    choice_array[i,1:n,1] <- unlist(df[Classroom.ID == classroom_array[i], ..col1])
+    choice_array[i,1:n,2] <- unlist(df[Classroom.ID == classroom_array[i], ..col2])
+    choice_array[i,1:n,3] <- unlist(df[Classroom.ID == classroom_array[i], ..col3])
   }
-  # Remove unnecessary columns and objects
-  rm(choices_df)
 
   return(choice_array)
 }
@@ -63,6 +56,9 @@ choices <- list(
   FRa = grep("FrobeniusNNDSVDA(.)bin", names(df), value = TRUE),
   KL = grep("Kullback.Leibler(.)bin", names(df), value = TRUE)
 )
+
+# Write to csv
+write.csv(df, "./Bayesian/df_subset.csv")
 
 # 1. Q-learning -----------------------------------------------------------
 
@@ -127,11 +123,10 @@ df <- df %>%
   arrange(Classroom.ID, week) %>%
   group_by(Classroom.ID) %>%
   mutate(tower_state = (Tower.Alerts.per.Tower.Completion -
-                    lag(Tower.Alerts.per.Tower.Completion)),
-         users_state = (Active.Users...Total -
-                          lag(Active.Users...Total))) %>%
-  replace_na(list(tower_state = 0, users_state = 0)) %>%
+                    lag(Tower.Alerts.per.Tower.Completion))) %>%
+  replace_na(list(tower_state = 0)) %>%
   ungroup() %>% as.data.table()
+num_state_var = 2 # Tower.Alerts.per.Tower.Completion + 1
 
 # Prepare list of models
 models <- c("Bayesian/Stan Files/Actor-Critic.stan")
@@ -147,7 +142,7 @@ for (choice in names(choices)) {
                                          choices[[choice]][3])
 
     # Create a 3D array with the correct dimensions
-    state_array <- array(0, dim = c(length(unique(df$Classroom.ID)), max(df$row_n), 3))
+    state_array <- array(0, dim = c(length(unique(df$Classroom.ID)), max(df$row_n), num_state_var))
     # Create a vector of unique Classroom.ID values
     unique_ids <- unique(df$Classroom.ID)
     # Fill the array with your state data
@@ -157,9 +152,7 @@ for (choice in names(choices)) {
         # Assuming df is ordered by Classroom.ID and row_n
         state_array[i, j, ] <- c(1,
                                  df[df$Classroom.ID == current_id &
-                                      df$row_n == j,]$tower_state,
-                                 df[df$Classroom.ID == current_id &
-                                      df$row_n == j,]$users_state)
+                                      df$row_n == j,]$tower_state)
       }
     }
 
@@ -181,7 +174,7 @@ for (choice in names(choices)) {
                      is.na(as.matrix(dcast(df,
                                            Classroom.ID ~ row_n,
                                            value.var = "week"))), 0)[,-1],
-      S = 3, # Number of states
+      S = num_state_var, # Number of states
       state = state_array
     )
 
@@ -203,15 +196,11 @@ for (choice in names(choices)) {
 }
 
 
-# 3. Hierarchical Models --------------------------------------------------
+# 3. Kernelized Q-learning ------------------------------------------------
 
-df[, Teacher.Rank := .GRP, by = .(Teacher.User.ID)]
-
-## Q-learning
 
 # Prepare list of models
-models <- c("Bayesian/Stan Files/Q-learning-hierarchical.stan",
-            "Bayesian/Stan Files/Q-learning-states-hierarchical.stan")
+models <- c("Bayesian/Stan Files/Q-learning-kernel.stan", "Bayesian/Stan Files/Q-learning.stan", "Bayesian/Stan Files/Q-learning-states.stan")
 
 # Generate Stan data, fit model, and save for each choice array
 for (choice in names(choices)) {
@@ -226,6 +215,74 @@ for (choice in names(choices)) {
     stan_data <- list(
       N = length(unique(df$Classroom.ID)), # Number of teachers
       T = max(df[, row_n]), # Maximum Tsubj across all teachers
+      Tsubj = df[, .N, by = .(Classroom.ID)][,N], # Number of rows by Teacher
+      choice = choice_array,
+      C = dim(choice_array)[3], # Number of choices
+      outcome = replace(as.matrix(dcast(df,
+                                        Classroom.ID ~ row_n,
+                                        value.var = "Badges.per.Active.User")), # Outcome matrix
+                        is.na(as.matrix(dcast(df,
+                                              Classroom.ID ~ row_n,
+                                              value.var = "Badges.per.Active.User"))), 0)[,-1],
+      week = replace(as.matrix(dcast(df,
+                                     Classroom.ID ~ row_n,
+                                     value.var = "week")), # Week matrix
+                     is.na(as.matrix(dcast(df,
+                                           Classroom.ID ~ row_n,
+                                           value.var = "week"))), 0)[,-1],
+      S = length(na.omit(unique(df$state))), # Number of states
+      state = replace(as.matrix(dcast(df,
+                                      Classroom.ID ~ row_n,
+                                      value.var = "state")), # State matrix
+                      is.na(as.matrix(dcast(df,
+                                            Classroom.ID ~ row_n,
+                                            value.var = "state"))), 1)[,-1],
+      K = 4 # Number of lags in kernel
+    )
+
+    my_model <- cmdstan_model(model)
+
+    fit <- my_model$sample(
+      data = stan_data,
+      chains = 3,
+      parallel_chains = 3,
+      iter_warmup = 1000,
+      iter_sampling = 1000
+    )
+
+    # Save the fit object
+    fit$save_object(file = paste0("Bayesian/Results/",
+                                  gsub("Bayesian/Stan Files/||.stan", "", model),
+                                  "-", choice, ".RDS"))
+  }
+}
+
+
+# 4. Hierarchical Models --------------------------------------------------
+
+df[, Teacher.Rank := .GRP, by = .(Teacher.User.ID)]
+
+## Q-learning
+
+# Prepare list of models
+models <- c("Bayesian/Stan Files/Q-kernel-hierarchical.stan")
+
+# Generate Stan data, fit model, and save for each choice array
+for (choice in names(choices)) {
+  for (model in models) {
+    print(paste0("Processing model: ", model, " with choice array: ", choice))
+
+    choice_array <- prepare_choice_array(df,
+                                         choices[[choice]][1],
+                                         choices[[choice]][2],
+                                         choices[[choice]][3])
+
+    stan_data <- list(
+      N = length(unique(df$Classroom.ID)), # Number of teachers
+      T = max(df[, row_n]), # Maximum Tsubj across all teachers
+      S = length(na.omit(unique(df$state))), # Number of states
+      K = 4, # Number of lags in kernel
+      C = dim(choice_array)[3], # Number of choices
       Tsubj = df[, .N, by = .(Classroom.ID)][,N], # Number of rows by Teacher
       choice = choice_array,
       outcome = replace(as.matrix(dcast(df,
@@ -256,78 +313,6 @@ for (choice in names(choices)) {
       data = stan_data,
       chains = 3,
       parallel_chains = 3,
-      iter_warmup = 2500,
-      iter_sampling = 2500
-    )
-
-    # Save the fit object
-    fit$save_object(file = paste0("Bayesian/Results/",
-                                  gsub("Bayesian/Stan Files/||.stan", "", model),
-                                  "-", choice, ".RDS"))
-  }
-}
-
-## Actor Critic
-
-models <- c("Bayesian/Stan Files/Actor-Critic-hierarchical.stan")
-
-# Generate Stan data, fit model, and save for each choice array
-for (choice in names(choices)) {
-  for (model in models) {
-    print(paste0("Processing model: ", model, " with choice array: ", choice))
-
-    choice_array <- prepare_choice_array(df,
-                                         choices[[choice]][1],
-                                         choices[[choice]][2],
-                                         choices[[choice]][3])
-
-    # Create a 3D array with the correct dimensions
-    state_array <- array(0, dim = c(length(unique(df$Classroom.ID)), max(df$row_n), 3))
-    # Create a vector of unique Classroom.ID values
-    unique_ids <- unique(df$Classroom.ID)
-    # Fill the array with your state data
-    for (i in seq_along(unique_ids)) {
-      current_id <- unique_ids[i]
-      for (j in 1:max(df[df$Classroom.ID == current_id,]$row_n)) {
-        # Assuming df is ordered by Classroom.ID and row_n
-        state_array[i, j, ] <- c(1,
-                                 df[df$Classroom.ID == current_id &
-                                      df$row_n == j,]$tower_state,
-                                 df[df$Classroom.ID == current_id &
-                                      df$row_n == j,]$users_state)
-      }
-    }
-
-    stan_data <- list(
-      N = length(unique(df$Classroom.ID)), # Number of teachers
-      T = max(df[, row_n]), # Maximum Tsubj across all teachers
-      Tsubj = df[, .N, by = .(Classroom.ID)][,N], # Number of rows by Teacher
-      choice = choice_array,
-      C = dim(choice_array)[3], # Number of choices
-      outcome = replace(as.matrix(dcast(df,
-                                        Classroom.ID ~ row_n,
-                                        value.var = "Badges.per.Active.User")), # Outcome matrix
-                        is.na(as.matrix(dcast(df,
-                                              Classroom.ID ~ row_n,
-                                              value.var = "Badges.per.Active.User"))), 0)[,-1],
-      week = replace(as.matrix(dcast(df,
-                                     Classroom.ID ~ row_n,
-                                     value.var = "week")), # Week matrix
-                     is.na(as.matrix(dcast(df,
-                                           Classroom.ID ~ row_n,
-                                           value.var = "week"))), 0)[,-1],
-      S = 3, # Number of states
-      state = state_array,
-      group = unique(df[, .(Classroom.ID, Teacher.User.ID, Teacher.Rank)])$Teacher.Rank,
-      number_teachers = length(unique(df$Teacher.User.ID))
-    )
-
-    my_model <- cmdstan_model(model)
-
-    fit <- my_model$sample(
-      data = stan_data,
-      chains = 3,
-      parallel_chains = 3,
       iter_warmup = 5000,
       iter_sampling = 5000
     )
@@ -338,7 +323,6 @@ for (choice in names(choices)) {
                                   "-", choice, ".RDS"))
   }
 }
-
 
 #quick diagnostics
 library("shinystan")

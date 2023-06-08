@@ -7,6 +7,7 @@ data {
   int<lower=1> T;
   int<lower=1> S;  // Number of states
   int<lower=2> C;  // Number of choices
+  int<lower=1> K;  // Number of lags in kernel
   array[N] int<lower=1, upper=T> Tsubj; // Rounds total for each subject
   array[N,T] int<lower=0> week; // Number of the week
   array[N, T, C] int<lower=0, upper=1> choice; // Choice for each component (as binary values)
@@ -45,9 +46,28 @@ model {
         choice[i, t, j] ~ bernoulli_logit(tau * ev[j, state[i, t]]);
         if (t == Tsubj[i])  // Last week
           continue;
+        // kernel reward
+        real ker_reward = 0;
+        real ker_norm   = 0;
         real PE = 0;      // prediction error
-        if (choice[i, t, j] == 1) {
-          PE = gamma * (outcome[i, t] - cost[j])
+        for (t_past in 1:K) {
+          if (t_past > t)
+            continue;
+          real jaccard_sim = 0; // Similarity for each state-action pair
+          if (choice[i, t, j] == choice[i, t - (t_past - 1), j]) {
+            jaccard_sim += 0.5;
+            if (state[i, t] == state[i, t - (t_past - 1)]) {
+              jaccard_sim += 0.5;
+            }
+            ker_reward += gamma^(1 + week[i, t] - week[i, t - (t_past - 1)])
+                          * jaccard_sim
+                          * outcome[i, t - (t_past - 1)];
+            ker_norm   += jaccard_sim;
+          }
+        }
+        if (ker_norm != 0) {
+          ker_reward /= ker_norm;
+          PE = (ker_reward - cost[j])
                - ev[j, state[i, t]];
           // value updating (learning)
           ev[j, state[i, t]] += alpha * PE;
@@ -79,9 +99,28 @@ generated quantities {
         y_pred[i, t] = inv_logit(tau * ev[j, state[i, t]]);
         if (t == Tsubj[i])  // Last week
           continue;
+        // kernel reward
+        real ker_reward = 0;
+        real ker_norm   = 0;
         real PE = 0;      // prediction error
-        if (choice[i, t, j] == 1) {
-          PE = gamma * (outcome[i, t] - cost[j])
+        for (t_past in 1:K) {
+          if (t_past > t)
+            continue;
+          real jaccard_sim = 0; // Similarity for each state-action pair
+          if (choice[i, t, j] == choice[i, t - (t_past - 1), j]) {
+            jaccard_sim += 0.5;
+            if (state[i, t] == state[i, t - (t_past - 1)]) {
+              jaccard_sim += 0.5;
+            }
+            ker_reward += gamma^(1 + week[i, t] - week[i, t - (t_past - 1)])
+                          * jaccard_sim
+                          * outcome[i, t - (t_past - 1)];
+            ker_norm   += jaccard_sim;
+          }
+        }
+        if (ker_norm != 0) {
+          ker_reward /= ker_norm;
+          PE = (ker_reward - cost[j])
                - ev[j, state[i, t]];
           // value updating (learning)
           ev[j, state[i, t]] += alpha * PE;
@@ -90,3 +129,4 @@ generated quantities {
     }
   }
 }
+

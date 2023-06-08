@@ -236,11 +236,11 @@ library(RColorBrewer)
 library(grid)
 library(gridExtra)
 library(scales)
-library(gtsummary)
 library(gt)
+library(gtsummary)
 library(PerformanceAnalytics)
-library(foreach)
 library(doParallel)
+library(foreach)
 library(reticulate)
 use_condaenv(condaenv = "./py-zearn")
 
@@ -270,10 +270,8 @@ dt[, `:=`(
                           1, ifelse(school.account == "No",
                                     0, NA)),
   # Log Transform
-  Minutes.per.Active.User = log(Minutes.per.Active.User + 1),
   Badges.per.Active.User = log(Badges.per.Active.User + 1),
   Tower.Alerts.per.Tower.Completion = log(Tower.Alerts.per.Tower.Completion + 1),
-  User.Session = log(User.Session + 1),
   tch_min = log(tch_min + 1)
 )]
 
@@ -676,13 +674,11 @@ df_corr <- df  %>%
          Active.Users...Total,
          Minutes.per.Active.User,
          Tower.Alerts.per.Tower.Completion,
-         User.Session,
          tch_min) %>%
   rename("Badges" = Badges.per.Active.User,
          "Minutes per Student" = Minutes.per.Active.User,
          "Tower Alerts" = Tower.Alerts.per.Tower.Completion,
          "# of Students" = Active.Users...Total,
-         "Teacher Logins" = User.Session,
          "Teacher Minutes" = tch_min)
 
 chart.Correlation(df_corr, histogram = TRUE, method = "pearson",
@@ -720,7 +716,7 @@ df$set <- ifelse(df$Teacher.User.ID %in%
 # Create base data.table for models (faster than data.frame)
 df_comp <- as.data.table(df %>% 
                            select(Classroom.ID, week, Badges.per.Active.User,
-                                  set, tch_min, User.Session, 
+                                  set, tch_min,
                                   RD.elementary_schedule:RD.pd_course_guide))
 # Arrange
 setorder(df_comp, Classroom.ID, week)
@@ -743,7 +739,6 @@ rm(list = setdiff(ls(), c("df", "df_pca", "df_comp", "random_py")))
 ```
 
 ```{python nmf}
-#| cache: true
 import numpy as np
 import pandas as pd
 from sklearnex import patch_sklearn
@@ -976,6 +971,7 @@ model.save('./autoencoder_tuning/final_model.h5')
 ```
 
 ```{python load autoencoder}
+#| eval: false
 from tensorflow.keras.models import load_model
 from keras.models import Model
 from keras.layers import Input
@@ -1015,6 +1011,7 @@ get_encoded_representation_and_components(loaded_model, X_scaled)
 ```
 
 ```{r}
+#| eval: false
 #| cache: true
 #| label: fig-nmf-pca-comparison
 #| fig-cap: "Comparison of residuals and silhouette scores for PCA, Frobenius, and Kullback-Leibler methods."
@@ -1091,6 +1088,7 @@ comparison_plot
 <!-- To ensure a more intuitive interpretation, we adjust each component to ensure a positive correlation with Student Badges (multiplying them by $-1$ if necessary). -->
 
 ```{r}
+#| eval: false
 #| cache: true
 #| label: fig-nmf-heatmap
 #| fig-cap: ""
@@ -1141,7 +1139,7 @@ for (method in methods) {
   
   # Adjust column names
   new_cols <- paste0(method, 1:3)
-  names(df_components)[(ncol(df_components)-2):ncol(df_components)] <- new_cols
+  names(df_components)[(ncol(df_components) - 2):ncol(df_components)] <- new_cols
 }
 
 # Write to csv
@@ -1550,10 +1548,10 @@ df_coeffs_long <- full_join(df_estimates,
                             by = c("variable", "lag", "badges")) %>%
   mutate(Action = factor(variable, 
                          levels = c("KullbackLeibler1", "KullbackLeibler2", "KullbackLeibler3",
-                                    "tch_min", "User.Session",
+                                    "tch_min",
                                     "Badges.per.Active.User"),
                          labels = c("Kullback-Leibler1", "Kullback-Leibler2", "Kullback-Leibler3",
-                                    "Teacher Minutes", "Teacher Logins",
+                                    "Teacher Minutes",
                                     "Badges")),
          Action = case_when(badges ~ "Badges",
                             .default = Action))
@@ -1699,91 +1697,121 @@ BIC penalizes models based on their complexity (number of parameters used) and t
 
 ## Q-Learning Analysis
 
+```{r}
+#| label: tbl-choose-RL-model
+#| tbl-cap: "Comparison of Negative Log likelihood values of posteriors across different models. Lower values indicate better model fit."
+results_files <- list.files(path = "Bayesian/Results", pattern = "*.RDS", full.names = TRUE)
+
+# Function to extract median of lp__ from a model
+extract_lp_median <- function(model_file) {
+  fit <- readRDS(model_file)
+  lp_median <- fit$summary("lp__", "median")  # Get the median of lp__
+  data.frame(Model = gsub("Bayesian/Results/||.RDS", "", model_file),
+             NLL_Median = -1 * as.numeric(lp_median))
+}
+
+# Apply function to all models and combine into one dataframe
+lp_df <- map_df(results_files, extract_lp_median) %>%
+  na.exclude()
+lp_df$Method <- gsub(".*-", "", lp_df$Model)
+lp_df$ModelType <- str_extract(lp_df$Model, ".*(?=-)")
+
+# Create the table with models as rows and NMF methods as columns
+table_df <- lp_df %>%
+  select(-c("Model")) %>%
+  pivot_wider(names_from = Method, values_from = NLL_Median) %>%
+  arrange(desc(ModelType))
+# To highlight the best value in the table
+table_df %>%
+  gt() %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(
+      columns = names(table_df)[colSums(table_df == min(table_df[,-1])) >= 1],
+      rows = rowSums(table_df == min(table_df[,-1])) >= 1
+    )
+  )
+
+
+```
+
 <!-- Find a graph that displays results better (rather than the one user to fit) -->
 
 We first present the following tables with the 25th, 50th, and 75th percentile of the learning rate (), inverse temperature (), weights, and cost parameters of the Q-learning models (non-hierarchical and hierarchical). 
 
-|                            |                     |            |                     |
-|----------------------------|---------------------|------------|---------------------|
-| **Parameter**              | **25th percentile** | **Median** | **75th percentile** |
-| Alpha (learning rate)      | 0.316               | 0.347      | 0.383               |
-| Beta (inverse temperature) | 0.503               | 0.528      | 0.552               |
-| Weight (this week)         | 0.553               | 0.712      | 0.832               |
-| Weight (next week)         | 0.567	               | 0.725      | 0.859               |
-| Weight (2 weeks from now)  | 0.005               | 0.012      | 0.027               |
-| Cost                       | 0.364               | 0.39       | 0.418               |
-
 These are the group-level parameters that reflect the distribution of the subject-level parameters.
 
-|                            |                     |            |                     |
-|----------------------------|---------------------|------------|---------------------|
-| **Parameter**              | **25th percentile** | **Median** | **75th percentile** |
-| Alpha (learning rate)      | 0.137               | 0.154      | 0.174               |
-| Beta (inverse temperature) | 0.980               | 0.990      | 0.995               |
-| Weight (this week)         | 7.44E-03            | 0.0220     | 7.09E-02            |
-| Weight (next week)         | 5.18E-03            | 0.0554     | 0.622               |
-| Weight (2 weeks from now)  | 7.67E-06            | 2.32E-04   | 6.00E-03            |
-| Cost                       | 0.449               | 0.488      | 0.529               |
 
 ## Actor-Critic Analysis
 
 ### **(non-hierarchical)**
 
-| **Parameter**        | **25th percentile** | **Median** | **75th percentile** |
-|----------------------|---------------------|------------|---------------------|
-| W (step size for W)  | 7.54E-02            | 8.37E-02   | 9.12E-02            |
-|  (step size for θ)   | 8.44E-03            | 9.67E-03   | 1.09E-02            |
-| w (decay rate for W) | 0.087               | 0.154      | 0.242               |
-|  (decay rate for θ)  | 0.398               | 0.450      | 0.517               |
-|  (discount factor)   | 0.831               | 0.848      | 0.861               |
-| Cost                 | 2.69E-02            | 4.40E-02   | 6.74E-02            |
-
 Table. Fitted Parameters for Non-Hierarchical Actor-Critic learning model with Eligibility
 
 ### **(hierarchical)**
 
-|                      |                     |            |                     |
-|----------------------|---------------------|------------|---------------------|
-| **Parameter**        | **25th percentile** | **Median** | **75th percentile** |
-| W (step size for W)  | 0.150               | 0.158      | 0.166               |
-|  (step size for θ)   | 1.84E-02            | 1.94E-02   | 0.021               |
-| w (decay rate for W) | 4.76E-03            | 5.26E-03   | 0.006               |
-|  (decay rate for θ)  | 0.541               | 0.554      | 0.565               |
-|  (discount factor)   | 0.779               | 0.786      | 0.793               |
-| Cost                 | 0.271               | 0.282      | 0.292               |
 
 Table. Average of Fitted Parameters for Actor-Critic learning model with Eligibility from
 
-## Gaussian Policy
-
-### **Gaussian Policy with Lags**
-
-|                    |                     |            |                     |
-|--------------------|---------------------|------------|---------------------|
-| **Parameter**      | **25th percentile** | **Median** | **75th percentile** |
-| w                  | 0.00012             | 0.00029    | 0.00049             |
-|                    | 0.00097             | 0.00098    | 0.00099             |
-| Weight (this week) | 0.78482             | 0.88553    | 0.95018             |
-| Weight (next week) | 0.06395             | 0.07936    | 0.09571             |
-| Cost               | -1.52356            | -1.41031   | -1.30713            |
-
-Table. Fitted Parameters for Gaussian Policy model with lags from RStan.
-
 ## Model Comparison
 
-We compare these four models by calculating the associated Bayesian Information Criterion (BIC) of each. Models with lags will be penalized for including two extra parameters. 
+We compare these four models by calculating the associated Bayesian Information Criterion (BIC) of each. Models with lags will be penalized for including two extra parameters.
 
-+-------------------------+----------------+----------------+---------------+--------------+
-|                         | **Q-learning** | **Q-learning** | **Gaussian**  | **Gaussian** |
-|                         |                |                |               |              |
-|                         | **(lags)**     | **(no lags)**  | **(no lags)** | **(lags)**   |
-+-------------------------+----------------+----------------+---------------+--------------+
-| Negative Log Likelihood | 22,351.658     | 24,310.357     | 23,838.27     |              |
-+-------------------------+----------------+----------------+---------------+--------------+
-| Number of Parameters    | 5              | 3              | 5             | 7            |
-+-------------------------+----------------+----------------+---------------+--------------+
-| BIC                     | 44,722.80      | 48,632.40      | 47,703.03     |              |
-+-------------------------+----------------+----------------+---------------+--------------+
+```{r}
+#| label: tbl-RL-logit-comp
+#| tbl-cap: "LOOIC (Leave-One-Out Information Criterion) values were calculated for four different models: Q-learning, Logit, Q-learning Hierarchical, and Logit Hierarchical. The LOOIC provides a measure of model quality, with lower values indicating better model performance. Q-learning models were built using a kernel-based approach. Logit models were fit using logistic regression, with the Hierarchical versions incorporating a hierarchical structure to account for classroom-level variations. The LOOIC was calculated using the 'loo' function from the 'loo' package in R, which estimates the expected log predictive density for a held-out data point, based on the rest of the data."
+
+library(lme4)
+library(brms)
+library(loo)
+
+fit_model <- function(formula, data) {
+  model <- brm(formula, data = data, family = bernoulli(), cores = 3)
+  return(model)
+}
+
+df_subset <- read.csv(file = "./Bayesian/df_subset.csv")
+setDT(df_subset)
+df_subset$state <- df_subset$state - 1
+for (col in paste0("FrobeniusNNDSVD", 1:3, "bin")) {
+  df_subset <- get_lag_value(df_subset, col, 1)
+}
+
+# Non-hierarchical models
+## Q-learning model
+post <- read_rds("Bayesian/Results/Q-learning-kernel-FR.RDS")
+loo_qlearn <- post$loo()$estimates["looic", ]
+## Logit
+formulas_nh <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state,
+                    FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state,
+                    FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state)
+models_nh <- lapply(formulas_nh, fit_model, data = df_subset)
+loo_nh <- sapply(models_nh, loo)
+looic_nh <- sum(unlist(loo_nh["looic",]))
+
+# Hierarchical models
+## Q-learning
+post <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
+loo_qhierarchical <- post$loo()$estimates["looic", ]
+## Logit
+formulas_h <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state | Classroom.ID),
+                   FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state | Classroom.ID),
+                   FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state | Classroom.ID))
+models_h <- lapply(formulas_h, fit_model, data = df_subset)
+loo_h <- sapply(models_h, loo)
+looic_h <- sum(unlist(loo_h["looic",]))
+
+
+# Collect LOOIC values
+looic_values <- c(loo_qlearn[1],looic_nh, 
+                  loo_qhierarchical[1], looic_h)
+df_looic <- data.frame(Model = c("Q-learning", "Logit", "Q-learning Hierarchical", "Logit Hierarchical"),
+                       LOOIC = looic_values)
+
+# Create gt table
+gt(df_looic)
+
+```
 
 ## **Optimality**
 
@@ -2099,8 +2127,10 @@ diag_df <- diag_df %>%
   mutate(Variable = if_else(Variable == "lp__", "Log Posterior", Variable))
 
 # Split the data into two separate data frames
+diag_df_actor_critic <- diag_df[,c(TRUE, grepl("Actor-Critic-", names(diag_df))[-1])]
 diag_df_q_learning_states <- diag_df[,c(TRUE, grepl("Q-learning-states-", names(diag_df))[-1])]
-diag_df_q_learning <- diag_df[,c(TRUE, (!names(diag_df) %in% names(diag_df_q_learning_states))[-1])]
+diag_df_q_learning <- diag_df[,c(TRUE, (!names(diag_df) %in% names(diag_df_q_learning_states) &
+                                          !names(diag_df) %in% names(diag_df_actor_critic))[-1])]
 
 # Define the spanner labels for each model
 diag_df_q_learning %>%
@@ -2124,7 +2154,28 @@ diag_df_q_learning %>%
     ends_with("ESS_Tail") ~ "ESS Tail"
   )
 
-diag_df_q_learning %>%
+diag_df_q_learning_states %>%
+  gt() %>%
+  fmt_number(columns = c(-Variable), decimals = 2) %>%
+  tab_spanner(
+    label = "Frobenius",
+    columns = c(ends_with("FR_Rhat"), ends_with("FR_ESS_Bulk"), ends_with("FR_ESS_Tail"))
+  ) %>%
+  tab_spanner(
+    label = "Frobenius Average",
+    columns = c(ends_with("FRa_Rhat"), ends_with("FRa_ESS_Bulk"), ends_with("FRa_ESS_Tail"))
+  ) %>%
+  tab_spanner(
+    label = "Kullback-Leibler",
+    columns = c(ends_with("KL_Rhat"), ends_with("KL_ESS_Bulk"), ends_with("KL_ESS_Tail"))
+  ) %>%
+  cols_label(
+    ends_with("Rhat") ~ "Rhat",
+    ends_with("ESS_Bulk") ~ "ESS Bulk",
+    ends_with("ESS_Tail") ~ "ESS Tail"
+  )
+
+diag_df_actor_critic %>%
   gt() %>%
   fmt_number(columns = c(-Variable), decimals = 2) %>%
   tab_spanner(
