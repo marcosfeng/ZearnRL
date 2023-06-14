@@ -1,7 +1,7 @@
 ---
 title: "Predicting Repeated Behavior in Behavioral Sciences"
 subtitle: "Applying Reinforcement Learning in Teacher Decision-Making"
-abstract: "This paper aims to model the decision-making process of a teacher in a math-teaching platform named Zearn with an RL algorithm. Akin to a multi-armed bandit, teachers choose how much effort to put in per week (in minutes) based on a function of the cost of teachers’ time and the number of lessons their students earned as rewards. Every teacher is attempting to both “learn” (i.e., explore) and  “optimize” (i.e., exploit) their number of minutes spent on Zearn and learn over time how they should engage with the platform. We find that teachers who prefer to explore _______, whereas teachers who prefer to exploit ___________."
+abstract: "This paper aims to model the decision-making process of a teacher in a math-teaching platform named Zearn with an RL algorithm. Akin to a multi-armed bandit, teachers choose how much effort to put in per week (in minutes) based on a function of the cost of teachers’ time and the number of lessons their students earned as rewards. Every teacher is attempting to both “learn” (i.e., explore) and  “optimize” (i.e., exploit) their number of minutes spent on Zearn and learn over time how they should engage with the platform. We find that teachers who prefer to explore... , whereas teachers who prefer to exploit..."
 keywords: "Reinforcement Learning, education, habits"
 author:
   - name: Marcos Gallo
@@ -9,12 +9,13 @@ author:
 format:
   elsevier-pdf:
     journal:
+      keep-tex: true
       formatting: preprint
       model: 3p
       layout: onecolumn
       cite-style: number
       # graphical-abstract: "![](abstract.png)"
-# bibliography: zearnrefs.bib
+bibliography: zearnrefs.bib
 
 execute:
   echo: false
@@ -32,7 +33,7 @@ Predicting repeated behavior has been a goal of the behavioral sciences, includi
 
 ADD: goals, research questions, hypotheses, overall contribution to the field.
 
-This paper aims to model the decision-making process of a teacher in a math-teaching platform named Zearn (CITE Zearn) with an RL algorithm. Given these instructors' context, we argue that an RL model is most appropriate. Using both real and simulated data, we model the teachers as decision makers in a reinforcement learning context, akin to a multi-armed bandit, choosing how much effort to put in per week (in minutes) based on a function of cost of teachers\' time and the number of badges their students earned in previous week\'s rewards. We assume that every teacher has an objective function where they want to balance how much time they spend using Zearn (e.g., assigning homework, checking student progress, and reviewing content) with the potential for students to receive badges. Every teacher is attempting to both \"learn\" and  \"optimize\" their number of minutes spent on Zearn and learn over time how they should engage with the platform assuming that the relationship between teacher minutes and student badges is stochastic. There is a tradeoff between learning, also known as exploring (spending varying amounts of time on the platform to see how effort affects student achievement) and optimizing, also known as exploiting (spending amounts of time on the platform that teachers know already have good outcomes without wasting their time), that our model is able to explicitly quantify (learning rate and inverse temperature for the algorithmically informed). The RL algorithm allows for this type of flexibility for learning the best strategy given certain contextual information by modeling the tradeoff between teachers exploring unknown options while exploiting the information they have about the Zearn system. Inputs can, and perhaps should be flexible to temporary needs by students. For example, on a week in which students struggle more, the teacher should adjust their effort accordingly. As such, reinforcement learning offers a flexible and robust model for our available data.
+This paper aims to model the decision-making process of a teacher in a math-teaching platform named Zearn (CITE Zearn) with an RL algorithm. Given these instructors' context, we argue that an RL model is most appropriate. Using both real and simulated data, we model the teachers as decision makers in a reinforcement learning context, akin to a multi-armed bandit, choosing how much effort to put in per week (in minutes) based on a function of cost of teachers' time and the number of badges their students earned in previous week's rewards. We assume that every teacher has an objective function where they want to balance how much time they spend using Zearn (e.g., assigning homework, checking student progress, and reviewing content) with the potential for students to receive badges. Every teacher is attempting to both "learn" and "optimize" their number of minutes spent on Zearn and learn over time how they should engage with the platform assuming that the relationship between teacher minutes and student badges is stochastic. There is a tradeoff between learning, also known as exploring (spending varying amounts of time on the platform to see how effort affects student achievement) and optimizing, also known as exploiting (spending amounts of time on the platform that teachers know already have good outcomes without wasting their time), that our model is able to explicitly quantify (learning rate and inverse temperature for the algorithmically informed). The RL algorithm allows for this type of flexibility for learning the best strategy given certain contextual information by modeling the tradeoff between teachers exploring unknown options while exploiting the information they have about the Zearn system. Inputs can, and perhaps should be flexible to temporary needs by students. For example, on a week in which students struggle more, the teacher should adjust their effort accordingly. As such, reinforcement learning offers a flexible and robust model for our available data.
 
 # Context and Research Questions
 
@@ -72,13 +73,13 @@ Personalized learning experience for students. Teachers track student progress a
 
 ### Education production function
 
-Previous research has explored how teacher effort affects student achievement. In particular, economists have studied the "education production function," in which teacher inputs are directly related to student outputs (see CITE Duflo et al.). One common approach to identifying this function\'s effects is to change the context under which teachers operate, thereby modulating the input levels. For example, Duflo et al. (CITE) test the effects of tracking: the separation and placement of students into level-appropriate classrooms. Tracking has been a prominent tool in the sociology of education and assumes that teacher inputs will depend on the classroom organization.
+Previous research has explored how teacher effort affects student achievement. In particular, economists have studied the "education production function," in which teacher inputs are directly related to student outputs (see CITE Duflo et al.). One common approach to identifying this function's effects is to change the context under which teachers operate, thereby modulating the input levels. For example, Duflo et al. (CITE) test the effects of tracking: the separation and placement of students into level-appropriate classrooms. Tracking has been a prominent tool in the sociology of education and assumes that teacher inputs will depend on the classroom organization.
 
 These common social science approaches lack the flexibility of a model that allows for changes with context and experience and individual-level differences. On the other hand, RL provides a flexible paradigm by fitting a flexibility term (i.e., a learning rate) and an exploration versus exploitation term (e.g., inverse temperature). The process of learning the reward makes the model inherently flexible.
 
 In RL, an agent aims to learn a policy that produces the highest possible reward. A policy is a mapping from states to actions (or, most commonly, a probability distribution over actions) (CITE Sutton and Barto 1998). Central to RL is the idea of learning a policy when its parameters are not known ahead of time.
 
-This model has been used before in the context of teaching and education. One of the first researchers of Markov decision processes, Ronald Howard, attempted to apply his mathematical framework to instruction theory (CITE Howard 1960). In 1972, Richard Atkinson proposed a theory of instruction that requires \"(1) A model of the learning process, (2) Specification of admissible instructional actions, (3) Specification of instructional objectives, (4) A measurement scale that permits costs to be assigned to each of the instructional actions and payoffs to the achievement of instructional objectives\" (CITE Atkinson 1972).
+This model has been used before in the context of teaching and education. One of the first researchers of Markov decision processes, Ronald Howard, attempted to apply his mathematical framework to instruction theory (CITE Howard 1960). In 1972, Richard Atkinson proposed a theory of instruction that requires "(1) A model of the learning process, (2) Specification of admissible instructional actions, (3) Specification of instructional objectives, (4) A measurement scale that permits costs to be assigned to each of the instructional actions and payoffs to the achievement of instructional objectives" (CITE Atkinson 1972).
 
 Atkinson (CITE 1972) then described this model as a Markov decision process, including components well-known in modern RL theory: states, actions, transition probabilities, reward functions, and a time horizon. In this framework, actions are instructional activities (e.g., assigning problem sets) that can change a given state (e.g., student learning level). These changes of states can yield to reward minus the associated cost of the action. For example, a teacher may be rewarded by an increase in the knowledge or skill of a student, but such reward must be balanced with its associated effort (e.g., labor cost). Atkinson and colleagues continued to test many parametrizations of this idea (see CITE Doroudi et al. 2019 for a full review).
 
@@ -204,7 +205,6 @@ D. Continuous Control through a Gaussian Policy 1. Probability distribution over
 Given the continuous nature of some of our data (i.e., minutes teachers spent on the Zearn platform), it is possible to learn statistics of the probability distribution over actions instead of computing learned probabilities for each of many discretized actions. That is, instead of using the inverse logit function to calculate the probability of logging in, this model chooses actions (i.e., number of minutes teachers spent on the platform) from a Gaussian distribution.
 
 Some of the most attractive features of these models are their inherent flexibility, and the typification of teachers. We can, in each of these models, extract, respectively: (1) a learning rate, an inverse temperature, and a cost; and (2) step sizes (akin to learning rates) for value weights and policy weights, and a cost. We can consequently derive a time series of averages and standard deviations of the gaussian policy.
-
 
 <!-- Literature Review -->
 
@@ -644,12 +644,13 @@ df <- as.data.frame(dt) %>%
   arrange(Classroom.ID, week)
 # Clean environment
 rm(list = setdiff(ls(), c("df","random_py")))
+gc(verbose = FALSE)
 
 ```
 
 ## Variables of interest
 
-Our Zearn data can be viewed as time-series (over the course of the school year, \~ 40 weeks). We propose to analyze the relationship between teacher effort and student achievement through temporal dynamics in the data. For the implementation of RL models, we need both an input (action) and an output (reward). For this purpose, we use teacher weekly log-ins (a binary variable, 0 = no log-ins and 1 = at least 1 log-in) or weekly time spent on Zearn\'s platform (in minutes) as quantifiable proxies for teacher effort. We assume that teachers on Zearn are in control of these two variables, and choosing how much time to allocate to the platform is central to this decision process. Although these are not perfect proxies for teacher effort, for example, they do not account for time spent creating assignments and performing in person instruction to students, they are the only directly quantifiable information about teacher behavior that we have in the data that even has the potential to impact student achievement. Further, we use student lesson completion (badges completed) as a measure of student effort level, given that developers at Zearn and teachers strongly emphasize the importance of lesson completion (instead of a grade, for example). The following histograms show the distribution of teacher minutes and student badges. Note the skewed nature of these distributions. As such, we transform our data prior to model fitting with log(minutes + 1) and log(badges + 1) as the inputs and outputs, respectively.
+Our Zearn data can be viewed as time-series (over the course of the school year, \~ 40 weeks). We propose to analyze the relationship between teacher effort and student achievement through temporal dynamics in the data. For the implementation of RL models, we need both an input (action) and an output (reward). For this purpose, we use teacher weekly log-ins (a binary variable, 0 = no log-ins and 1 = at least 1 log-in) or weekly time spent on Zearn's platform (in minutes) as quantifiable proxies for teacher effort. We assume that teachers on Zearn are in control of these two variables, and choosing how much time to allocate to the platform is central to this decision process. Although these are not perfect proxies for teacher effort, for example, they do not account for time spent creating assignments and performing in person instruction to students, they are the only directly quantifiable information about teacher behavior that we have in the data that even has the potential to impact student achievement. Further, we use student lesson completion (badges completed) as a measure of student effort level, given that developers at Zearn and teachers strongly emphasize the importance of lesson completion (instead of a grade, for example). The following histograms show the distribution of teacher minutes and student badges. Note the skewed nature of these distributions. As such, we transform our data prior to model fitting with log(minutes + 1) and log(badges + 1) as the inputs and outputs, respectively.
 
 ### State Variables
 
@@ -664,6 +665,7 @@ For this paper's second class of Reinforcement Learning models, we require varia
 @fig-corr displays the correlation matrix of selected variables.
 
 ```{r}
+#| cache: true
 #| label: fig-corr
 #| fig-cap: "This graph represents the correlation between variables after log transformation"
 #| fig-format: png
@@ -693,8 +695,6 @@ In order to capture the choices and trade-offs that teachers make, we used a Pri
 
 PCA was performed to mitigate the high-dimensionality of the dataset, seeking to encapsulate the maximum statistical information. We then calculated the correlations between the "Badges per Student" and the following variables: Teacher Minutes, and the three principal components (PC1, PC2, PC3). This facet of the analysis, which had a unit of analysis at the teacher level, was conducted to analyze the relationship between badges and the selected variables for each Teacher.
 
-@fig-pca displays the Scree plot showing the optimal number of principal components.
-
 The Non-negative Matrix Factorization (NMF) operates as follows:
 
 The original matrix can be seen as a detailed description of all the teachers' behaviors. Each row in the matrix represents a unique teacher, and each column represents a specific behavior or action the teacher might take. The entry in a specific row and column then corresponds to the occurrence, frequency, or intensity of that behavior for that particular teacher. After the NMF, we have two matrices:
@@ -705,7 +705,7 @@ The original matrix can be seen as a detailed description of all the teachers' b
 By looking at these matrices, we can identify underlying patterns of behaviors (from the basis matrix) and see how these patterns are mixed and matched in different teachers (from the mixture matrix). This can be a powerful way of summarizing and interpreting complex behavioral data.
 
 ```{r pca nmf data-prep}
-
+#| include: false
 # Choose which Teacher.User.IDs will be train vs test
 df$set <- ifelse(df$Teacher.User.ID %in%
                  sample(unique(df$Teacher.User.ID),
@@ -734,10 +734,11 @@ df_pca <- df_pca %>% select(-all_of(invalid_cols))
 
 # Clean environment
 rm(list = setdiff(ls(), c("df", "df_pca", "df_comp", "random_py")))
+gc(verbose = FALSE)
 
 ```
 
-```{python nmf}
+```{python load data}
 import numpy as np
 import pandas as pd
 from sklearnex import patch_sklearn
@@ -769,6 +770,9 @@ silhouette = {}
 
 # Number of components for NMF
 n_comp = min(X.shape) // 3
+```
+
+```{python pca-nmf}
 
 ################ PCA
 for n in range(2, n_comp):
@@ -970,6 +974,7 @@ model.save('./autoencoder_tuning/final_model.h5')
 ```
 
 ```{python load autoencoder}
+#| include: false
 from tensorflow.keras.models import load_model
 from keras.models import Model
 from keras.layers import Input
@@ -1004,12 +1009,31 @@ def get_encoded_representation_and_components(best_model, X):
 n_features = X_scaled.shape[1]
 # Get encoded representation and components
 get_encoded_representation_and_components(loaded_model, X_scaled)
+```
 
+```{python clean environment}
+#| include: false
+# get the names of all variables in the global namespace
+all_vars = list(globals().keys())
+
+# list of variables to keep
+keep_vars = ['residuals', 'silhouette', 'components', 'results', 'r']
+
+# delete all variables that are not in keep_vars
+for var in all_vars:
+    if var not in keep_vars:
+        del globals()[var]
+del keep_vars
+del all_vars
+del var
+
+# manually call the garbage collector
+import gc
+gc.collect()
 
 ```
 
 ```{r}
-#| eval: false
 #| cache: true
 #| label: fig-nmf-pca-comparison
 #| fig-cap: "Comparison of residuals and silhouette scores for PCA, Frobenius, and Kullback-Leibler methods."
@@ -1086,7 +1110,6 @@ comparison_plot
 <!-- To ensure a more intuitive interpretation, we adjust each component to ensure a positive correlation with Student Badges (multiplying them by $-1$ if necessary). -->
 
 ```{r}
-#| eval: false
 #| cache: true
 #| label: fig-nmf-heatmap
 #| fig-cap: ""
@@ -1146,10 +1169,11 @@ write.csv(df_components, "./Bayesian/df.csv")
 ```
 
 ```{r load dimension reduction}
+#| include: false
 df <- read.csv(file = "./Bayesian/df.csv")
 # Clean environment
 rm(list = setdiff(ls(), c("df", "random_py")))
-
+gc(verbose = FALSE)
 ```
 
 ## Connecting Variables to Reinforcement Learning Model
@@ -1239,7 +1263,7 @@ Our data contains 400 teacher-classroom pairs spanned across approximately 40 we
 
 Our estimation method of choice is a hierarchical Bayesian analysis, which allows us to pool information across individuals, while allowing for individual differences. Individual-level parameters are merely a function of group-level hyperparameters, and this anchoring improves our power by assuming commonalities among individuals (CITE Ahn et al., 2011; Huys et al., 2011). One particular feature of this estimation technique is that pooling is evident in the hyperparameter variance. Strong pooling means low hierarchical variance, and vice verse for weak pooling.
 
-For Bayesian updating, we use the Stan software package (http://mc-stan.org/), which implements a Hamiltonian Monte Carlo algorithm (See <http://mc-stan.org/documentation/>).  In the case of Zearn data, fast convergence of the algorithm required us to use priors that are weakly informed by parameter values found by searching the whole grid of parameter space (i.e., grid search).
+For Bayesian updating, we use the Stan software package (http://mc-stan.org/), which implements a Hamiltonian Monte Carlo algorithm (See <http://mc-stan.org/documentation/>). In the case of Zearn data, fast convergence of the algorithm required us to use priors that are weakly informed by parameter values found by searching the whole grid of parameter space (i.e., grid search).
 
 ## Model Comparison
 
@@ -1594,9 +1618,9 @@ grid.arrange(plot_comp, plot_badge)
 
 ## Variable selection
 
-To ensure that our models are parsimonious and to help determine which set of variables provides the best fit for the data, we compared the Bayesian Information Criterion (BIC) of the different models: the Minutes Model, PCA Model, and Lag Models. @tbl-bic displays the BICs, with each row corresponding to a different model.
+To ensure that our models are parsimonious and to help determine which set of variables provides the best fit for the data, we compared the Bayesian Information Criterion (BIC) of the different models: the Minutes Model, PCA Model, and Lag Models. @tbl-choose-RL-model displays the BICs, with each row corresponding to a different model.
 
-BIC penalizes models based on their complexity (number of parameters used) and the number of observations, favoring simpler models and models that fit the data better. In @tbl-bic, the 8-lag PC1 Model has the lowest BIC value, suggesting that it provides the best fit to the data when considering both complexity and fit.
+BIC penalizes models based on their complexity (number of parameters used) and the number of observations, favoring simpler models and models that fit the data better. In @fig-panel-bic, the 8-lag PC1 Model has the lowest BIC value, suggesting that it provides the best fit to the data when considering both complexity and fit.
 
 ## Q-Learning Analysis
 
@@ -1604,6 +1628,7 @@ BIC penalizes models based on their complexity (number of parameters used) and t
 #| label: tbl-choose-RL-model
 #| tbl-cap: "Comparison of Negative Log likelihood values of posteriors across different models. Lower values indicate better model fit."
 results_files <- list.files(path = "Bayesian/Results", pattern = "*.RDS", full.names = TRUE)
+results_files <- results_files[!grepl("logit", results_files)]
 
 # Function to extract median of lp__ from a model
 extract_lp_median <- function(model_file) {
@@ -1621,7 +1646,7 @@ lp_df$ModelType <- str_extract(lp_df$Model, ".*(?=-)")
 
 # Create the table with models as rows and NMF methods as columns
 table_df <- lp_df %>%
-  select(-c("Model")) %>%
+  dplyr::select(-Model) %>%
   pivot_wider(names_from = Method, values_from = NLL_Median) %>%
   arrange(desc(ModelType)) %>%
   na.omit()
@@ -1645,7 +1670,6 @@ We first present the following tables with the 25th, 50th, and 75th percentile o
 
 These are the group-level parameters that reflect the distribution of the subject-level parameters.
 
-
 ## Actor-Critic Analysis
 
 ### **(non-hierarchical)**
@@ -1654,42 +1678,32 @@ Table. Fitted Parameters for Non-Hierarchical Actor-Critic learning model with E
 
 ### **(hierarchical)**
 
-
 Table. Average of Fitted Parameters for Actor-Critic learning model with Eligibility from
 
 ## Model Comparison
 
 We compare these four models by calculating the associated Bayesian Information Criterion (BIC) of each. Models with lags will be penalized for including two extra parameters.
 
+```{r Bayesian LOOIC prep}
+#| include: false
+# Clean environment
+rm(list = setdiff(ls(), c("df", "random_py", "get_lag_value")))
+gc(verbose = FALSE)
+```
+
 ```{r}
+#| cache: true
 #| label: tbl-RL-logit-comp
 #| tbl-cap: "LOOIC (Leave-One-Out Information Criterion) values were calculated for four different models: Q-learning, Logit, Q-learning Hierarchical, and Logit Hierarchical. The LOOIC provides a measure of model quality, with lower values indicating better model performance. Q-learning models were built using a kernel-based approach. Logit models were fit using logistic regression, with the Hierarchical versions incorporating a hierarchical structure to account for classroom-level variations. The LOOIC was calculated using the 'loo' function from the 'loo' package in R, which estimates the expected log predictive density for a held-out data point, based on the rest of the data."
-#| eval: false
-library(lme4)
 library(brms)
 library(loo)
-
-fit_model <- function(formula, data) {
-  model <- brm(formula, data = data, family = bernoulli(), cores = 3)
-  return(model)
-}
-
-df_subset <- read.csv(file = "./Bayesian/df_subset.csv")
-setDT(df_subset)
-df_subset$state <- df_subset$state - 1
-for (col in paste0("FrobeniusNNDSVD", 1:3, "bin")) {
-  df_subset <- get_lag_value(df_subset, col, 1)
-}
 
 # Non-hierarchical models
 ## Q-learning model
 post <- read_rds("Bayesian/Results/Q-learning-kernel-FR.RDS")
 loo_qlearn <- post$loo()$estimates["looic", ]
 ## Logit
-formulas_nh <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state,
-                    FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state,
-                    FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state)
-models_nh <- lapply(formulas_nh, fit_model, data = df_subset)
+models_nh <- readRDS("Bayesian/Results/logit.RDS")
 loo_nh <- sapply(models_nh, loo)
 looic_nh <- sum(unlist(loo_nh["looic",]))
 
@@ -1698,13 +1712,9 @@ looic_nh <- sum(unlist(loo_nh["looic",]))
 post <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
 loo_qhierarchical <- post$loo()$estimates["looic", ]
 ## Logit
-formulas_h <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state | Classroom.ID),
-                   FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state | Classroom.ID),
-                   FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state | Classroom.ID))
-models_h <- lapply(formulas_h, fit_model, data = df_subset)
+models_h <- readRDS("Bayesian/Results/logit-hierarchical.RDS")
 loo_h <- sapply(models_h, loo)
 looic_h <- sum(unlist(loo_h["looic",]))
-
 
 # Collect LOOIC values
 looic_values <- c(loo_qlearn[1],looic_nh, 
@@ -1751,6 +1761,11 @@ If the goal of a teacher is to maximize lesson completion, analyzing the perform
 7.  Integration with other models and approaches
 8.  Expanding the scope of variables and data sources
 
+# References
+
+::: {#refs}
+:::
+
 # Supplemental Information {.appendix}
 
 ## Meta-Analysis of Correlations between Components and Student Outcomes
@@ -1761,8 +1776,16 @@ The resulting multivariate meta-analysis provides a comprehensive estimate of th
 
 @fig-meta-analysis presents the results of a meta-analysis on the correlation.
 
+```{r Meta-correlation prep}
+#| include: false
+# Clean environment
+rm(list = setdiff(ls(), c("df", "random_py")))
+# Importing results from Python
+results_list <- py$results
+gc(verbose = FALSE)
+```
+
 ```{r}
-#| eval: false
 #| cache: true
 #| label: fig-meta-analysis
 #| fig-cap: "Results of the correlation meta-analysis."
@@ -1770,12 +1793,15 @@ library(metafor)
 library(ppcor)
 
 n_comp <- 3
-method <- "KullbackLeibler"
+method <- "FrobeniusNNDSVD"
 selected_cols <- c("Classroom.ID", "Teacher.User.ID",
                    "MDR.School.ID", "District.Rollup.ID",
                    "week", "Usage.Week",
                    # Main loadings of Components:
-                   "tch_min", "RD.optional_problem_sets",
+                   "tch_min", "tch_min_1",
+                   paste0("FrobeniusNNDSVD", seq_len(n_comp)),
+                   paste0("FrobeniusNNDSVD", seq_len(n_comp), "_1"),
+                   "RD.optional_problem_sets",
                    "Guided.Practice.Completed", "Tower.Completed",
                    # Student Variables
                    "Active.Users...Total", "Minutes.per.Active.User",
@@ -1792,13 +1818,10 @@ df_corr <- df %>%
   ungroup() %>%
   arrange(Classroom.ID, week) %>%
   dplyr::select(all_of(selected_cols)) %>%
-  bind_cols(results_list[[method]][[n_comp - 1]]) %>%
-  rename_with(~paste0("Component", seq_len(n_comp)), last_col() - (n_comp - 1):0) 
-for (col in c(paste0("Component", seq_len(n_comp)),
-              "tch_min", "Badges.per.Active.User")) {
-  df_corr <- df_corr %>%
-    get_lag_value(col, 1)
-}
+  rename_with(~paste0("Frobenius", seq_len(n_comp)),
+              paste0("FrobeniusNNDSVD", seq_len(n_comp))) %>%
+  rename_with(~paste0("Frobenius", seq_len(n_comp), "_1"),
+              paste0("FrobeniusNNDSVD", seq_len(n_comp), "_1"))
 
 # Define a safe version of pcor.test that returns NA when there's an error
 safe_pcor <- possibly(~pcor.test(..1, ..2, ..3, method = "spearman")$estimate,
@@ -1807,28 +1830,31 @@ df_corr <- df_corr %>%
   group_by(Classroom.ID,Teacher.User.ID,MDR.School.ID,District.Rollup.ID) %>%
   summarise(
     n = n(),
-    Component1 = safe_pcor(Component1, Badges.per.Active.User_1, Component1_1),
-    Component2 = safe_pcor(Component2, Badges.per.Active.User_1, Component2_1),
-    Component3 = safe_pcor(Component3, Badges.per.Active.User_1, Component3_1),
+    Frobenius1 = safe_pcor(Frobenius1, Badges.per.Active.User, Frobenius1_1),
+    Frobenius2 = safe_pcor(Frobenius2, Badges.per.Active.User, Frobenius2_1),
+    Frobenius3 = safe_pcor(Frobenius3, Badges.per.Active.User, Frobenius3_1),
+    Minutes    = safe_pcor(tch_min, Badges.per.Active.User, tch_min_1),
     n_weeks = mean(n_weeks),
     teacher_number_classes = mean(teacher_number_classes),
     poverty = first(poverty),
     income = first(income),
     school.account = mean(school.account)
   ) %>%
-  filter(!is.na(Component1) &
-           !is.na(Component2) &
-           !is.na(Component3))
+  filter(!is.na(Frobenius1) &
+           !is.na(Frobenius2) &
+           !is.na(Frobenius3))
 
 df_corr_sub <- df_corr %>%
   as_tibble() %>%
-  slice_sample(prop = 0.05) %>%
-  mutate_at(vars(paste0("Component", seq_len(n_comp))),
+  slice_sample(prop = 0.1) %>%
+  mutate_at(vars(paste0("Frobenius", seq_len(n_comp)), "Minutes"),
             list(~atanh(.))) %>%  # Fisher's z transformation
-  mutate_at(vars(paste0("Component", seq_len(n_comp))),
+  mutate_at(vars(paste0("Frobenius", seq_len(n_comp)), "Minutes"),
             list(se = ~sqrt(1/(n - 2 - 2)))) %>%  # standard error sqrt(1/N−2−g)
-  gather(key = "outcome", value = "correlation", paste0("Component", seq_len(n_comp))) %>%
-  gather(key = "outcome_se", value = "se", paste0("Component", seq_len(n_comp), "_se")) %>%
+  gather(key = "outcome", value = "correlation",
+         c(paste0("Frobenius", seq_len(n_comp)), "Minutes")) %>%
+  gather(key = "outcome_se", value = "se",
+         c(paste0("Frobenius", seq_len(n_comp), "_se"), "Minutes_se")) %>%
   filter(str_replace(outcome, "_se", "") == str_replace(outcome_se, "_se", "")) %>%
   dplyr::select(-"outcome_se") %>%
   filter(!is.na(se))
@@ -1894,8 +1920,6 @@ ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
 summary(res)
 ```
 
-
-
 ## **Policy Gradient Methods**
 
 R +VS'-VS
@@ -1942,13 +1966,11 @@ However, the value of any aj\>0 is given by v(s,w). As such, the first decision 
 
 P(aj=0)=eQ(aj=0)eQ(aj=0)+ev(s,w) and P(aj\>0)=ev(s,w)eQ(aj=0)+ev(s,w).
 
-Therefore, if aj=0 is chosen at week t, Q(ajt=0) is updated and the decision process repeated for the following week. If aj\>0 is chosen, however, the teacher must decide the exact number of minute aj to spend on the platform. 
+Therefore, if aj=0 is chosen at week t, Q(ajt=0) is updated and the decision process repeated for the following week. If aj\>0 is chosen, however, the teacher must decide the exact number of minute aj to spend on the platform.
 
 ### **Second-Stage Notation and System Constraints**
 
 To determine a number of minutes aj\>0, we must define a differentiable policy parameterization (a\|s,), where ℝd' is a vector of policy parameters that determine a teacher's policy. In our case, we define it as the normal probability density over minutes spent on the platform, with mean and standard deviation given by parametric function approximators that depend on state characteristics. Formally, we have
-
-![](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABHgAAADSCAYAAAAxOnfYAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAEeKADAAQAAAABAAAA0gAAAAA53QXfAABAAElEQVR4AeydB9wU1fX+b6JRY4wda+wFK5bYK6JGVOyKChYs2AUxYu9dAbH3XlGxd7FhQbCBRhGjYu+xphpN9n+/k//s786dO7Pl3d13d9/nfD4wc/udZ+bduXPuOc/5RcGKkQgBISAEhIAQEAJCQAgIASEgBISAEBACQkAItCwCv2zZmWviQkAICAEhIASEgBAQAkJACAgBISAEhIAQEAIRAlLw6EEQAkJACAgBISAEhIAQEAJCQAgIASEgBIRAiyMgBU+L30BNXwgIASEgBISAEBACQkAICAEhIASEgBAQAlLw6BkQAkJACAgBISAEhIAQEAJCQAgIASEgBIRAiyMgBU+L30BNXwgIASEgBISAEBACQkAICAEhIASEgBAQAlLw6BkQAkJACAgBISAEhIAQEAJCQAgIASEgBIRAiyMgBU+L30BNXwgIASEgBISAEBACQkAICAEhIASEgBAQAlLw6BkQAkJACAgBISAEhIAQEAJCQAgIASEgBIRAiyMgBU+L30BNXwgIASEgBISAEBACQkAICAEhIASEgBAQAlLw6BkQAkJACAgBISAEhIAQEAJCQAgIASEgBIRAiyMgBU+L30BNXwgIASEgBISAEBACQqBxCAwbNsyMHTu2cQNqJCEgBISAECgicPbZZ5u33367mNZJEgEpeJJ4KCUEhIAQEAJCQAgIASEgBFIIFAoFM2jQIHP44Yebzz77LFWuDCEgBISAEKg/ArfeeqtZd911zWuvvVb/wVpwBCl4WvCmacpCQAgIASEgBISAEBACjUPgp59+Mv379zcXXHBB4wbVSEJACAgBIRBE4IsvvjA9e/Y048ePD5Z35UwpeLry3de1CwEhIASEgBAQAkJACOQi8Pe//91sscUW5pZbbsmtp0IhIASEgBBoHALffvut2Wijjcxjjz3WuEFbYCQpeFrgJmmKQkAICAEhIASEgBAQAo1H4Ouvvza9evUyjzzySHHwxRdf3Gy88cbFtE6EgBAQAkKgcQgceOCBxcFQwPfp08fcfffdxbyufiIFT1d/AnT9QkAICAEhIASEgBAQAikE4NmB5+GFF14ols0xxxzmwQcfNBwlQkAICAEh0HgE9txzT3P88ccXB/7xxx/N9ttvb2644YZiXlc++YUljCt0ZQB07UJACAgBISAEhIAQEAJCwEWAXeH11lvPvPLKK8Xs6aef3jz++ONm7bXXLubpRAgIASEgBDoHgQEDBpjrrruuOPgvfvELc/7555uDDjqomNcVT2TB0xXvuq5ZCAgBISAEhIAQEAJCIIjAf/7zH7PTTjsllDt8OFx77bVS7gQRU6YQEAJCoPEIXHHFFQl3WexWDj74YHPTTTc1fjJNNKIUPE10MzQVISAEhIAQEAJCQAgIgc5FgFDo999/f2ISp512WqT0SWQqIQSEgBAQAp2GwK9+9SszevRos9RSSyXmMHDgwISCPlHYBRJy0eoCN1mXKASEgBAQAkJACAgBIVAagREjRpjDDjssUXH33XePrHcSmUoIASEgBIRAUyDw2muvmdVXX93861//Ks5ngQUWMC+99JKZa665inld5UQKnq5yp3WdQkAICAEhIASEgBAQApkI3HHHHWaHHXYwLj3loosual599VUz00wzZbZTgRAQAkJACHQuAhdddFGKewceNUKoY+nTlUQuWl3pbutahYAQEAJCQAgIASEgBFIIjB8/3uy6664J5c4000wTRWWRcicFlzKEgBAQAk2FAKHTt95668Scnn76aTNkyJBEXldISMHTFe6yrlEICAEhIASEgBAQAkIgiMB3331n+vbta/75z38myg8//HCz1lprJfKUEAJCQAgIgeZE4KqrrjK4ZrmCZQ/5XUnkotWV7rauVQgIASEgBISAEBACQiCBQP/+/c3NN9+cyFtppZXMhAkTupxpfwIEJYSAEBACFSLwl7/8xcCJ89FHH5lu3bqZhRde2CyzzDIV9lJ99Weeecb07NnT/Pe//y12Mt1005mxY8eaNdZYo5jXzidS8LTz3dW1CQEhIASEgBAQAkJACGQiMGrUKLPzzjsnymeYYQbz8ssvN/SjJDEBJYSAEBACLYTAzz//bE4//XRz6aWXms8++yw188UXXzwKX04I81/84hep8lpn4K518cUXJ7qdd955o991ju0uUvC0+x3W9QkBISAEhIAQEAJCQAikEPj4449Njx49zLfffpsoGzlypDnkkEMSeUoIASEgBIRAGoE333zT7LLLLmWFJd9ggw3MvffeW3fSetxuu3fvbr788svEhDfaaCMzZsyYRF47JsTB0453VdckBISAEBACQkAICAEhkIkAkbIGDBiQUu7AuTN48ODMdioQAkJACAiB/yHw97//3fTp06cs5Q4tnnzySbP77rsnyOzrgeWss85qhg8fnuqaiFo33XRTKr/dMqTgabc7qusRAkJACAgBISAEhIAQyEXg3HPPNY8//niqzogRIxriQpAaWBlCQAgIgRZD4OijjzZTp06NZr3DDjsYolbBvfPGG2+Y0aNHm3XXXTd1RXfeeWdDrGiIirj++uunxv/jH/9osPBpZ5GLVjvfXV2bEBACQkAICAEhIASEQAKB119/3ayyyirmxx9/TOTzgXLbbbcl8pQQAkJACAiBNAJTpkyJeMqwhrziiivM3nvvnapEGS6vKFVc2Xbbbc0dd9zhZtXlfPLkyWbFFVc0P/30U6L//fbbz1xyySWJvHZKyIKnne6mrkUICAEhIASEgBAQAkIgF4F99903pdwhysoZZ5yR206FQkAICAEh8D8E7r777sjVauDAgUHlDrUgVD700EPNpptumoBt4sSJiXS9EkTvGjJkSKr7yy67zIwfPz6V3y4ZsuBplzup6xACQkAICAEhIASEgBDIRQALnR133DFVB1JldpolQkAICAEhUBqBddZZx0yaNMm8//77Zs4558xt8Pzzzxv4zWKZdtppzb///e+GuMP+8MMPZpFFFjHffPNNPHx0XGGFFcxLL71kmEu7iSx42u2O6nqEgBAQAkJACAgBISAEUgjgknXEEUek8iHkPO6441L5yhACQkAI1AsB3JdaVSBXRmmDNWQp5Q7XuNxyyyUuFYvJRoRLZ9CZZ545siJKTMAmXn31VXPeeef52W2RlgVPW9xGXYQQEAJCQAgIASEgBIRAHgJnnnmmOeqoo1JVhg0bZg477LBUvjKEgBAQArVCYNy4ceaGG24whBV/5513zKeffmrmm28+s+qqq0b/COG92mqr1Wq4uvfzwQcfmNlnn9389re/LWssFOnff/99VBfXKYiYGyV//etfIyuer7/+OjHkb37zm+h+LLDAAon8Vk/IgqfV76DmLwSEgBAQAlUj8K9//csQTWe99dYzEK9KhIAQaE8EvvzyS3P66aenLm7hhRc2Bx98cCpfGeUh8Pnnn5t+/fpFEXPKa6FaXRkBuE9wkWxl65VK79/1119vVlppJbP22mubSy+91IwdO9Z88sknEQYc4bI55phjzJprrmlQQofk5JNPNhADdzT6E4qOzTbbzFx99dWhYSrKW2ihhcpW7uCOhatULL5FT5xfryNKKJ/ombGwRGrH338peOr1JKlfISAEhIAQaFoEcNW48MILzWKLLRYR8D3zzDOGDxWJEBAC7YkALlh83Phy0kknmemnn97PVroMBAiDzIfaLbfcouhjZeDVlatgrYJiASUFzw2KjXaXL774wvTp08fsvvvuEVdNfL24Jh1wwAHmrLPOMrgqxfLf//43sjBEYepG+PvPf/4T1UU5huXLiy++GDep+DhmzBjz0EMPmb322stsvvnm5m9/+1vFfVTTAGsfV6m32267VdNNh9qgyJljjjlSfdxzzz3mwQcfTOW3coYUPK189zR3ISAEhIAQqAgBQmWySFpiiSWiXRsWnRIhIATaG4E//elP5qqrrkpd5Lzzzmt23nnnVL4y8hFgJ75///6GsPK4POBi0s4hh/PRUGkpBCA2X3755SPFAgqNW2+91fzud78r1aylyx9//HHTo0cP88ADDySu45e//GV0/RdddJE5/PDDDeTuvqAwJex4LNNMM4154oknTLdu3cxnn31mNthgA/PII4/ExRUdCU9+yimnRG1QatAX1o31FqyUYuHe9+7dO0427DjTTDOZoUOHBseLMQkWtmCmFDwteNM0ZSEgBISAEKgMgZ9//jn6wFtyySWjHcSPPvqosg5UWwgIgZZFANN8dsF9wZrgV7/6lZ+tdA4CWCWsv/765uabb45qbbjhhtHHZ2hnPKcbFXURBLBSwSWLCEbwndx///1m++23b+urRxmD5U5IcXL22WdHitEYAKxoQjJ8+HDDuiWW1VdfPSI1ZnMKt6ItttjC3HjjjXFxRcdjjz3W4DbGbx9RpHAdmzp1akV9VFoZ7qFYRowYYVBadYYceOCBQVJoQqY/9dRTnTGluowpBU9dYFWnQkAICAEh0AwI8FF33XXXmaWWWsrsvffeUTjPZpiX5iAEhEBjEIDYFLcEX7AkIAKMpHwE3nvvvehjkNDICLv/WCiwMy4RAi4CuONAXH7kkUdG2TPMMENkwbPxxhu71dru/LnnnjNbbrmlgd/Plz333DPFA7Pooov6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l0XJg7In9JE8atQogxUPH1YoGu68884OE9L682vldOjjnuv58ccfzU477RS5s8Xk1bjf3XbbbQby3alTp6YuGysZwo9j4UN0K+7J/vvvn6oXZ8DL4kd/wloL5V054ip4eD8TRS1LeIZcwXWvV69eblbqPM/yDFetrDDxqY6cjCyXKp5lXM1iYb4orXyBTJlnOIsjya9fTtpXykCwnccXlNUnij2f16irWe+AzdJLL50FUUROXs1zk9lhHQqk4KkDqOpSCAgBISAEmgsBXDnuueeeKDJIlgXPzTffbA499NDgore5rkazEQJCIE/BE1IwCLHyESBSELwrrlRilXHEEUe4TaNzLAPOP/98Q8QkQp4ff/zx5ttvv42IW/nYjT8iITH1BeXE5MmTzcILL2wefvjhyMrEr9OV0yH3rBAeuBZdfvnlBjcjxP+QJ48PV+4PllTLLbecwdKllPzxj39M8Tb5CoesPlwFD3VQiBxwwAEJNz2UJjw7N954Y7EbwpUzt1LuTVnEx3FHL774Ynxa9hH8DjzwwFR9lFrwGmElde6555q99torVQduF9wRN9lkk1RZtRn8HfkKByyHqhFfWYh11n777VdNVy3dJs+ChwtrdqJlKXha+vHT5IWAEBACQiAPAUKPEn3jN7/5TfQBQRjePBk5cqRZfPHFo3Cgyy67rME0XSIEhEDzIZC3My8FT8fvF1w4bthmuMtQrpQje+yxRxSdqVRdlD2PP/54om7WhxVh1lEa6N6mUX3qqafSmV4Ooc+vvfZaw72JBfyzBJwfffRRM9tss2VVKeajeCMCmiu+tY1b5p6HuJkuueQSg6vfzjvvHClJmCfWX7Hwjr777rsjhV+cl3XcYostsoqi/Go5+S688MIoMpZvKUhELP5uQlxSkESjiKkmslXeRTz00EMJyyHWLr5VVV57twzlkysoivxIaW55u57nWfBwze+8805TX/q0TT07Ta7TEIAU7Oeffy6Oj6/or3/962JaJ9UhwIvsrbfeikyQ8TPmBbbqqqtGBHCldiGqG1GthEDXRgDFDlFZ8sJe5iHkcwvk1VWZEBACjUHg888/N3kfZnxwSjqGAK468La44Z3PPvvsiOS4VM984N51110RuSxcObj6xPLLX/4ycrPiw3HAgAGGtCvwhlxwwQVFFx/WRlgQnHzyybLccYH6/+dEiPJdrXjf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)
 
 where (s,) and (s,) are two parameterized function approximators. In our model, we approximate the mean as a linear function and the standard deviation as the exponential of a linear function of our state variables. As such, we define =(,), where ,ℝd and d'=2d, and the approximations as follows:
 
@@ -1968,17 +1990,17 @@ After sampling from the distribution (\|s,), the teacher observes the new state 
 
 2.  Update ww+wv(St,w), where:
 
-    1.  w\>0 is a step size parameter that determines the learning rate of  w
+    1.  w\>0 is a step size parameter that determines the learning rate of w
 
     2.  v(St,w)=\[xt-1 ,at-1 ,rt-1\]
 
-3.  Update +t-1(aj\|St,), where 
+3.  Update +t-1(aj\|St,), where
 
-    1.  \>0 is a step size parameter that determines the learning rate of 
+    1.  \>0 is a step size parameter that determines the learning rate of
 
     2.  (aj\|St,)=1(St,)2(aj-(St,))\[xt-1 ,at-1 ,rt-1\]
 
-4.  Update +t-1(aj\|St,), where 
+4.  Update +t-1(aj\|St,), where
 
     1.  (aj\|St,)=((aj-(St,))2(St,)2-1)\[xt-1 ,at-1 ,rt-1\]
 
@@ -1993,11 +2015,14 @@ For the Q-learning model, we used the sampled parameters to compute per-trial Q 
 ## Bayesian Model Diagnostics
 
 ```{r}
+#| eval: false
 #| cache: true
 #| label: tbl-diagnostics
 #| tbl-cap: "Diagnostics for the Bayesian Models used in Q-learning and Q-learning with states. The tables show diagnostics for three Non-negative Matrix Factorization (NMF) models: Frobenius (initialized with a Nonnegative Double Singular Value Decomposition), Frobenius Average (initialized with a Nonnegative Double Singular Value Decomposition with zeros filled with the average of each variable), and Kullback-Leibler. The rows correspond to 'alpha,' the learning rate, 'gamma,' the discount factor, 'tau,' the temperature parameter, 'cost' for each of the components from the NMF, 'sensi,' the reward sensitivity parameter, and 'Log Posterior,' the logarithm of the posterior probability. 'Rhat' indicates the potential scale reduction factor on split chains. Values close to 1.0 imply model convergence. 'ESS Bulk' and 'ESS Tail' represent the effective sample size for the bulk of the posterior distribution and its tail, respectively. An ESS of at least a few hundred is often considered sufficient for estimation purposes."
 
 results_files <- list.files(path = "Bayesian/Results", pattern = "*.RDS", full.names = TRUE)
+results_files <- results_files[!grepl("logit", results_files)]
+results_files <- results_files[!grepl("hierarchical", results_files)]
 diag_df <- data.frame()
 
 for (result_file in results_files) {
@@ -2098,11 +2123,9 @@ diag_df_actor_critic %>%
 
 ```
 
-
 # Alternative models {.appendix}
 
-
-``` {python LSTM autoencoder}
+```{python LSTM autoencoder}
 #| eval: false
 import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -2282,7 +2305,3 @@ X = pd.concat([dfpca_py[['Classroom.ID', 'week']], X_scaled], axis=1)
 get_encoded_representation_and_components(best_model, X)
 
 ```
-
-
-
-

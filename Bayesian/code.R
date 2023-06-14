@@ -324,6 +324,43 @@ for (choice in names(choices)) {
   }
 }
 
+
+# 5. BRM models -----------------------------------------------------------
+
+library(lme4)
+library(brms)
+library(loo)
+
+# Function to fit model
+fit_model <- function(formula, data) {
+  model <- brm(formula, data = data, family = bernoulli(),
+               cores = 3, backend = "cmdstanr")
+  return(model)
+}
+df$state <- df$state - 1
+
+# Non-hierarchical models
+for (col in paste0("FrobeniusNNDSVD", 1:3, "bin")) {
+  df <- get_lag_value(df, col, 1)
+}
+formulas_nh <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state,
+                    FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state,
+                    FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state)
+models_nh <- lapply(formulas_nh, fit_model, data = df)
+
+# Hierarchical models
+formulas_h <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state | Classroom.ID),
+                   FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state | Classroom.ID),
+                   FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state | Classroom.ID))
+models_h <- lapply(formulas_h, fit_model, data = df)
+
+# Save the LOOIC values
+saveRDS(models_nh, "Bayesian/Results/logit.RDS")
+saveRDS(models_h, "Bayesian/Results/logit-hierarchical.RDS")
+
+
+
+
 #quick diagnostics
 library("shinystan")
 launch_shinystan(fit)
