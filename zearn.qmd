@@ -1727,11 +1727,48 @@ gt(df_looic)
 
 ```
 
+```{r}
+#| label: fig-model-fit
+
+# Here I'd like to have a visual representation of the model fit.
+# I'm thinking of Having the number of weeks in the x-axis
+# and the probability of each y=1 on the y-axis.
+# Then graph two lines: one for the model fit (y_pred from the bayesian models)
+#                   and one for the real data.
+# Probably need to do this for the average across a number of teachers.
+
+```
+
 ## **Optimality**
 
 If the goal of a teacher is to maximize lesson completion, analyzing the performance of teachers across parameter levels is interesting. The following correlation plot shows the relationship between parameters and average weekly badges per teacher.
 
 ## Heterogeneity
+
+```{r Heterogeneity analysis}
+
+hierarchical_model <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
+hierarchical_model <- hierarchical_model$summary()
+
+# Here I would like to correlate individual parameters from the hierarchical
+# model with specific classroom level variables.
+# Including:
+## Student Variables (mean across classroom):
+# "Active.Users...Total", "Minutes.per.Active.User",
+# "Badges.per.Active.User", "Boosts.per.Tower.Completion",
+# "Tower.Alerts.per.Tower.Completion",
+## Classroom and Teacher Variables
+# "teacher_number_classes", "Grade.Level",
+# "Students...Total", "n_weeks",
+## School Variables
+# "poverty", "income", "charter.school",
+# "school.account
+
+# That is, do the parameters from the Bayesian model change with these variables?
+# If so, how?
+
+
+```
 
 # Discussion
 
