@@ -9,7 +9,6 @@ author:
 format:
   elsevier-pdf:
     journal:
-      name: 
       formatting: preprint
       model: 3p
       layout: onecolumn
@@ -206,7 +205,6 @@ Given the continuous nature of some of our data (i.e., minutes teachers spent on
 
 Some of the most attractive features of these models are their inherent flexibility, and the typification of teachers. We can, in each of these models, extract, respectively: (1) a learning rate, an inverse temperature, and a cost; and (2) step sizes (akin to learning rates) for value weights and policy weights, and a cost. We can consequently derive a time series of averages and standard deviations of the gaussian policy.
 
-\
 
 <!-- Literature Review -->
 
@@ -477,7 +475,8 @@ top_cities <- top_cities[order(-num_teachers)][1:5,]
 df_map <- tigris::counties(cb = TRUE,
                            resolution = "20m",
                            class = "sf",
-                           state = "LA") %>%
+                           state = "LA",
+                           progress_bar = FALSE) %>%
   # sf::st_set_crs(4326) %>%
   left_join(
     as.data.frame(dt_map),
@@ -681,7 +680,7 @@ df_corr <- df  %>%
          "# of Students" = Active.Users...Total,
          "Teacher Minutes" = tch_min)
 
-chart.Correlation(df_corr, histogram = TRUE, method = "pearson",
+chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
                   pch = 20, cex = 0.5, col = rgb(0, 0, 1, 0.5))
 
 ```
@@ -971,7 +970,6 @@ model.save('./autoencoder_tuning/final_model.h5')
 ```
 
 ```{python load autoencoder}
-#| eval: false
 from tensorflow.keras.models import load_model
 from keras.models import Model
 from keras.layers import Input
@@ -1332,10 +1330,18 @@ get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
 }
 
 create_formula <- function(method, lag, comp) {
+  if (lag == 1) {
+    return(as.formula(
+    paste0(method, comp, " ~ ",
+           paste0(method, comp, "_", 1), " + ",
+           "Badges.per.Active.User",
+           " + ", "week_lag")))
+  }
   return(as.formula(
     paste0(method, comp, " ~ ",
            paste0(method, comp, "_", 1:lag, collapse = " + "), " + ",
-           paste0("Badges.per.Active.User", "_", 1:lag, collapse = " + "),
+           "Badges.per.Active.User + ",
+           paste0("Badges.per.Active.User", "_", 1:(lag - 1), collapse = " + "),
            " + ", "week_lag")))
 }
 
@@ -1358,7 +1364,7 @@ lags <- c(1:8)
 n_comp = 3
 n_lags = max(lags)
 # Use map to iterate over methods, paste0 to concatenate strings
-methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "Kullback.Leibler", "Autoencoder")
+methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
 columns <- c("tch_min", "Badges.per.Active.User", methods)
 
 # Create lags
@@ -1408,7 +1414,7 @@ results <- foreach(i = 1:nrow(params),
        Lag = lag,
        nloglik = compute_nloglik(residuals),
        bic = as.numeric(bic_plm(model)),
-       coef = model$coefficients)
+       coef = summary(model)$coefficients)
 }
 # Stop the cluster
 stopCluster(cl)
@@ -1431,7 +1437,7 @@ results_df <- results_df %>%
             avg_nloglik = mean(nloglik, na.rm = TRUE),
             .groups = "drop")
 # Filter methods for the plots
-methods_for_plots <- c("FrobeniusNNDSVD", "Kullback.Leibler", "FrobeniusNNDSVDA")
+methods_for_plots <- c("FrobeniusNNDSVD", "KullbackLeibler", "FrobeniusNNDSVDA")
 plot_data <- filter(results_df, Method %in% methods_for_plots)
 # Shared aesthetics for the plots
 aes <- ggplot2::aes(x = Lag, y = value, color = Method)
@@ -1456,6 +1462,8 @@ bic_table <- summary_data %>% select(Method, BIC) %>%
                                              fg_params=list(fontface=3))),
              rows = NULL)
 bic_table <- bic_table[-1, ]  # Remove header
+bic_data <- filter(plot_data, !is.na(avg_bic)) %>% 
+  mutate(value = avg_bic, metric = "BIC")
 # BIC Plot
 bic_plot <- ggplot(bic_data, aes) + 
   geom_line() + 
@@ -1475,7 +1483,7 @@ nll_table <- summary_data %>% select(Method, NLL) %>%
              rows = NULL)
 nll_table <- nll_table[-1, ]  # Remove header
 nll_data <- filter(plot_data, !is.na(avg_nloglik)) %>% 
-  mutate(value = avg_bic, metric = "Negative Log-Likelihood")
+  mutate(value = avg_nloglik, metric = "Negative Log-Likelihood")
 nll_plot <- ggplot(nll_data, aes) + 
   geom_line() + 
   labs(title = "Out-of-sample NLL", x = "Number of Lags") +
@@ -1516,182 +1524,77 @@ In order to better understand and interpret the output of our models, we created
 #| fig-cap: "The estimated coefficients of the lagged variables in the random effects models. The lines represent different variables, and the shaded areas indicate the standard errors of the coefficients. The grey line and shaded area represent the coefficients for the lagged Badges per Student."
 
 # Extract coefficients from models
-model_coeffs <- lapply(models, function(model) coef(summary(model)))
+lag_period = 4
+col = "FrobeniusNNDSVD"
+select_model <- function(model) {
+  model[["Method"]] == col & model[["Lag"]] == lag_period
+}
+model_coeffs <- Filter(select_model, results)
 
-# Create data frame with model coefficients
-df_coeffs <- do.call(rbind, model_coeffs)
-df_coeffs <- as.data.frame(df_coeffs) %>%
-  # Remove intercept
-  filter(!grepl(pattern = "Intercept",
-                x = rownames(.)))
-# Create columns for lag and variable
-df_coeffs$lag <- rep(1:n_lags, nrow(df_coeffs) / n_lags)
-df_coeffs$variable <- rep(columns[-5], each = nrow(df_coeffs) / length(columns[-5]))
+extract_coeffs <- function(model) {
+  coef_df <- data.frame(coeff_value_estimate = model$coef[,1],
+                        coeff_value_se = model$coef[,2])
+  coef_df$Coefficient_Name <- rownames(model$coef)
+  # Add other model properties
+  coef_df$Method <- model$Method
+  coef_df$Component <- model$Component
+  return(coef_df)
+}
+df_estimates <- do.call(rbind, lapply(model_coeffs, extract_coeffs)) %>%
+  filter(Coefficient_Name != "(Intercept)" &
+           Coefficient_Name != "week_lag") %>%
+  mutate(Lag = as.numeric(str_extract(Coefficient_Name, "\\d+$")),
+         Coefficient_Name = case_when(
+           grepl("FrobeniusNNDSVD1", Coefficient_Name) ~ "Frobenius 1",
+           grepl("FrobeniusNNDSVD2", Coefficient_Name) ~ "Frobenius 2",
+           grepl("FrobeniusNNDSVD3", Coefficient_Name) ~ "Frobenius 3",
+           grepl("Badges.per.Active.User", Coefficient_Name) ~ "Badges",
+           TRUE ~ "Other"),
+         Lag = case_when(is.na(Lag) ~ 1,
+                         Coefficient_Name == "Badges" ~ Lag + 1,
+                         .default = Lag),
+         Coefficient_Name = case_when(Coefficient_Name == "Badges" ~ 
+                                 paste0(Coefficient_Name, " ", Component),
+                               .default = Coefficient_Name))
 
-# Convert the coefficient data to long format
-df_estimates <- df_coeffs %>%
-  dplyr::select("variable", "lag", "Estimate") %>%
-  mutate(badges = case_when(grepl(pattern = "Badges",
-                                  x = rownames(.)) ~ TRUE,
-                            .default = FALSE)) %>%
-  rename(coeff_value_estimate = Estimate)
-
-df_se <- df_coeffs %>%
-  dplyr::select(variable, lag, `Std. Error`) %>%
-  mutate(badges = case_when(grepl(pattern = "Badges",
-                                  x = rownames(.)) ~ TRUE,
-                            .default = FALSE)) %>%
-  rename(coeff_value_se = `Std. Error`)
-# Merge the two data frames
-df_coeffs_long <- full_join(df_estimates,
-                            df_se,
-                            by = c("variable", "lag", "badges")) %>%
-  mutate(Action = factor(variable, 
-                         levels = c("KullbackLeibler1", "KullbackLeibler2", "KullbackLeibler3",
-                                    "tch_min",
-                                    "Badges.per.Active.User"),
-                         labels = c("Kullback-Leibler1", "Kullback-Leibler2", "Kullback-Leibler3",
-                                    "Teacher Minutes",
-                                    "Badges")),
-         Action = case_when(badges ~ "Badges",
-                            .default = Action))
-# Separate other coefficients
-df_coeffs_long <- df_coeffs_long %>%
-  filter(Action != "Badges") %>%
-  inner_join(df_coeffs_long %>%
-               filter(Action == "Badges") %>%
-               dplyr::select(variable, lag, coeff_value_estimate, coeff_value_se) %>%
-               rename(Badges = coeff_value_estimate,
-                      Badges_se = coeff_value_se),
-             by = c("variable", "lag")) %>%
-  dplyr::select(!c("badges","variable"))
-
-ggplot(df_coeffs_long, aes(x = lag,
-                           y = coeff_value_estimate,
-                           color = Action,
-                           group = Action)) +
+plot_comp <- ggplot(df_estimates %>% filter(!grepl("Badges", Coefficient_Name)),
+       aes(x = Lag,
+           y = coeff_value_estimate,
+           color = Component,
+           group = Component)) +
   geom_line() +
-  geom_ribbon(aes(ymin = coeff_value_estimate - 1.96*coeff_value_se,
-                  ymax = coeff_value_estimate + 1.96*coeff_value_se),
-              alpha = 0.2) +
-  geom_line(data = df_coeffs_long,
-            aes(x = lag,
-                y = Badges,
-                group = Action,
-                linetype = "Badges"),
-            color = "black") +
-  geom_ribbon(data = df_coeffs_long,
-              aes(ymin = Badges - Badges_se,
-                  ymax = Badges + Badges_se),
+  geom_ribbon(aes(ymin = coeff_value_estimate - coeff_value_se,
+                  ymax = coeff_value_estimate + coeff_value_se),
+              alpha = 0.1) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black", size = 0.2) +
+  facet_wrap(~Coefficient_Name, scales = "free_y") +
+  labs(x = "Lag", y = "Coefficient", linetype = "") +
+  theme_light() +
+  theme(legend.position = "none")
+plot_badge <- ggplot(data = df_estimates %>% filter(grepl("Badges", Coefficient_Name)),
+            aes(x = Lag,
+                y = coeff_value_estimate,
+                group = Component,
+                linetype = "Badges")) +
+  geom_line(color = "black") +
+  geom_ribbon(aes(ymin = coeff_value_estimate - coeff_value_se,
+                  ymax = coeff_value_estimate + coeff_value_se),
               alpha = 0.1,
               fill = "grey",
               color = "grey") +  # set color to gray
   geom_hline(yintercept = 0, linetype = "dashed", color = "black", size = 0.2) +
-  facet_wrap(~Action, scales = "free_y") +
+  facet_wrap(~Coefficient_Name, scales = "free_y") +
   labs(x = "Lag", y = "Coefficient", linetype = "") +
-  scale_linetype_manual(values = c("solid", "dashed")) +
-  theme_light()
+  theme_light() +
+  theme(legend.position = "none")
+
+grid.arrange(plot_comp, plot_badge)
 
 ```
 
 ## Variable selection
 
 To ensure that our models are parsimonious and to help determine which set of variables provides the best fit for the data, we compared the Bayesian Information Criterion (BIC) of the different models: the Minutes Model, PCA Model, and Lag Models. @tbl-bic displays the BICs, with each row corresponding to a different model.
-
-```{r}
-#| eval: false
-#| label: tbl-bic
-#| tbl-cap: "Comparison of BIC values across different models. Lower BIC values indicate better model fit."
-
-library(stringi)
-
-# Calculate BIC for each model
-min_model_bic <- BIC(panel_min)
-pca1_model_bic <- BIC(panel_KL1)
-pca2_model_bic <- BIC(panel_KL2)
-pca3_model_bic <- BIC(panel_KL3)
-lag_models_bic <- sapply(models, BIC)
-lag_models_short_bic <- sapply(models_short, BIC)
-
-# Create a vector with the names of the models
-model_names <- c("Minutes 1",
-                 "KL1 1",
-                 "KL2 1",
-                 "KL3 1",
-                 sapply(columns[-5],
-                        function(col) paste(col, "4")),
-                 sapply(columns[-5],
-                        function(col) paste(col, "8")))
-
-# Create a data frame to store the results
-model_comparison <- data.frame(
-  Model = model_names,
-  BIC = c(min_model_bic,
-          pca1_model_bic, pca2_model_bic, pca3_model_bic,
-          lag_models_short_bic, lag_models_bic)
-  ) %>%
-  # Replace specific strings in model names
-  mutate(Model = stri_replace_all_regex(Model,
-                                        pattern=c('KullbackLeibler1',
-                                                  'KullbackLeibler2',
-                                                  'KullbackLeibler3',
-                                                  'tch_min'),
-                                        replacement=c('KL1',
-                                                      'KL2',
-                                                      'KL3',
-                                                      'Minutes'),
-                                        vectorize=FALSE)) %>%
-  separate(Model, into = c("Model","Lag"), sep = " ")
-# Identify the row with the smallest BIC
-model_comparison <- model_comparison %>%
-  pivot_wider(
-    names_from = Lag,
-    values_from = BIC
-  )
-
-# Find the row number with the minimum BIC for each Lag
-min_bic_row_1 <- which.min(model_comparison$`1`)
-min_bic_row_4 <- which.min(model_comparison$`4`)
-min_bic_row_8 <- which.min(model_comparison$`8`)
-# Create a gt table
-gt_table <- model_comparison %>%
-  gt() %>%
-  cols_label(
-    Model = "Model",
-    `1` = "1-week lag",
-    `4` = "4-week lag",
-    `8` = "8-week lag"
-  ) %>%
-  tab_spanner(label = "BIC",
-              columns = c(2:ncol(model_comparison))) %>%
-# Highlight the cell with the smallest BIC for each Lag
-  tab_style(
-    style = cell_fill(color = "yellow"),  # Adjust color as needed
-    locations = cells_body(
-      columns = c(`1`),
-      rows = min_bic_row_1
-    )
-  ) %>%
-  tab_style(
-    style = cell_fill(color = "yellow"),  # Adjust color as needed
-    locations = cells_body(
-      columns = c(`4`),
-      rows = min_bic_row_4
-    )
-  ) %>%
-  tab_style(
-    style = cell_fill(color = "yellow"),  # Adjust color as needed
-    locations = cells_body(
-      columns = c(`8`),
-      rows = min_bic_row_8
-    )
-  )
-
-
-# Print the table
-gt_table
-
-```
 
 BIC penalizes models based on their complexity (number of parameters used) and the number of observations, favoring simpler models and models that fit the data better. In @tbl-bic, the 8-lag PC1 Model has the lowest BIC value, suggesting that it provides the best fit to the data when considering both complexity and fit.
 
@@ -1712,7 +1615,7 @@ extract_lp_median <- function(model_file) {
 
 # Apply function to all models and combine into one dataframe
 lp_df <- map_df(results_files, extract_lp_median) %>%
-  na.exclude()
+  na.omit()
 lp_df$Method <- gsub(".*-", "", lp_df$Model)
 lp_df$ModelType <- str_extract(lp_df$Model, ".*(?=-)")
 
@@ -1720,7 +1623,8 @@ lp_df$ModelType <- str_extract(lp_df$Model, ".*(?=-)")
 table_df <- lp_df %>%
   select(-c("Model")) %>%
   pivot_wider(names_from = Method, values_from = NLL_Median) %>%
-  arrange(desc(ModelType))
+  arrange(desc(ModelType)) %>%
+  na.omit()
 # To highlight the best value in the table
 table_df %>%
   gt() %>%
@@ -1737,7 +1641,7 @@ table_df %>%
 
 <!-- Find a graph that displays results better (rather than the one user to fit) -->
 
-We first present the following tables with the 25th, 50th, and 75th percentile of the learning rate (), inverse temperature (), weights, and cost parameters of the Q-learning models (non-hierarchical and hierarchical). 
+We first present the following tables with the 25th, 50th, and 75th percentile of the learning rate (), inverse temperature (), weights, and cost parameters of the Q-learning models (non-hierarchical and hierarchical).
 
 These are the group-level parameters that reflect the distribution of the subject-level parameters.
 
@@ -1760,7 +1664,7 @@ We compare these four models by calculating the associated Bayesian Information 
 ```{r}
 #| label: tbl-RL-logit-comp
 #| tbl-cap: "LOOIC (Leave-One-Out Information Criterion) values were calculated for four different models: Q-learning, Logit, Q-learning Hierarchical, and Logit Hierarchical. The LOOIC provides a measure of model quality, with lower values indicating better model performance. Q-learning models were built using a kernel-based approach. Logit models were fit using logistic regression, with the Hierarchical versions incorporating a hierarchical structure to account for classroom-level variations. The LOOIC was calculated using the 'loo' function from the 'loo' package in R, which estimates the expected log predictive density for a held-out data point, based on the rest of the data."
-
+#| eval: false
 library(lme4)
 library(brms)
 library(loo)
@@ -1858,6 +1762,7 @@ The resulting multivariate meta-analysis provides a comprehensive estimate of th
 @fig-meta-analysis presents the results of a meta-analysis on the correlation.
 
 ```{r}
+#| eval: false
 #| cache: true
 #| label: fig-meta-analysis
 #| fig-cap: "Results of the correlation meta-analysis."
@@ -1984,12 +1889,6 @@ ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
 
 ```
 
-```{r data cleaning}
-# Filter out the IDs with sd == 0
-df <- df %>%
-  filter(Classroom.ID %in% unique(df_corr$Classroom.ID))
-```
-
 ```{r meta-analysis summary}
 #| eval: false
 summary(res)
@@ -2094,6 +1993,7 @@ For the Q-learning model, we used the sampled parameters to compute per-trial Q 
 ## Bayesian Model Diagnostics
 
 ```{r}
+#| cache: true
 #| label: tbl-diagnostics
 #| tbl-cap: "Diagnostics for the Bayesian Models used in Q-learning and Q-learning with states. The tables show diagnostics for three Non-negative Matrix Factorization (NMF) models: Frobenius (initialized with a Nonnegative Double Singular Value Decomposition), Frobenius Average (initialized with a Nonnegative Double Singular Value Decomposition with zeros filled with the average of each variable), and Kullback-Leibler. The rows correspond to 'alpha,' the learning rate, 'gamma,' the discount factor, 'tau,' the temperature parameter, 'cost' for each of the components from the NMF, 'sensi,' the reward sensitivity parameter, and 'Log Posterior,' the logarithm of the posterior probability. 'Rhat' indicates the potential scale reduction factor on split chains. Values close to 1.0 imply model convergence. 'ESS Bulk' and 'ESS Tail' represent the effective sample size for the bulk of the posterior distribution and its tail, respectively. An ESS of at least a few hundred is often considered sufficient for estimation purposes."
 
