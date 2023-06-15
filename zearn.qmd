@@ -1749,8 +1749,8 @@ If the goal of a teacher is to maximize lesson completion, analyzing the perform
 
 ```{r Heterogeneity analysis}
 
-hierarchical_model <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
-hierarchical_model <- hierarchical_model$summary()
+# hierarchical_model <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
+# hierarchical_model <- hierarchical_model$summary()
 
 ## TO-DO
 
