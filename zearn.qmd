@@ -1730,6 +1730,8 @@ gt(df_looic)
 ```{r}
 #| label: fig-model-fit
 
+## TO-DO
+
 # Here I'd like to have a visual representation of the model fit.
 # I'm thinking of Having the number of weeks in the x-axis
 # and the probability of each y=1 on the y-axis.
@@ -1749,6 +1751,8 @@ If the goal of a teacher is to maximize lesson completion, analyzing the perform
 
 hierarchical_model <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
 hierarchical_model <- hierarchical_model$summary()
+
+## TO-DO
 
 # Here I would like to correlate individual parameters from the hierarchical
 # model with specific classroom level variables.
