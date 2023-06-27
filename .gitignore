@@ -54,3 +54,5 @@ py-zearn/
 
 
 /.quarto/
+
+/.luarc.json

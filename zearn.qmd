@@ -84,82 +84,21 @@ However, traditional social science approaches to studying the education product
 
 ## Reinforcement Learning to Capture Patterns in Repeated Behavior
 
-In RL, an agent aims to learn a policy that produces the highest possible reward. A policy is a mapping from states to actions (or, most commonly, a probability distribution over actions) ([@sutton2018] Sutton and Barto 1998). Central to RL is the idea of learning a policy when its parameters are not known ahead of time.
+In RL, an agent learns to make decisions over time to maximize a cumulative reward. At the heart of RL is the concept of a policy, which is a mapping from states to actions, or more commonly, a probability distribution over actions [@sutton2018]. The agent's goal is to learn an optimal policy, which maximizes the expected cumulative reward, even when the parameters of the environment are not known a priori.
 
-This model has been used before in the context of teaching and education. One of the first researchers of Markov decision processes, Ronald Howard, attempted to apply his mathematical framework to instruction theory (CITE Howard 1960). In 1972, Richard Atkinson proposed a theory of instruction that requires "(1) A model of the learning process, (2) Specification of admissible instructional actions, (3) Specification of instructional objectives, (4) A measurement scale that permits costs to be assigned to each of the instructional actions and payoffs to the achievement of instructional objectives" (CITE Atkinson 1972).
+The application of RL in the context of education and teaching is not new. One of the pioneers in the field of Markov decision processes, Ronald Howard, attempted to apply his mathematical framework to instruction theory as early as 1960 [@howard1960]. Later, in 1972, Richard Atkinson proposed a theory of instruction that encapsulates the key components of a Markov decision process, including states, actions, transition probabilities, reward functions, and a time horizon [@atkinson1972]. In Atkinson's framework, actions are instructional activities (e.g., assigning problem sets) that can change a given state (e.g., student learning level). These changes of states can yield rewards minus the associated cost of the action. For example, a teacher may be rewarded by an increase in the knowledge or skill of a student, but such reward must be balanced with its associated effort (e.g., labor cost). Atkinson and colleagues continued to test many parametrizations of this idea, contributing significantly to the development of RL theory in the context of education (see [@doroudi2019] for a full review).
 
-Atkinson (CITE 1972) then described this model as a Markov decision process, including components well-known in modern RL theory: states, actions, transition probabilities, reward functions, and a time horizon. In this framework, actions are instructional activities (e.g., assigning problem sets) that can change a given state (e.g., student learning level). These changes of states can yield to reward minus the associated cost of the action. For example, a teacher may be rewarded by an increase in the knowledge or skill of a student, but such reward must be balanced with its associated effort (e.g., labor cost). Atkinson and colleagues continued to test many parametrizations of this idea (see CITE Doroudi et al. 2019 for a full review).
-
-Recent work in the psychology of habit uses these Markov decision process models to explain learning and reward association (CITE). One common approach in humans is to apply the so-called "multi-armed bandit" task. In this type of experiment, participants are presented with multiple actions, each with an unknown payoff. The subject's goal is to learn the best outcome through trial and error. In the beginning, the reward-action relationships are unknown, so the participant must explore or sample from each action (CITE).
+More recently, RL models have been used in the psychology of habit to explain learning and reward association. One common approach in human studies is to apply the "multi-armed bandit" task. In this type of experiment, participants are presented with multiple actions, each with an unknown payoff. The subject's goal is to learn the best outcome through trial and error. In the beginning, the reward-action relationships are unknown, so the participant must explore or sample from each action [@sutton2018]. This exploration-exploitation trade-off is a central theme in RL and has the potential to provide valuable insights into how students learn and make decisions over time.
 
 ### Why Reinforcement Learning?
 
-Before presenting these models, we argue for the usefulness of RL in our setting. Unlike the traditional economics approach that maps teacher effort to student outcome through an education production function fixed in time, we aim to model teacher behavior as a flexible, context-dependent process that can change week by week. Reinforcement learning allows us to model how individual teachers may learn the action-reward (or action-state-reward) relationships, thus creating a typification of instructors. It is then possible to pinpoint how teachers differ in learning and behavior and how these characteristics relate to student outcomes. For example, teacher flexibility may be optimal in a learning environment, but without estimation of individual parameters, differentiating teachers would not be possible. Further, if a policy-maker can shift these individual-level parameters, they can affect student outcomes. These so-called "counterfactual analyses" can be powerful tools in creating innovative interventions or nudges to improve an outcome of interest.
-
-The model carries potential beyond the goals of this study, as the model can learn the associations between actions and rewards, allowing for automation of certain instructional inputs. For example, if a teacher often assigns an activity under a certain state, the model could automate this action, freeing some of the teacher's time.
-
--   RL is inspired by the way animals learn from their experiences
--   An agent in RL represents a decision-maker
--   Actions: choices made by the agent
--   Environment: the context in which the agent makes decisions
--   Observations: information the agent receives about the environment
--   Rewards: feedback received by the agent based on the actions taken
-
-### Context and experience
-
-In the context of predicting repeated behavior, RL algorithms can be used to model the decision-making process of individuals or groups, such as teachers, by learning from the patterns in their actions and the resulting outcomes.
-
-RL: an **agent** learns to make decisions by interacting with an **environment**. Through [trial and error]{.underline}, agent learns the best **actions** to take in different situations to achieve its **goals**.
+Before presenting these models, we argue for the usefulness of RL in our setting. Unlike traditional economic models that map teacher effort to student outcomes through a time-fixed education production function, RL allows us to model teacher behavior as a flexible, evolving process that can change week by week. The RL framework is inspired by the way animals learn from their experiences, with an agent representing a decision-maker that performs actions in an environment and receives observations and rewards in return. In the RL paradigm, teachers are modeled as agents that interact with their environment (the classroom), making decisions (actions) based on their current understanding of the environment (state) and the feedback they receive (rewards). This interaction can be represented as:
 
 $$
 \text{Agent} \xrightarrow[\text{Actions}]{\text{Performs}} \text{Environment} \xrightarrow[\text{Observations, Rewards}]{\text{Provides}} \text{Agent}
 $$
 
-**Suitability for modeling teacher decision-making**
-
--   Captures the dynamic and sequential nature of teaching
-
--   Example: $s_t = (TowerAlerts_t, RD\_resources\_t)$, $a_t = (RD\_small\_group\_lessons\_t, TimeSpent\_t)$
-
--   Allows for the exploration of optimal teaching strategies in response to students' progress and engagement
-
--   Example: Balancing between focusing on struggling students and challenging high-performing students
-
-**Assumptions, objective functions, and tradeoffs**
-
-Assumes teachers make decisions to maximize long-term rewards (e.g., student learning outcomes)
-
-Objective: $\max_{\pi} \mathbb{E}[\sum_{t=0}^T \gamma^t r(s_t, a_t) | \pi]$
-
-Balances the tradeoffs between exploration (trying new teaching strategies) and exploitation (using known effective strategies)
-
-Example: $\epsilon$-greedy strategy
-
-**Flexibility and robustness**
-
--   Adapts to changes in the learning environment and individual student needs
-
--   Example: Adapting to new curriculum or varying levels of student preparedness
-
--   Allows for the incorporation of various state, action, and reward variables
-
--   Example: Including external factors such as school policies or testing schedules
-
--   Can be tailored to different educational contexts and objectives
-
--   Example: Customizing the model for different grade levels
-
--   Tradeoff between learning (exploring) and optimizing (exploiting)
-
-**Example:**
-
--   State: Current progress of students in the class.
--   Actions: Assigning additional practice, providing personalized feedback, adjusting lesson plans.
--   Rewards: Improved student performance, student engagement, reduced learning gaps.
-
-$$
-State (S) \xrightarrow[\text{Action (A)}]{\text{Teacher Decides}} New State (S') \xrightarrow[\text{Reward (R)}]{\text{Resulting Outcome}} \text{Feedback}
-$$
+In the context of predicting repeated behavior, we can use RL algorithms to model the decision-making process of individuals or groups, such as teachers, by learning from the patterns in their actions and the resulting outcomes. This approach allows us to model how individual teachers learn the relationships between actions, states, and rewards, thereby creating a typification of instructors. It then becomes possible to identify how teachers differ in their learning and behavior and how these characteristics relate to student outcomes. For example, teacher flexibility may be optimal in a learning environment, but without estimation of individual parameters, differentiating teachers would not be possible. Further, if a policy-maker can shift these individual-level parameters, they can affect student outcomes. These so-called "counterfactual analyses" can be powerful tools in creating innovative interventions or nudges to improve an outcome of interest. Finally, the RL model carries potential beyond the goals of this study. For instance, it can learn the associations between actions and rewards, allowing for automation of certain instructional inputs; if a teacher often assigns an activity under a certain state, the model could automate this action, freeing some of the teacher's time.
 
 ### Q-Learning Model
 
@@ -211,7 +150,7 @@ The weights and policy are updated based on the prediction error and the outcome
 
 w\[, j\] += alpha\[1\] \* delta \* to_vector(current_state); theta\[, j\] += alpha\[2\] \* delta \* to_vector(current_state);
 
- where delta is the prediction error, alpha\[1\] and alpha\[2\] are the step-sizes, and current_state is the current state of the model.
+where delta is the prediction error, alpha\[1\] and alpha\[2\] are the step-sizes, and current_state is the current state of the model.
 
 1.  Full RL framework
 2.  Policy learning and state value learning
@@ -227,6 +166,37 @@ VS=WS
 where S are the states, V are the values of each state, and A is the parameterized policy. Each teacher learns the policy and value functions by increments, taking steps determined by gradient ascent of a scalar performance measure (see appendix for detailed algorithm).
 
 # Applying RL Models to the Zearn Context
+
+In the context of predicting repeated behavior, RL algorithms can be used to model the decision-making process of individuals or groups by learning from the patterns in their actions and the resulting outcomes. The RL framework is particularly suitable for modeling teacher decision-making as it captures the dynamic and sequential nature of teaching. For instance, the state could be represented by the current progress of students in the class, and the actions could include assigning additional practice, providing personalized feedback, or adjusting lesson plans. The rewards could be improved student performance, increased student engagement, or reduced learning gaps. This interaction can be represented as:
+
+$$
+State (S) \xrightarrow[\text{Action (A)}]{\text{Teacher Decides}} New State (S') \xrightarrow[\text{Reward (R)}]{\text{Resulting Outcome}} \text{Feedback}
+$$
+
+The flexibility and robustness of the RL framework make it adaptable to changes in the learning environment and individual student needs. It allows for the incorporation of various state, action, and reward variables, and can be tailored to different educational contexts and objectives. Moreover, RL can capture the inherent uncertainty in the teaching environment. Teachers often face uncertainty about the best course of action to take to maximize student learning. RL models can capture this uncertainty and provide a framework for making optimal decisions under uncertainty. This is particularly relevant in the context of teaching, where the effectiveness of a teaching strategy may not be immediately apparent, and the optimal strategy may change as students' understanding evolves.
+
+**Flexibility and robustness**
+
+-   Adapts to changes in the learning environment and individual student needs
+
+-   Example: Adapting to new curriculum or varying levels of student preparedness
+
+-   Allows for the incorporation of various state, action, and reward variables
+
+-   Example: Including external factors such as school policies or testing schedules
+
+-   Can be tailored to different educational contexts and objectives
+
+-   Example: Customizing the model for different grade levels
+
+-   Tradeoff between learning (exploring) and optimizing (exploiting)
+
+**Example:**
+
+-   State: Current progress of students in the class.
+-   Actions: Assigning additional practice, providing personalized feedback, adjusting lesson plans.
+-   Rewards: Improved student performance, student engagement, reduced learning gaps.
+-   
 
 In simple terms, reinforcement learning may be represented as a relationship between an agent, their actions, states, and rewards, as the following image depicts (CITE Sutton Barto).
 
