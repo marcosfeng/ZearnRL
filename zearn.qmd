@@ -1785,8 +1785,8 @@ looic_nh <- sum(unlist(loo_nh["looic",]))
 
 # Hierarchical models
 ## Q-learning
-post <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
-loo_qhierarchical <- post$loo()$estimates["looic", ]
+post_hierarchical <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
+loo_qhierarchical <- post_hierarchical$loo()$estimates["looic", ]
 ## Logit
 models_h <- readRDS("Bayesian/Results/logit-hierarchical.RDS")
 loo_h <- sapply(models_h, loo)
@@ -1805,6 +1805,11 @@ gt(df_looic)
 
 ```{r}
 #| label: fig-model-fit
+
+prediction <- post$summary()
+prediction_hierarchical <- post_hierarchical$summary()
+
+
 
 ## TO-DO
 
