@@ -1778,19 +1778,23 @@ gt(df_looic)
 
 prediction <- post$summary()
 prediction_hierarchical <- post_hierarchical$summary()
+# write.csv(prediction, "./Bayesian/Results/prediction.csv")
+# write.csv(prediction_hierarchical, "./Bayesian/Results/prediction_hierarchical.csv")
 
+## Prediction data:
+# y_pred[teacher, week, choice]
+stan_data <- read_rds("Bayesian/Results/stan_data.RDS")
+## Choice data:
+# stan_data$choice
 
 
 ## TO-DO
-
 # Here I'd like to have a visual representation of the model fit.
 # I'm thinking of Having the number of weeks in the x-axis
 # and the probability of each y=1 on the y-axis.
 # Then graph two lines: one for the model fit (y_pred from the bayesian models)
 #                   and one for the real data.
 # Probably need to do this for the average across a number of teachers.
-
-
 
 
 ```
