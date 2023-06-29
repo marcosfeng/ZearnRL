@@ -330,7 +330,7 @@ In the context of Zearn, the Q-learning model is used to predict the actions of 
 
 Our data from the Zearn platform follows a time-series structure, spanning across an academic year, with the unit of analysis being the classroom-week. This level of granularity enables us to capture the temporal dynamics of teacher-student interactions and their subsequent influence on student achievement. In particular, we can model the decision-making process of teachers as they allocate their time and effort on the Zearn platform weekly and how these decisions translate into student outcomes, measured by the completion of lessons or "badges."
 
-Geographically, the data encompasses a diverse range of schools in Louisiana. This geographical focus provides a fascinating context for our study, given the state's unique educational landscape and the widespread adoption of the Zearn platform across its schools. However, the insights derived from this study potentially have broader implications, extending beyond the confines of Louisiana, given the universal teaching and learning principles underpinning our analysis. 
+Geographically, the data encompasses a diverse range of schools in Louisiana. This geographical focus provides a fascinating context for our study, given the state's unique educational landscape and the widespread adoption of the Zearn platform across its schools. However, the insights derived from this study potentially have broader implications, extending beyond the confines of Louisiana, given the universal teaching and learning principles underpinning our analysis.
 
 @fig-teachers-map depicts the geographical distribution of teachers using the Zearn platform across various parishes in Louisiana. This map visually represents the number of teachers per parish, revealing a heterogeneous distribution of Zearn usage across Louisiana, with certain parishes demonstrating a higher concentration of teachers. The map also highlights the top five cities with the highest number of teachers using Zearn.
 
@@ -783,24 +783,24 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 
 ## Dimensionality Reduction
 
-To capture the complex decision-making processes and trade-offs made by teachers, we employed a Principal Component Analysis (PCA), a Nonnegative Matrix Factorization (NMF), and an autoencoder (AE). We chose these methods as candidates to condense the multifaceted nature of our variables, including Teacher Minutes, Teacher Sessions, and the set of teacher actions. 
+To capture the complex decision-making processes and trade-offs made by teachers, we employed a Principal Component Analysis (PCA), a Nonnegative Matrix Factorization (NMF), and an autoencoder (AE). We chose these methods as candidates to condense the multifaceted nature of our variables, including Teacher Minutes, Teacher Sessions, and the set of teacher actions.
 
-While PCA is a widespread technique, it is only appropriate for some datasets or research questions. PCA assumes the data follows a Gaussian distribution, which may not always hold . Further, PCA is an unsupervised method that only considers the input data structure and not the associated target variables or labels. On the other hand, methods like NMF and autoencoders offer different advantages. NMF, for instance, imposes a non-negativity constraint, which makes its components easier to interpret in many contexts, especially when the data elements represent quantities that cannot be negative, such as counts or frequencies. NMF also tends to produce a more parts-based, sparse representation of the data, which can be more interpretable in some cases. Autoencoders are a type of neural network that can model more complex, non-linear relationships in the data. They can also be trained in a supervised manner to learn a reduced-dimension representation specifically optimized for predicting a target variable, leading to improved performance in subsequent predictive modeling tasks.
+While PCA is a widespread technique, it is only appropriate for some datasets or research questions. PCA assumes the data follows a Gaussian distribution, which may not always hold [@jolliffe2016]. Further, PCA is an unsupervised method that only considers the input data structure and not the associated target variables or labels. On the other hand, methods like NMF and autoencoders offer different advantages. NMF, for instance, imposes a non-negativity constraint, which makes its components easier to interpret in many contexts, especially when the data elements represent quantities that cannot be negative, such as counts or frequencies. NMF also tends to produce a more parts-based, sparse representation of the data, which can be more interpretable in some cases [@lee1999]. Autoencoders are a type of neural network that can model more complex, non-linear relationships in the data. They can also be trained in a supervised manner to learn a reduced-dimension representation specifically optimized for predicting a target variable, leading to improved performance in subsequent predictive modeling tasks [@goodfellow2016].
 
 By trying different techniques, we can explore these different trade-offs and potentially discover a reduced-dimension representation better suited to our specific dataset and research question than PCA alone would provide. This approach aligns with the principle of methodological triangulation, which suggests that using multiple methods can help to overcome the limitations of any single method and provide a more robust and comprehensive understanding of the data.
 
 The Nonnegative Matrix Factorization (NMF) operates as follows:
 
-The original matrix is a detailed description of all the teachers' behaviors. Each row in the matrix represents a unique teacher, and each column represents a specific behavior or action the teacher might take. The entry in a specific row and column corresponds to the frequency of that behavior for that particular teacher. 
+The original matrix is a detailed description of all the teachers' behaviors. Each row in the matrix represents a unique teacher, and each column represents a specific behavior or action the teacher might take. The entry in a specific row and column corresponds to the frequency of that behavior for that particular teacher.
 
 After the NMF, we have two matrices:
 
-1. Basis Matrix (W): This matrix represents underlying behavior patterns. Each column is a "meta-behavior" or a group of behaviors occurring together.
-2. Mixture Matrix (H): This matrix shows the extent to which each "meta-behavior" is present in each teacher. Each entry in this matrix represents the contribution of a "meta-behavior" to a particular teacher's behaviors.
+1.  Basis Matrix (W): This matrix represents underlying behavior patterns. Each column is a "meta-behavior" or a group of behaviors occurring together.
+2.  Mixture Matrix (H): This matrix shows the extent to which each "meta-behavior" is present in each teacher. Each entry in this matrix represents the contribution of a "meta-behavior" to a particular teacher's behaviors.
 
 By looking at these matrices, we can identify underlying patterns of behaviors (from the basis matrix) and see how these patterns are mixed and matched in different teachers (from the mixture matrix).
 
-We first scale the data such that all features are in the range [0, 1], then we create training (80%) and testing (20%) sets. We then perform a PCA and calculate the sum of squared residuals (a measure of the difference between the original data and the data reconstructed from the PCA) and silhouette scores (a measure of how similar an object is to its cluster compared to other clusters). The silhouette score ranges from -1 to 1, with a high value indicating that the object is well-matched to its cluster and poorly matched to neighboring clusters.
+We first scale the data such that all features are in the range \[0, 1\], then we create training (80%) and testing (20%) sets. We then perform a PCA and calculate the sum of squared residuals (a measure of the difference between the original data and the data reconstructed from the PCA) and silhouette scores (a measure of how similar an object is to its cluster compared to other clusters). The silhouette score ranges from -1 to 1, with a high value indicating that the object is well-matched to its cluster and poorly matched to neighboring clusters.
 
 Next, we perform an NMF using two different loss functions (Frobenius norm and Kullback-Leibler divergence) and two different initialization methods (nonnegative double singular value decomposition (NNDSVD) and NNDSVD with zeros filled with the average of the input matrix (NNDSVDA)). We also calculate the sum of squared residuals and silhouette scores for each model.
 
@@ -1943,14 +1943,13 @@ chart.Correlation(test, histogram = TRUE, method = "spearman")
 # Supplemental Information {.appendix}
 
 ## Zearn's Eye View of the Data
-  
+
 ```{r}
 #| eval: false
 #| label: fig-raw-data
 #| fig-cap: "The raw data from Zearn's platform, with each row corresponding to a different timestamp for a teacher action. The columns represent the different variables, including the number of minutes spent on the platform, the number of badges earned, and the number of boosts used. The data is organized by classroom, with each classroom having a different color. The data is also organized by week, with each week having a different shape. The data is organized by teacher, with each teacher having a different line type. The data is organized by school, with each school having a different line color."
 
 ```
-
 
 ## Meta-Analysis of Correlations between Components and Student Outcomes
 
