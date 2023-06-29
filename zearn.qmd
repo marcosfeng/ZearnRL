@@ -42,25 +42,21 @@ This paper aims to model the decision-making process of a teacher in a math-teac
 
 ## The Zearn Platform
 
-<!-- ![Teacher and Students](https://assets-global.website-files.com/60ad603a6b6b23851c3fb0d8/60f850148c03471458e4be28_hithere-poster-00001.jpg) *Image from [Zearn](https://about.zearn.org)* -->
+![Example of Teaching with Visual Models on Zearn](images/zearn-poster.jpg){#zearn-poster fig-align="center"}
 
-Zearn is an online math-teaching platform.
+Zearn is a digital platform for mathematics education designed to facilitate the teaching and learning of mathematics, providing a rich environment for modeling the decision-making process of teachers. About 25% of elementary-school students and over 1 million middle-school students across the United States use Zearn [@post-weblog]. The platform's unique blend of hands-on teaching and immersive digital learning offers a fertile ground for understanding how teachers adapt their strategies to optimize student achievement.
 
--   Model the decision-making of teachers
+Zearn's pedagogical approach includes interactive digital lessons using visual aids and real-time student feedback. The platform's approach to mathematical concepts, such as fractions, is particularly noteworthy. Students go through a series of representations: concrete, pictorial, and abstract, each designed to scaffold (i.e., "breaking down" problems, see [@jumaat2014a; @reiser2014]) their understanding and prepare them for subsequent levels. This approach aligns with the Common Core State Standards, enhancing relevance in the contemporary educational landscape.
 
--   Understand how they adapt their teaching strategies to optimize student achievement.
+The platform's structure facilitates a personalized learning experience for students, allowing teachers to track student progress and make informed decisions. This structure includes self-paced online lessons and small group instruction, a rotational model that allows students to learn new grade-level content in two ways: independently through engaging digital lessons, and in small groups with their teacher and classmates. This dual approach enables students to learn at their own pace, fostering a sense of autonomy and self-directed learning.
 
-Personalized learning experience for students. Teachers track student progress and make informed decisions.
+A key feature of Zearn is its badge system, which serves as a mechanism for tracking student progress and motivating continued learning. Students earn badges upon mastery of specific skills, providing a tangible representation of their achievement. This system motivates students and provides teachers with valuable data on student performance, informing their decision-making process [@knudsen2020]. Zearn also incorporates notifications, known as Tower Alerts, sent to teachers when a student struggles with a specific concept. This feature allows teachers to provide timely support and address learning gaps, enhancing the platform's capacity for personalized learning.
 
--   **Classroom structure:** Self-paced online lessons and small group instruction.
+Another noteworthy aspect is the platform's professional development component, which is available for schools with a paid account. Teachers explore each unit or mission through word problems, fluencies, and small group lessons, conducting collaborative analysis of student work and problem-solving strategies. This professional development revolves around each mission's big mathematical idea, visual representations to scaffold learning, and strategies to address unfinished learning from prior grades and preparation for future learning [@morrison2019].
 
--   **Badge system for student achievement:** Students earn badges upon completing lessons (mastery of specific skills). Track student progress and motivate them to continue learning.
+In order to model interesting behavioral patterns, we focus our analysis on the teachers who most likely take advantage of a wide range of resources on the platform. Thus, we select teachers who consistently use the platform and work in traditional school settings.
 
--   **Tower Alerts:** Real-time notifications sent to teachers when a student struggles with a specific concept. Teachers can provide support and address learning gaps.
-
--   **Teacher selection and criteria:** Consistently use the platform and work in traditional school settings.
-
--   **Variables of interest:** Teacher effort, student performance, lesson completion, and the time spent by both teachers and students on the platform.
+The platform's integrated approach to math teaching and learning, connecting a print- and software-based curriculum with a rotational classroom model, professional development, and classroom- and school-level reports on student learning, provides a comprehensive data set for analysis. The variables of interest in this study have been made available by the Zearn team and include (1) teacher effort (as measured by a gamut of actions), (2) lesson completion (badges), (3) student performance (tower alerts), and the (4) time teachers and students spend on the platform.
 
 <!--Lit review here -->
 
@@ -332,7 +328,11 @@ In the context of Zearn, the Q-learning model is used to predict the actions of 
 
 # Data
 
-Our data come from the online math-teaching platform Zearn. The system is organized into classrooms led by a teacher. Each classroom contains several students who are collectively assigned certain lessons for completion. When a student finishes a lesson, they earn a "badge." Badges are the main student outcome measure used by Zearn and its teachers. The following table shows the typical profile of a Zearn classroom over the course of one month.
+Our data from the Zearn platform follows a time-series structure, spanning across an academic year, with the unit of analysis being the classroom-week. This level of granularity enables us to capture the temporal dynamics of teacher-student interactions and their subsequent influence on student achievement. In particular, we can model the decision-making process of teachers as they allocate their time and effort on the Zearn platform weekly and how these decisions translate into student outcomes, measured by the completion of lessons or "badges."
+
+Geographically, the data encompasses a diverse range of schools in Louisiana. This geographical focus provides a fascinating context for our study, given the state's unique educational landscape and the widespread adoption of the Zearn platform across its schools. However, the insights derived from this study potentially have broader implications, extending beyond the confines of Louisiana, given the universal teaching and learning principles underpinning our analysis. 
+
+@fig-teachers-map depicts the geographical distribution of teachers using the Zearn platform across various parishes in Louisiana. This map visually represents the number of teachers per parish, revealing a heterogeneous distribution of Zearn usage across Louisiana, with certain parishes demonstrating a higher concentration of teachers. The map also highlights the top five cities with the highest number of teachers using Zearn.
 
 ```{r load packages}
 library(tidyverse)
@@ -415,13 +415,97 @@ df <- as.data.frame(dt) %>%
 
 ```
 
-## Descriptive Statistics and Visualizations
+```{r}
+#| cache: true
+#| label: fig-teachers-map
+#| fig-cap: "Geographical distribution of teachers across various parishes in Louisiana, and the top 5 cities with the highest number of teachers."
 
-The data represents various aspects of Zearn schools including identifiers, usage data, and demographic information. The dataset contains information for `r length(unique(df$Classroom.ID))` classrooms and `r length(unique(df$Teacher.User.ID))` teachers, with an average of `r mean(df$Students...Total, 1)` students per classroom. Various transformations and computations were performed on the data to prepare it for analysis, including calculating the number of distinct teachers, total students, and total weeks per school.
+library(sf)
+library(tidygeocoder)
+library(tigris)
+library(furrr)
 
-Descriptive statistics were computed for different measures such as the number of unique teachers, total students, and total weeks per school. Proportions were also calculated for various variables like poverty and income. The resulting statistics and proportions are displayed in @tbl-summary and @tbl-proportions, respectively. Refer to @tbl-summary-statistics for detailed information on the summary statistics for different variables by grade level.
+# Batch geocoding
+# Sys.setenv(GEOCODIO_API_KEY = "")
+unique_zipcodes <- unique(dt$zipcode) %>%
+  as.list()
+plan(strategy = "multisession", workers = availableCores())
+address_geodata <- furrr::future_map_dfr(.x = unique_zipcodes, 
+                               ~ geo(postalcode = .x,
+                                     country = "United States",
+                                     method = 'geocodio',
+                                     full_results = TRUE,
+                                     progress_bar = FALSE)) %>%
+  select(postalcode,
+         address_components.city,
+         address_components.county,
+         lat, long) %>%
+  rename(
+    city = address_components.city,
+    county = address_components.county
+  ) %>%
+  mutate(
+    postalcode = as.integer(postalcode)
+  )
 
-The geographical distribution of teachers across Louisiana and the top 5 cities with the highest number of teachers are presented in @fig-teachers-map.
+# Merge the geocoding results back into the original data.table
+dt <- merge(dt, address_geodata,
+            by.x = "zipcode",
+            by.y = "postalcode",
+            all.x = TRUE)
+
+# Aggregate the data to get the number of teachers in each county
+dt_map <- dt[, .(
+  num_teachers = n_distinct(Teacher.User.ID)
+), by = .(county)]
+
+# Get the top 5 cities by number of teachers
+# Aggregate the data to get the number of teachers in each city
+top_cities <- dt[, .(
+  num_teachers = n_distinct(Teacher.User.ID),
+  lat = mean(lat),
+  long = mean(long)
+), by = .(city, county)]
+# Get the top 5 cities with the most teachers
+top_cities <- top_cities[order(-num_teachers)][1:5,]
+
+# Get the Louisiana county map data
+df_map <- tigris::counties(cb = TRUE,
+                           resolution = "20m",
+                           class = "sf",
+                           state = "LA",
+                           progress_bar = FALSE) %>%
+  # sf::st_set_crs(4326) %>%
+  left_join(
+    as.data.frame(dt_map),
+    by = c("NAMELSAD" = "county")
+  ) %>%
+  sf::st_as_sf()
+
+ggplot() +
+  geom_sf(data = df_map, aes(fill = num_teachers)) +
+  scale_fill_continuous(name = "Number of Teachers", low = "white", high = "red", na.value = "gray90") +
+  labs(
+    title = "Number of Teachers by Parish in Louisiana"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank()
+  ) +
+  geom_point(data = top_cities, aes(x = long, y = lat)) +
+  geom_text_repel(data = top_cities, aes(x = long, y = lat, label = city), size = 3, color = "black")
+```
+
+## Descriptive Collection and Preprocessing
+
+Zearn provided administrative data for teachers and students at a granular level. Teacher data was time-stamped by the second and included the time spent on the platform and the specific actions taken. Note that, although extensive, the set of actions was not comprehensive. On the other hand, student data was aggregated at the classroom-week level due to data privacy considerations. This aggregation included our variables of interest: (1) teacher effort (weekly time spent on the Zearn platform, in minutes), (2) student achievement (student lesson completion or "badges"), and (3) level of student struggle (tower alerts). These variables form the basis of our reinforcement learning models, providing a comprehensive view of the dynamics of teacher-student interactions on the Zearn platform.
+
+The dataset represents various aspects of Zearn schools including identifiers, usage data, and demographic information. It contains information for `r length(unique(df$Classroom.ID))` classrooms and `r length(unique(df$Teacher.User.ID))` teachers, with an average of `r mean(df$Students...Total, 1)` students per classroom.
+
+The school summary statistics, as presented in Table @tbl-summary, provide a snapshot of the schools' characteristics. The table reveals the average number of teachers, students, and weeks of data per school. @tbl-proportions presents the proportions of schools across different poverty levels, income brackets, and other variables, such as the percentage of charter schools and schools with paid accounts. These proportions provide insights into the socio-economic context of the schools in the dataset, which is crucial for understanding the external factors that may influence teacher effort and student achievement.
 
 ```{r}
 #| label: tbl-summary
@@ -526,141 +610,11 @@ gt_proportions
 
 ```
 
-```{r}
-#| cache: true
-#| label: fig-teachers-map
-#| fig-cap: "Geographical distribution of teachers across various parishes in Louisiana, and the top 5 cities with the highest number of teachers."
+### Temporal Dynamics of Student Engagement
 
-library(sf)
-library(tidygeocoder)
-library(tigris)
-library(furrr)
+The total number of weeks of data per classroom, as shown in Figure @fig-classroom-weeks, reveals that the distribution of the number of weeks is bimodal, with one mode representing classrooms with less than 3 to 4 months of data and the other mode representing classrooms with four months or more. The classrooms with less than 16 weeks of data are color-coded in red and are excluded from the analysis.
 
-# Batch geocoding
-# Sys.setenv(GEOCODIO_API_KEY = "")
-unique_zipcodes <- unique(dt$zipcode) %>%
-  as.list()
-plan(strategy = "multisession", workers = availableCores())
-address_geodata <- furrr::future_map_dfr(.x = unique_zipcodes, 
-                               ~ geo(postalcode = .x,
-                                     country = "United States",
-                                     method = 'geocodio',
-                                     full_results = TRUE,
-                                     progress_bar = FALSE)) %>%
-  select(postalcode,
-         address_components.city,
-         address_components.county,
-         lat, long) %>%
-  rename(
-    city = address_components.city,
-    county = address_components.county
-  ) %>%
-  mutate(
-    postalcode = as.integer(postalcode)
-  )
-
-# Merge the geocoding results back into the original data.table
-dt <- merge(dt, address_geodata,
-            by.x = "zipcode",
-            by.y = "postalcode",
-            all.x = TRUE)
-
-# Aggregate the data to get the number of teachers in each county
-dt_map <- dt[, .(
-  num_teachers = n_distinct(Teacher.User.ID)
-), by = .(county)]
-
-# Get the top 5 cities by number of teachers
-# Aggregate the data to get the number of teachers in each city
-top_cities <- dt[, .(
-  num_teachers = n_distinct(Teacher.User.ID),
-  lat = mean(lat),
-  long = mean(long)
-), by = .(city, county)]
-# Get the top 5 cities with the most teachers
-top_cities <- top_cities[order(-num_teachers)][1:5,]
-
-# Get the Louisiana county map data
-df_map <- tigris::counties(cb = TRUE,
-                           resolution = "20m",
-                           class = "sf",
-                           state = "LA",
-                           progress_bar = FALSE) %>%
-  # sf::st_set_crs(4326) %>%
-  left_join(
-    as.data.frame(dt_map),
-    by = c("NAMELSAD" = "county")
-  ) %>%
-  sf::st_as_sf()
-
-ggplot() +
-  geom_sf(data = df_map, aes(fill = num_teachers)) +
-  scale_fill_continuous(name = "Number of Teachers", low = "white", high = "red", na.value = "gray90") +
-  labs(
-    title = "Number of Teachers by Parish in Louisiana"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    panel.grid = element_blank(),
-    axis.text = element_blank(),
-    axis.title = element_blank()
-  ) +
-  geom_point(data = top_cities, aes(x = long, y = lat)) +
-  geom_text_repel(data = top_cities, aes(x = long, y = lat, label = city), size = 3, color = "black")
-```
-
-## Unit of Analysis: Classroom-Week
-
-We aggregate data at the weekly level. Teacher data has fine granularity with events time-stamped by the second. However, for data privacy purposes, student data is only available aggregated by classroom at the weekly level, including our variables of interest: student badge achievement, student minutes on the platform, and tower alerts.
-
-### Zearn's Eye View
-
-Time-series data for teacher effort and student achievement A. Weekly aggregation of data B. Privacy concerns for student data
-
-<!-- Print head of dataset with better labels -->
-
-### Measuring Student Achievement
-
-```{r}
-#| label: tbl-summary-statistics
-#| caption: "Means (SD) of student variables by grade level."
-
-create_summary <- function(var_name, var_label, type = "continuous") {
-  summary_stat <- df %>%
-    select(Grade.Level, var_name) %>%
-    tbl_summary(
-      by = Grade.Level,
-      missing = "no",
-      type = list(var_name ~ type),
-      statistic = var_name ~ ifelse(type == "continuous", "{mean} ({sd})", "{n} ({p})")
-    ) %>%
-    add_overall() %>%
-    as_tibble() 
-  summary_stat[1] <- var_label
-  return(summary_stat)
-}
-
-summaries_list <- list(
-  create_summary("Sessions.per.Active.User", "Sessions per Student"),
-  create_summary("Minutes.per.Active.User", "Minutes per Student"),
-  create_summary("Badges.per.Active.User", "Badges per Student"),
-  create_summary("Tower.Alerts.per.Tower.Completion", "Tower Alerts per Lesson Completion"),
-  # create_summary("tch_login", "Teacher Login (0/1)", type = "dichotomous"),
-  create_summary("tch_min", "Minutes per Teacher")
-)
-
-summary_table <- bind_rows(summaries_list) %>% 
-  transpose(keep.names = "Characteristic", make.names = 1)
-names(summary_table)[1] <- "Grade Level"
-
-gt(summary_table)
-
-```
-
-### Change in Active Users and Badges per Active User Over Time
-
-The average number of weeks of data available per classroom is shown in @fig-classroom-weeks, and the total number of student logins over time is illustrated in @fig-logins-week.
+@fig-logins-week illustrates the total number of student logins over time, offering a dynamic view of student engagement with the Zearn platform. Notably, there are marked decreases in logins during Thanksgiving and Christmas, as indicated by the text annotations on the plot.
 
 ```{r}
 #| label: fig-classroom-weeks
@@ -721,12 +675,17 @@ bar_plot +
 
 ```
 
+## Variables of interest
+
+Our Zearn data can be viewed as time-series (over the course of the school year, \~ 40 weeks). We propose to analyze the relationship between teacher effort and student achievement through temporal dynamics in the data. For the implementation of RL models, we need both an input (action) and an output (reward). For this purpose, we first use teacher weekly log-ins (a binary variable, 0 = no log-ins and 1 = at least 1 log-in) as a quantifiable proxy for teacher effort. We assume that teachers on Zearn are in control of this input variable, and choosing how much time to allocate to the platform is central to this decision process. Although these are not perfect proxies (e.g., they do not account for time spent creating assignments and performing in person instruction to students), it is one of the few directly quantifiable information about teacher behavior available in the data. Further, we use student lesson completion (badges completed) as a measure of student effort level, given that Zearn emphasizes the importance of lesson completion (instead of a grade, for example).
+
+### State Variables
+
+For this paper's second class of Reinforcement Learning models, we require variables that can determine the state space of each week. Experienced teachers suggest that they strongly focus on measures of the level of difficulty encountered during the lessons. The Zearn platform provides a measure of this kind, namely, "Tower Alerts." If a student is struggling in a given lesson, the platform automatically provides scaffolded remediation (i.e., breaking the problems step by step), and if they struggle multiple times in that same lesson, a "Tower Alert" is generated for their teacher. We use the previous week's average Tower Alerts to measure the level of difficulty faced by the students. Further, we include the previous week's average student time usage (in minutes) as a state variable. Effectively, we assume that the value of a given state (i.e., the week at hand) is a function of the previous week's "tower alerts" and "student minutes."
+
 ## Exclusion criteria
 
-Given the diverse user base of the platform, we select teachers who most likely come from traditional schools and classrooms that use the platform consistently. Specifically, we select virtual classrooms with at least five active students weekly, indicating students are enrolled by a school, and not their parents or tutors only. We also consider only classes that were active for more than 5 months during the year. That is, at least one student logged in for a period of at least 20 weeks, and we removed classes inactive for more than 7 months. This deletion most likely ensures that teachers and schools that have not used Zearn consistently will not affect the robustness of our results.
-
-1.  Traditional schools and consistent platform usage
-2.  Criteria for inclusion in the study We remove teachers with more than 4 classrooms and those who have logged in for less than 16 weeks in total. We exclude classrooms in the 6th to 8th grades, as those are a small proportion of our dataset.
+The raw data underwent rigorous preprocessing to ensure its suitability for analysis. This process included performing log transformations on our variables of interest (i.e., minutes, badges, and tower alerts) to normalize their distributions. Given the diverse user base of Zearn, we applied specific exclusion criteria to select teachers who most likely come from traditional schools and classrooms that use the platform consistently. We selected virtual classrooms with at least five active students weekly, filtering out parents or tutors who may use Zearn outside the classroom setting. We removed teachers with more than four classrooms and those who logged in for less than 16 weeks. We excluded classrooms in the 6th to 8th grades, as those are a small proportion of our dataset. This deletion ensures a focus on traditional school settings and consistent platform usage, minimizing bias from teachers and schools that have not used Zearn consistently.
 
 ```{r preprocess data}
 
@@ -757,21 +716,47 @@ gc(verbose = FALSE)
 
 ```
 
-## Variables of interest
+@tbl-summary-statistics summarizes the refined dataset, providing a snapshot of the key variables of interest. Their means and standard deviations (SD) are computed for each grade level and overall (across all grades).
 
-Our Zearn data can be viewed as time-series (over the course of the school year, \~ 40 weeks). We propose to analyze the relationship between teacher effort and student achievement through temporal dynamics in the data. For the implementation of RL models, we need both an input (action) and an output (reward). For this purpose, we use teacher weekly log-ins (a binary variable, 0 = no log-ins and 1 = at least 1 log-in) or weekly time spent on Zearn's platform (in minutes) as quantifiable proxies for teacher effort. We assume that teachers on Zearn are in control of these two variables, and choosing how much time to allocate to the platform is central to this decision process. Although these are not perfect proxies for teacher effort, for example, they do not account for time spent creating assignments and performing in person instruction to students, they are the only directly quantifiable information about teacher behavior that we have in the data that even has the potential to impact student achievement. Further, we use student lesson completion (badges completed) as a measure of student effort level, given that developers at Zearn and teachers strongly emphasize the importance of lesson completion (instead of a grade, for example). The following histograms show the distribution of teacher minutes and student badges. Note the skewed nature of these distributions. As such, we transform our data prior to model fitting with log(minutes + 1) and log(badges + 1) as the inputs and outputs, respectively.
+```{r}
+#| label: tbl-summary-statistics
+#| caption: "Means (SD) of student variables by grade level."
 
-### State Variables
+create_summary <- function(var_name, var_label, type = "continuous") {
+  summary_stat <- df %>%
+    select(Grade.Level, var_name) %>%
+    tbl_summary(
+      by = Grade.Level,
+      missing = "no",
+      type = list(var_name ~ type),
+      statistic = var_name ~ ifelse(type == "continuous", "{mean} ({sd})", "{n} ({p})")
+    ) %>%
+    add_overall() %>%
+    as_tibble() 
+  summary_stat[1] <- var_label
+  return(summary_stat)
+}
 
-For this paper's second class of Reinforcement Learning models, we require variables that can determine the state space of each week. Experienced teachers suggest that they strongly focus on measures of the level of difficulty encountered during the lessons. The Zearn platform provides a measure of this kind, namely, "Tower Alerts." If a student is struggling in a given lesson, the platform automatically provides scaffolded remediation (i.e., breaking the problems step by step), and if they struggle multiple times in that same lesson, a "Tower Alert" is generated for their teacher. We use the previous week's average Tower Alerts to measure the level of difficulty faced by the students. Further, we include the previous week's average student time usage (in minutes) as a state variable. Effectively, we assume that the value of a given state (i.e., the week at hand) is a function of the previous week's "tower alerts" and "student minutes."
+summaries_list <- list(
+  create_summary("Sessions.per.Active.User", "Sessions per Student"),
+  create_summary("Minutes.per.Active.User", "Minutes per Student"),
+  create_summary("Badges.per.Active.User", "Badges per Student"),
+  create_summary("Tower.Alerts.per.Tower.Completion", "Tower Alerts per Lesson Completion"),
+  # create_summary("tch_login", "Teacher Login (0/1)", type = "dichotomous"),
+  create_summary("tch_min", "Minutes per Teacher")
+)
 
-### Visualizing Relationships Between Variables
+summary_table <- bind_rows(summaries_list) %>% 
+  transpose(keep.names = "Characteristic", make.names = 1)
+names(summary_table)[1] <- "Grade Level"
 
--   Use correlation analysis to find relationships between variables
+gt(summary_table)
 
--   Identify variables that may be strong predictors for the reinforcement learning model
+```
 
-@fig-corr displays the correlation matrix of selected variables.
+## Visualizing Relationships Between Variables
+
+We begin to unveil the intricate relationships among the variables under consideration through a comprehensive correlation analysis, as depicted in @fig-corr. This correlation matrix elucidates the magnitude and direction of associations among variables such as badges earned, minutes spent per student, tower alerts, the number of students, and teacher minutes. These interconnections inform the construction of our reinforcement learning models by suggesting the influence of teacher effort on student achievement. In this correlation matrix, each cell represents the Spearman correlation coefficient between a pair of variables. The color and size of the circles in each cell reflect the strength and direction of the correlation, with blue indicating positive correlations and red indicating negative correlations. The histograms along the diagonal provide a visual representation of the distribution of each variable.
 
 ```{r}
 #| cache: true
@@ -796,20 +781,32 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 
 ```
 
-### Dimensionality Reduction
+## Dimensionality Reduction
 
-In order to capture the choices and trade-offs that teachers make, we used a Principal Component Analysis (PCA). This approach was taken to condense the multifaceted nature of our variables: Teacher Minutes, Teacher Sessions, and a series of data points including resources downloaded.
+To capture the complex decision-making processes and trade-offs made by teachers, we employed a Principal Component Analysis (PCA), a Nonnegative Matrix Factorization (NMF), and an autoencoder (AE). We chose these methods as candidates to condense the multifaceted nature of our variables, including Teacher Minutes, Teacher Sessions, and the set of teacher actions. 
 
-PCA was performed to mitigate the high-dimensionality of the dataset, seeking to encapsulate the maximum statistical information. We then calculated the correlations between the "Badges per Student" and the following variables: Teacher Minutes, and the three principal components (PC1, PC2, PC3). This facet of the analysis, which had a unit of analysis at the teacher level, was conducted to analyze the relationship between badges and the selected variables for each Teacher.
+While PCA is a widespread technique, it is only appropriate for some datasets or research questions. PCA assumes the data follows a Gaussian distribution, which may not always hold . Further, PCA is an unsupervised method that only considers the input data structure and not the associated target variables or labels. On the other hand, methods like NMF and autoencoders offer different advantages. NMF, for instance, imposes a non-negativity constraint, which makes its components easier to interpret in many contexts, especially when the data elements represent quantities that cannot be negative, such as counts or frequencies. NMF also tends to produce a more parts-based, sparse representation of the data, which can be more interpretable in some cases. Autoencoders are a type of neural network that can model more complex, non-linear relationships in the data. They can also be trained in a supervised manner to learn a reduced-dimension representation specifically optimized for predicting a target variable, leading to improved performance in subsequent predictive modeling tasks.
 
-The Non-negative Matrix Factorization (NMF) operates as follows:
+By trying different techniques, we can explore these different trade-offs and potentially discover a reduced-dimension representation better suited to our specific dataset and research question than PCA alone would provide. This approach aligns with the principle of methodological triangulation, which suggests that using multiple methods can help to overcome the limitations of any single method and provide a more robust and comprehensive understanding of the data.
 
-The original matrix can be seen as a detailed description of all the teachers' behaviors. Each row in the matrix represents a unique teacher, and each column represents a specific behavior or action the teacher might take. The entry in a specific row and column then corresponds to the occurrence, frequency, or intensity of that behavior for that particular teacher. After the NMF, we have two matrices:
+The Nonnegative Matrix Factorization (NMF) operates as follows:
 
-1.  **Basis Matrix (W)**: This matrix represents underlying behavior patterns. Each column can be seen as a "meta-behavior" or a group of behaviors that tend to occur together. It is an abstraction or summary of the original behaviors.
-2.  **Mixture Matrix (H)**: This matrix shows the extent to which each "meta-behavior" is present in each teacher. Each entry in this matrix represents the contribution of a "meta-behavior" to a particular teacher's behaviors.
+The original matrix is a detailed description of all the teachers' behaviors. Each row in the matrix represents a unique teacher, and each column represents a specific behavior or action the teacher might take. The entry in a specific row and column corresponds to the frequency of that behavior for that particular teacher. 
 
-By looking at these matrices, we can identify underlying patterns of behaviors (from the basis matrix) and see how these patterns are mixed and matched in different teachers (from the mixture matrix). This can be a powerful way of summarizing and interpreting complex behavioral data.
+After the NMF, we have two matrices:
+
+1. Basis Matrix (W): This matrix represents underlying behavior patterns. Each column is a "meta-behavior" or a group of behaviors occurring together.
+2. Mixture Matrix (H): This matrix shows the extent to which each "meta-behavior" is present in each teacher. Each entry in this matrix represents the contribution of a "meta-behavior" to a particular teacher's behaviors.
+
+By looking at these matrices, we can identify underlying patterns of behaviors (from the basis matrix) and see how these patterns are mixed and matched in different teachers (from the mixture matrix).
+
+We first scale the data such that all features are in the range [0, 1], then we create training (80%) and testing (20%) sets. We then perform a PCA and calculate the sum of squared residuals (a measure of the difference between the original data and the data reconstructed from the PCA) and silhouette scores (a measure of how similar an object is to its cluster compared to other clusters). The silhouette score ranges from -1 to 1, with a high value indicating that the object is well-matched to its cluster and poorly matched to neighboring clusters.
+
+Next, we perform an NMF using two different loss functions (Frobenius norm and Kullback-Leibler divergence) and two different initialization methods (nonnegative double singular value decomposition (NNDSVD) and NNDSVD with zeros filled with the average of the input matrix (NNDSVDA)). We also calculate the sum of squared residuals and silhouette scores for each model.
+
+Finally, we implement an autoencoder to perform dimensionality reduction. The autoencoder is a neural network designed to learn an encoded, compressed representation of the input data and then reconstruct the original data from this encoded representation. The architecture of the autoencoder is optimized using a hyperparameter search, which involves training multiple versions of the model with different hyperparameters and selecting the one that performs best on the validation data. These hyperparameters include (1) the number of layers in the autoencoder, (2) the number of units in each layer, (3) the regularization strength, and (4) the number of components in the encoded representation. The target score for the training period is an average of mean squared error losses for the input reconstruction and the target variable prediction (Badges per Student), weighted by the standard deviations of the input data and the target variable.
+
+The PCA, NMF, and AE results are then compared by plotting the sum of squared residuals and silhouette scores for each method and the number of components used. @fig-nmf-pca-comparison allows us to visually compare the performance of the different methods and choose the one that provides the best balance between reconstruction accuracy (as measured by the sum of squared residuals) and cluster separation (as measured by the silhouette score). As such, we select the NMF with three components as our preferred method.
 
 ```{r pca nmf data-prep}
 #| include: false
@@ -1214,7 +1211,7 @@ comparison_plot
 
 #### Interpreting Components
 
-<!-- To ensure a more intuitive interpretation, we adjust each component to ensure a positive correlation with Student Badges (multiplying them by $-1$ if necessary). -->
+@fig-nmf-heatmap shows the loadings of the NMF components using a heatmap, depicting how each original feature contributes to each component. In other words, each component combines the original features to explain a substantial portion of the variance, potentially improving the efficiency and interpretability of the reinforcement learning models.
 
 ```{r}
 #| cache: true
@@ -1944,6 +1941,16 @@ chart.Correlation(test, histogram = TRUE, method = "spearman")
 :::
 
 # Supplemental Information {.appendix}
+
+## Zearn's Eye View of the Data
+  
+```{r}
+#| eval: false
+#| label: fig-raw-data
+#| fig-cap: "The raw data from Zearn's platform, with each row corresponding to a different timestamp for a teacher action. The columns represent the different variables, including the number of minutes spent on the platform, the number of badges earned, and the number of boosts used. The data is organized by classroom, with each classroom having a different color. The data is also organized by week, with each week having a different shape. The data is organized by teacher, with each teacher having a different line type. The data is organized by school, with each school having a different line color."
+
+```
+
 
 ## Meta-Analysis of Correlations between Components and Student Outcomes
 
