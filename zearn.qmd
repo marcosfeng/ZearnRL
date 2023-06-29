@@ -98,17 +98,15 @@ In the context of predicting repeated behavior, we can use RL algorithms to mode
 
 ### Q-Learning Model
 
-The first class of models we apply to our data is the so-called Q-learning algorithm. This model is inspired by the so-called "multi-armed bandit" problem. In this paradigm, an agent has a finite number of choices, each associate with a given reward. The agent must simply learn to choose which action yields the highest reward. Learning in this setting occurs by adjusting expectations and minimizing "surprises" (i.e., prediction errors). Notice that this setting does not require us to define a given state: in our setting, Q-learning assumes that the best action in one week is the best action at any other week. Thus, the model only prescribes an action-reward relationship. The teacher here learns the value of logging in regardless of the history of their classroom or students.
+The first class of models we apply to our data is the so-called Q-learning algorithm. Q-learning is a model-free reinforcement learning algorithm designed to learn a policy, which tells an agent what action to take under what circumstances [@watkins1992]. It does not require a model of the environment (hence the connotation "model-free"), and it can handle problems with stochastic transitions and rewards without requiring adaptations. This model is inspired by the so-called "multi-armed bandit" problem. In this paradigm, an agent has a finite number of choices, each associate with a given reward. The agent must simply learn to choose which action yields the highest reward. Learning in this setting occurs by adjusting expectations and minimizing "surprises" (i.e., prediction errors). Notice that this setting does not require us to define a given state: in our simplest model, Q-learning assumes that the best action in one week is the best action at any other week. Thus, the model only prescribes an action-reward relationship. The teacher here learns the value of logging in regardless of the history of their classroom or students.
 
-Q-learning is a model-free reinforcement learning algorithm designed to learn a policy, which tells an agent what action to take under what circumstances (Watkins, C. J. C. H., & Dayan, P. (1992). Q-learning. Machine Learning, 8(3-4), 279-292). It does not require a model of the environment (hence the connotation "model-free"), and it can handle problems with stochastic transitions and rewards without requiring adaptations.
-
-In the context of Q-learning, the agent interacts with the environment to gain experience and uses this experience to update its knowledge about the quality of particular actions, given the state of the environment. This knowledge is represented in the Q-values, a prediction of the future reward expected after taking an action in the current state (which in our context can be compared to subjective value, or a utility). The goal of Q-learning is to accurately learn these Q-values by updating them iteratively (Rummery, G. A., & Niranjan, M. (1994). On-line Q-learning using connectionist systems (Vol. 37). University of Cambridge, Department of Engineering).
+In the context of Q-learning, the agent interacts with the environment to gain experience and uses this experience to update its knowledge about the quality of particular actions, given the state of the environment. This knowledge is represented in the Q-values, a prediction of the future reward expected after taking an action in the current state (which in our context can be compared to subjective value, or a utility). The goal of Q-learning is to accurately learn these Q-values by updating them iteratively [@rummery].
 
 The Q-learning model is based on the concept of a Q-function, which is a function of both state and action, and represents the expected future reward for taking a particular action in a particular state. The Q-function is updated iteratively using the Bellman equation, which expresses the value of a state-action pair in terms of the immediate reward plus the discounted value of the best future state-action pair.
 
 ### State-free model vs. model with states
 
-In the state-free model, the Q-function is a function of the action only, and does not take into account the state of the environment (Sutton, R. S., & Barto, A. G. (2018). Reinforcement learning: An introduction. MIT press). This is a simplifying assumption that can be useful in situations where the state of the environment does not have a significant impact on the outcome of the action.
+In the state-free model, the Q-function is a function of the action only, and does not take into account the state of the environment [@sutton2018a]. This is a simplifying assumption that can be useful in situations where the state of the environment does not have a significant impact on the outcome of the action.
 
 In contrast, the model with states takes into account the state of the environment when updating the Q-function. This allows the model to capture more complex dynamics, where the outcome of an action depends not only on the action itself but also on the state of the environment.
 
@@ -120,7 +118,7 @@ where is a discount factor, cost(not work)=0, and cost(work)=c is a free paramet
 
 ### The kernel function
 
-The kernel function is a mathematical tool used to measure the similarity between different states or actions. In the context of the Q-learning model with states and a kernel, the kernel function is used to compute a weighted average of the rewards obtained in similar state-action pairs in the past (Dayan, P., & Niv, Y. (2008). Reinforcement learning: the good, the bad and the ugly. Current opinion in neurobiology, 18(2), 185-196 https://doi.org/10.1023/A:1017928328829 https://doi.org/10.48550/arXiv.2204.10349). This allows the model to generalize from past experience and to make more informed decisions about future actions.
+The kernel function is a mathematical tool used to measure the similarity between different states or actions [@ormoneit2002; @domingues; @liu]. In the context of the Q-learning model with states and a kernel, the kernel function is used to compute a weighted average of the rewards obtained in similar state-action pairs in the past. This allows the model to generalize from past experience and to make more informed decisions about future actions.
 
 ### Actor-Critic Model
 
@@ -202,7 +200,7 @@ Mathematically mapping the agent-environment interaction, however, is a flexible
 
 ## Dynamic Analysis (Lau & Glimcher, 2005)
 
-The Dynamic Analysis method, as proposed by Lau and Glimcher (2005), is a powerful tool for understanding choice behavior in the context of reinforcement learning. This method is particularly useful in tasks where reinforcement contingencies vary within a session, as it allows for the analysis of behavior at a granular, response-by-response level, while also providing insights into behavior averaged over multiple trials.
+The Dynamic Analysis method, as proposed by [@lau2005], is a powerful tool for understanding choice behavior in the context of reinforcement learning. This method is particularly useful in tasks where reinforcement contingencies vary within a session, as it allows for the analysis of behavior at a granular, response-by-response level, while also providing insights into behavior averaged over multiple trials.
 
 The Dynamic Analysis method is based on the premise that both past reinforcers and past choices significantly influence an individual's choices on each trial. This is a departure from simple reinforcement learning models, which often fail to account for the effects of past choices, leading to an incomplete characterization of behavior.
 
