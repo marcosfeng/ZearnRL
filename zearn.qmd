@@ -677,6 +677,39 @@ bar_plot +
 
 Our Zearn data can be viewed as time-series (over the course of the school year, \~ 40 weeks). We propose to analyze the relationship between teacher effort and student achievement through temporal dynamics in the data. For the implementation of RL models, we need both an input (action) and an output (reward). For this purpose, we first use teacher weekly log-ins (a binary variable, 0 = no log-ins and 1 = at least 1 log-in) as a quantifiable proxy for teacher effort. We assume that teachers on Zearn are in control of this input variable, and choosing how much time to allocate to the platform is central to this decision process. Although these are not perfect proxies (e.g., they do not account for time spent creating assignments and performing in person instruction to students), it is one of the few directly quantifiable information about teacher behavior available in the data. Further, we use student lesson completion (badges completed) as a measure of student effort level, given that Zearn emphasizes the importance of lesson completion (instead of a grade, for example).
 
+### Teacher Actions
+
+Another way of capturing teacher behavior is by analyzing their specific actions when they use Zearn. The platform provides a wide range of actions that teachers can take, including downloading resources, engaging in different teaching methods or activities, and choosing how much time they spend online. We can use these actions to create a more nuanced picture of teacher behavior on the platform. provides a list of the actions available in our data.
+
+| Variable                                | Description                                                                               |
+|--------------------------------|----------------------------------------|
+| Assessments Answer Key Download         | Answer keys for assessments to facilitate grading.                                        |
+| Assessments Download                    | Assessments to demonstrate understanding of the material.                                 |
+| Course Guide Download                   | Overview of the content, objectives, and structure of Zearn's PD courses.                 |
+| Course Notes Download                   | Notes from Zearn's professional development (PD) courses.                                 |
+| Curriculum Map Download                 | Comprehensive overview of the learning objectives and content for each grade level.       |
+| Elementary Schedule Download            | Schedule of elementary-level activities in the Zearn curriculum.                          |
+| Fluency Completed                       | Tracks completion of a fluency activity.                                                  |
+| Grade Level Overview Download           | Overview of the curriculum for a specific grade level.                                    |
+| Guided Practice Completed               | Tracks completion of the guided practice portion of a Zearn lesson.                       |
+| Kindergarten Activity Completed         | Tracks completion of a specific activity in the Kindergarten curriculum.                  |
+| Kindergarten Mission Download           | A specific learning mission in the Kindergarten curriculum.                               |
+| Kindergarten Schedule Download          | Detailed schedules for Kindergarten to help teachers plan their instruction.              |
+| Mission Overview Download               | Overview of a specific learning mission in the Zearn curriculum.                          |
+| Number Gym Activity Completed           | Tracks completion of a Number Gym activity.                                               |
+| Optional Homework Download              | Optional homework assignments for extra practice.                                         |
+| Optional Problem Sets Download          | Optional sets of problems for extra practice.                                             |
+| Small Group Lesson Download             | Lessons designed for completion in small groups.                                          |
+| Student Notes and Exit Tickets Download | Notes taken during a lesson and "exit tickets," brief assessments at the end of a lesson. |
+| Teaching and Learning Approach Download | Resources related to Zearn's teaching and learning approach.                              |
+| Tower Completed                         | Tracks completion of a "Tower of Power" activity in a Zearn lesson.                       |
+| Tower Stage Failed                      | Tracks failure of a stage in a "Tower of Power" activity.                                 |
+| Tower Struggled                         | Tracks struggles with a "Tower of Power" activity.                                        |
+| Whole Group Fluency Download            | Activities for practicing fluency skills as a whole group.                                |
+| Whole Group Word Problems Download      | Word problem activities completed as a whole group.                                       |
+
+: List of Teacher Actions
+
 ### State Variables
 
 For this paper's second class of Reinforcement Learning models, we require variables that can determine the state space of each week. Experienced teachers suggest that they strongly focus on measures of the level of difficulty encountered during the lessons. The Zearn platform provides a measure of this kind, namely, "Tower Alerts." If a student is struggling in a given lesson, the platform automatically provides scaffolded remediation (i.e., breaking the problems step by step), and if they struggle multiple times in that same lesson, a "Tower Alert" is generated for their teacher. We use the previous week's average Tower Alerts to measure the level of difficulty faced by the students. Further, we include the previous week's average student time usage (in minutes) as a state variable. Effectively, we assume that the value of a given state (i.e., the week at hand) is a function of the previous week's "tower alerts" and "student minutes."
@@ -1209,18 +1242,55 @@ comparison_plot
 
 #### Interpreting Components
 
-@fig-nmf-heatmap shows the loadings of the NMF components using a heatmap, depicting how each original feature contributes to each component. In other words, each component combines the original features to explain a substantial portion of the variance, potentially improving the efficiency and interpretability of the reinforcement learning models.
+@fig-nmf-heatmap shows the loadings of the NMF components using a heatmap, depicting how each original feature contributes to each component. In other words, each component combines the original features to explain a substantial portion of the variance, potentially improving the efficiency and interpretability of the reinforcement learning models. Given the loadings, we interpret the components as follows:
+
+1.  **Component 1 (Teacher Engagement)**: This component seems to be heavily influenced by the variable "Teacher Minutes," suggesting teacher engagement with the Zearn platform. The higher the value in this component, the more time teachers are spending on the platform, which could indicate a higher level of engagement with the curriculum and resources. High values in this component suggest that teachers are actively using the platform, spending time reviewing reports and possibly engaging with other features [@morrison2019a].
+
+2.  **Component 2 (Resource Utilization)**: This component has high weights for variables related to different resources available on the Zearn platform, such as "Optional Problem Sets," "Student Notes and Exit Tickets," and "Mission Overview". High values in this component suggest that teachers are downloading and possibly using a variety of resources in their teaching. This pattern is consistent with the findings from [@knudsen2020a] that teachers reported learning from a variety of Zearn Math resources and that the curriculum materials and their implementation are important sources of learning.
+
+3.  **Component 3 (Pedagogical Content Knowledge)**: This component has high weights for variables related to student activities, such as "Guided Practice Completed," "Tower Completed," and "Fluency Completed," suggesting that teachers may be engaged in acquiring subject-matter-specific pedagogy, learning to scaffold and to explain concepts in a variety of ways. This finding aligns with [@morrison2019a], where teachers were most likely to report using Independent Digital Lessons, student notes and workbooks, small-group lessons, and paper Exit Tickets frequently or very frequently.
 
 ```{r}
 #| cache: true
 #| label: fig-nmf-heatmap
-#| fig-cap: ""
+#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for Zearn data. Each row represents a variable, and each column represents a component. The color intensity indicates the weight of each variable in each component, with darker colors indicating higher weights. Component 1 represents "Teacher Engagement," Component 2 represents "Resource Utilization," and Component 3 represents "Pedagogical Content Knowledge.""
 library(pheatmap)
 
 components_list <- py$components
 df_heatmap <- components_list[["Kullback-Leibler"]][["3"]] %>%
   t() %>% as.data.frame()
-row.names(df_heatmap) <- names(df_pca)[-c(1:4)]
+
+# Define a named vector to map old variable names to new ones
+variable_names <- c(
+  "tch_min" = "Teacher Minutes",
+  "RD.optional_problem_sets" = "Optional Problem Sets Download",
+  "RD.student_notes_and_exit_tickets" = "Student Notes and Exit Tickets Download",
+  "RD.mission_overview" = "Mission Overview Download",
+  "RD.pd_course_notes" = "Course Notes Download",
+  "RD.elementary_schedule" = "Elementary Schedule Download",
+  "RD.whole_group_fluency" = "Whole Group Fluency Download",
+  "Guided.Practice.Completed" = "Guided Practice Completed",
+  "RD.small_group_lessons" = "Small Group Lesson Download",
+  "Tower.Completed" = "Tower Completed",
+  "Fluency.Completed" = "Fluency Completed",
+  "Number.Gym.Activity.Completed" = "Number Gym Activity Completed",
+  "RD.grade_level_overview" = "Grade Level Overview Download",
+  "Tower.Stage.Failed" = "Tower Stage Failed",
+  "Kindergarten.Activity.Completed" = "Kindergarten Activity Completed",
+  "Tower.Struggled" = "Tower Struggled",
+  "RD.k_mission" = "Kindergarten Mission Download",
+  "RD.whole_group_word_problems" = "Whole Group Word Problems Download",
+  "RD.assessments" = "Assessments Download",
+  "RD.teaching_and_learning_approach" = "Teaching and Learning Approach Download",
+  "RD.optional_homework" = "Optional Homework Download",
+  "RD.k_schedule" = "Kindergarten Schedule Download",
+  "RD.curriculum_map" = "Curriculum Map Download",
+  "RD.assessments_answer_key" = "Assessments Answer Key Download",
+  "RD.pd_course_guide" = "Course Guide Download"
+)
+# Rename the rows of the dataframe
+row.names(df_heatmap) <- var_names[names(df_pca)[-c(1:4)]]
+
 names(df_heatmap) <- paste0("Component ", 1:3)
 df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
 
