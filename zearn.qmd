@@ -736,7 +736,7 @@ create_summary <- function(var_name, var_label, type = "continuous") {
 }
 
 summaries_list <- list(
-  create_summary("Sessions.per.Active.User", "Sessions per Student"),
+  # create_summary("Sessions.per.Active.User", "Sessions per Student"),
   create_summary("Minutes.per.Active.User", "Minutes per Student"),
   create_summary("Badges.per.Active.User", "Badges per Student"),
   create_summary("Tower.Alerts.per.Tower.Completion", "Tower Alerts per Lesson Completion"),
