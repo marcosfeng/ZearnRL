@@ -1253,7 +1253,8 @@ comparison_plot
 ```{r}
 #| cache: true
 #| label: fig-nmf-heatmap
-#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for Zearn data. Each row represents a variable, and each column represents a component. The color intensity indicates the weight of each variable in each component, with darker colors indicating higher weights. Component 1 represents "Teacher Engagement," Component 2 represents "Resource Utilization," and Component 3 represents "Pedagogical Content Knowledge.""
+#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for Zearn data. Each row represents a variable, and each column represents a component. The color intensity indicates the weight of each variable in each component, with darker colors indicating higher weights. Component 1 represents Teacher Engagement, Component 2 represents Resource Utilization, and Component 3 represents Pedagogical Content Knowledge."
+
 library(pheatmap)
 
 components_list <- py$components
@@ -1289,7 +1290,7 @@ variable_names <- c(
   "RD.pd_course_guide" = "Course Guide Download"
 )
 # Rename the rows of the dataframe
-row.names(df_heatmap) <- var_names[names(df_pca)[-c(1:4)]]
+row.names(df_heatmap) <- variable_names[names(df_pca)[-c(1:4)]]
 
 names(df_heatmap) <- paste0("Component ", 1:3)
 df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
@@ -1839,7 +1840,7 @@ gt(df_looic)
 ```
 
 ```{r}
-#| label: fig-model-fit
+#| eval: false
 
 prediction <- post$summary()
 prediction_hierarchical <- post_hierarchical$summary()
