@@ -388,6 +388,12 @@ $$
 \delta = (\text{Badges}_{t} - \text{cost}(a)) - \left( \gamma v(S,a) - v(S',a) \right)
 $$
 
+## Hierarchical Models
+
+Our dataset comprises of classrooms spanning a period of around 40 weeks. Given the limited amount of data per classroom, individual-level estimation using maximum likelihood estimation would yield noisy results. Although group-level estimation provides reliable estimates, it overlooks individual differences, which are crucial to our analysis.
+
+To address this, we employed a hierarchical Bayesian analysis, which allows for information pooling across individuals while accommodating individual differences. In this approach, individual-level parameters are functions of group-level hyperparameters, and this anchoring enhances our power by assuming commonalities among individuals [@ahn2017]. A notable feature of this estimation technique is that the extent of pooling is reflected in the hyperparameter variance. Strong pooling corresponds to low hierarchical variance, and vice versa for weak pooling.
+
 # Data
 
 Our data from the Zearn platform follows a time-series structure, spanning across an academic year, with the unit of analysis being the classroom-week. This level of granularity enables us to capture the temporal dynamics of teacher-student interactions and their subsequent influence on student achievement. In particular, we can model the decision-making process of teachers as they allocate their time and effort on the Zearn platform weekly and how these decisions translate into student outcomes, measured by the completion of lessons or "badges."
@@ -745,32 +751,57 @@ Our Zearn data can be viewed as time-series (over the course of the school year,
 
 Another way of capturing teacher behavior is by analyzing their specific actions when they use Zearn. The platform provides a wide range of actions that teachers can take, including downloading resources, engaging in different teaching methods or activities, and choosing how much time they spend online. We can use these actions to create a more nuanced picture of teacher behavior on the platform. provides a list of the actions available in our data.
 
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Variable                                | Description                                                                               |
-|--------------------------------|----------------------------------------|
++=========================================+===========================================================================================+
 | Assessments Answer Key Download         | Answer keys for assessments to facilitate grading.                                        |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Assessments Download                    | Assessments to demonstrate understanding of the material.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Guide Download                   | Overview of the content, objectives, and structure of Zearn's PD courses.                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Notes Download                   | Notes from Zearn's professional development (PD) courses.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Curriculum Map Download                 | Comprehensive overview of the learning objectives and content for each grade level.       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Elementary Schedule Download            | Schedule of elementary-level activities in the Zearn curriculum.                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Fluency Completed                       | Tracks completion of a fluency activity.                                                  |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Grade Level Overview Download           | Overview of the curriculum for a specific grade level.                                    |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Guided Practice Completed               | Tracks completion of the guided practice portion of a Zearn lesson.                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Activity Completed         | Tracks completion of a specific activity in the Kindergarten curriculum.                  |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Mission Download           | A specific learning mission in the Kindergarten curriculum.                               |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Schedule Download          | Detailed schedules for Kindergarten to help teachers plan their instruction.              |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Mission Overview Download               | Overview of a specific learning mission in the Zearn curriculum.                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Number Gym Activity Completed           | Tracks completion of a Number Gym activity.                                               |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Homework Download              | Optional homework assignments for extra practice.                                         |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Problem Sets Download          | Optional sets of problems for extra practice.                                             |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Small Group Lesson Download             | Lessons designed for completion in small groups.                                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Student Notes and Exit Tickets Download | Notes taken during a lesson and "exit tickets," brief assessments at the end of a lesson. |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Teaching and Learning Approach Download | Resources related to Zearn's teaching and learning approach.                              |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Completed                         | Tracks completion of a "Tower of Power" activity in a Zearn lesson.                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Stage Failed                      | Tracks failure of a stage in a "Tower of Power" activity.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Struggled                         | Tracks struggles with a "Tower of Power" activity.                                        |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Fluency Download            | Activities for practicing fluency skills as a whole group.                                |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Word Problems Download      | Word problem activities completed as a whole group.                                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 
 : List of Teacher Actions
 
@@ -901,7 +932,7 @@ Next, we perform an NMF using two different loss functions (Frobenius norm and K
 
 Finally, we implement an autoencoder to perform dimensionality reduction. The autoencoder is a neural network designed to learn an encoded, compressed representation of the input data and then reconstruct the original data from this encoded representation. The architecture of the autoencoder is optimized using a hyperparameter search, which involves training multiple versions of the model with different hyperparameters and selecting the one that performs best on the validation data. These hyperparameters include (1) the number of layers in the autoencoder, (2) the number of units in each layer, (3) the regularization strength, and (4) the number of components in the encoded representation. The target score for the training period is an average of mean squared error losses for the input reconstruction and the target variable prediction (Badges per Student), weighted by the standard deviations of the input data and the target variable.
 
-The PCA, NMF, and AE results are then compared by plotting the sum of squared residuals and silhouette scores for each method and the number of components used. @fig-nmf-pca-comparison allows us to visually compare the performance of the different methods and choose the one that provides the best balance between reconstruction accuracy (as measured by the sum of squared residuals) and cluster separation (as measured by the silhouette score). As such, we select the NMF with three components as our preferred method.
+We performed these model estimations with the scikit-learn library [@pedregosa2011]. Subsequently, we compare the PCA, NMF, and AE results by plotting the sum of squared residuals and silhouette scores for each method and the number of components used. @fig-nmf-pca-comparison visually compares the performance of the different methods and allows us to choose the one that provides the best balance between reconstruction accuracy (as measured by the sum of squared residuals) and cluster separation (as measured by the silhouette score). As such, we select the NMF with three components as our preferred method.
 
 ```{r pca nmf data-prep}
 #| include: false
@@ -1356,7 +1387,7 @@ variable_names <- c(
 # Rename the rows of the dataframe
 row.names(df_heatmap) <- variable_names[names(df_pca)[-c(1:4)]]
 
-names(df_heatmap) <- paste0("Component ", 1:3)
+names(df_heatmap) <- paste0("Comp. ", 1:3)
 df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
 
 color_scheme <- colorRampPalette(
@@ -1369,7 +1400,7 @@ pheatmap(df_heatmap %>%
          cluster_rows = FALSE,
          cluster_cols = FALSE,
          angle_col = 0,
-         main = "Loadings of NMF components",
+         # main = "Loadings of NMF components",
          color = color_scheme,  # Use the color scheme defined above
          breaks = breaks,  # Use breaks defined above
          border_color = NA,
@@ -1417,39 +1448,61 @@ gc(verbose = FALSE)
 
 ## Dynamic Analysis
 
-The model is estimated using the `plm` function from the `plm` package, which allows for the estimation of linear models for panel data. We estimate both within and random effects models, and the Hausman test is used to select the most appropriate model based on its p-value.
+We performed the dynamic analysis using the `plm` package in R [@croissant2008], which estimates linear models for panel data. We estimated both within and random effects models and used the Hausman test to select the most appropriate model based on its p-value [@hausman1978]. We estimated each model with different numbers of lags (from 1 to 8) and different methods of matrix factorization (PCA, NMF, and Autoencoder). We divided the data into training (80%) and testing (20%) sets to compute the Bayesian Information Criterion (BIC) and the negative log-likelihood (NLL) for each model. We then selected the number of lags based on the model with the lowest BIC and NLL.
 
-## Variable Selection
+## Base Models
 
-The selection of variables in the model is a crucial step in the Dynamic Analysis method. The goal is to identify the variables that best explain the dependent variable, while also considering the complexity of the model and the risk of overfitting.
+Our initial approach involved fitting non-hierarchical models for three binary action variables using a simple logistic regression model. The dependent variables were derived from the Non-negative Matrix Factorization (NMF) using the Frobenius Nonnegative Double Singular Value Decomposition (NNDSVD) method. For each of these variables, we generated a lagged version and incorporated it into the model alongside the 'Badges' and 'State' variables. The models were constructed using the `brms` package, specifying the Bernoulli family and employing the `cmdstanr` backend [@bates2015; @bürkner2017; @gabry2022a; @stanmod2022a; @bürkner2021; @croissant2008a]. The formula for these models are represented as follows:
 
-The selection process involves comparing models with different combinations of variables and lags, and selecting the model that provides the best fit to the data. The fit of the models is evaluated using two criteria: the Bayesian Information Criterion (BIC) and the out-of-sample negative log-likelihood (NLL). The BIC is a criterion for model selection that balances the goodness of fit of the model against its complexity (the number of parameters in the model). The NLL is a measure of the predictive accuracy of the model, with lower values indicating better predictive performance.
+$$
+a_t = a_{t-1} + Badges_t + s_t + \epsilon_t
+$$
+
+where $a_t$ represents the action variable at time $t$, $a_{t-1}$ is the lagged version of the action variable, $Badges_t$ is the reward variable, $s_t$ is the 'State' variable, and $ε_t$ is the error term.
+
+### Hierarchical Base Models
+
+Subsequently, we constructed hierarchical models for the same set of action variables. We assume Classroom, Teacher, and School are the three levels of the hierarchy. The hierarchical models were similar to their non-hierarchical counterparts but included random intercepts and random slopes for the predictors.
 
 ## Reinforcement Learning Model Fit
 
-The Q-learning model is implemented in the Stan programming language, which is a probabilistic programming language used for statistical inference. The model is trained using the data on the number of weeks, choices made, and outcomes (log badges) for each subject. The model parameters, including the cost, discount rate, learning rate, and inverse temperature, are estimated from the data. The model uses a Bernoulli logit model to compute the action probabilities and updates the expected values of the actions based on the prediction errors. The model also generates posterior predictions and computes the log likelihood for each subject.
+The reinforcement learning models were implemented using the Stan programming language, a probabilistic programming language designed for statistical inference [@stanmod2022; @gabry2022]. We trained the models on data that included the number of weeks, choices made, and outcomes (log badges) for each classroom. The model parameters, including cost, discount rate, learning rate, and inverse temperature, were estimated from the data. The models employed a Bernoulli logit model to compute action probabilities and updated the expected values of the actions based on prediction errors. The models also generated posterior predictions and computed the log-likelihood for each subject.
 
-The reinforcement learning models were estimated using the Bayesian statistical framework implemented in Stan, a probabilistic programming language for statistical inference. The Stan models were interfaced using the CmdStanR package in R. Stan uses the Hamiltonian Monte Carlo (HMC) algorithm, which is a state-of-the-art Markov Chain Monte Carlo (MCMC) method that is particularly well-suited for high-dimensional and complex posterior distributions. We specify 3 independent MCMC chains to check for convergence of the MCMC algorithm by comparing them. Each chain had 2,500 warmup (or "burn-in") iterations and 2,500 sampling iterations. During the warmup phase, the HMC algorithm adapts its parameters to the shape of the posterior distribution. The samples drawn during the warmup phase are discarded. The models were run until convergence was achieved, as assessed by the R-hat statistic, which compares the within-chain and between-chain variance of the MCMC samples; values close to 1 indicate that the chains have converged to the same distribution.
+Stan employs the Hamiltonian Monte Carlo (HMC) algorithm, a state-of-the-art Markov Chain Monte Carlo (MCMC) method that is particularly well-suited for high-dimensional and complex posterior distributions [@betancourt2017]. We specified three independent MCMC chains to check for convergence of the MCMC algorithm by comparing them. Each chain had 2,500 warmup (burn-in) iterations and 2,500 sampling iterations. During the warmup phase, the HMC algorithm adapts its parameters to the shape of the posterior distribution. The samples drawn during the warmup phase were discarded, and the models ran until they achieved convergence, as assessed by the R-hat statistic, which compares the within-chain and between-chain variance of the MCMC samples; values close to 1 indicate that the chains have converged to the same distribution [@gelman1992].
+
+### Hierarchical RL Method
+
+We extended the base reinforcement learning models by incorporating a hierarchical structure to account for individual commonalities and enhance robustness. This hierarchical framework defines individual-level parameters as random effects from a group-level distribution. We used the parameter values found by the non-hierarchical models to generate weakly informed priors for the hyper-parameters (group-level parameters). This approach was necessary to ensure the rapid convergence of the Hamiltonian Monte Carlo algorithm. We specified the priors as follows:
+
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Parameter           | Group-level Prior                                 | Individual-level Prior                                                            |
++=====================+===================================================+===================================================================================+
+| Cost                | $\mu_{\text{cost}} \sim \mathcal{N}(0.5, 1)$\     | $\text{cost}_{i,j} \sim \mathcal{N}(\mu_{\text{cost}_j}, \sigma_{\text{cost}_j})$ |
+|                     | $\sigma_{\text{cost}} \sim \text{Cauchy}(0, 2.5)$ |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Discount Rate       | $\mu_{\gamma} \sim \mathcal{N}(0.7, 1)$\          | $\gamma_i \sim \mathcal{N}(\mu_{\gamma}, \sigma_{\gamma})$                        |
+|                     | $\sigma_{\gamma} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Step Size           | $\mu_{\alpha} \sim \mathcal{N}(0.5, 1)$\          | $\alpha_i \sim \mathcal{N}(\mu_{\alpha}, \sigma_{\alpha})$                        |
+|                     | $\sigma_{\alpha} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Inverse Temperature | $\mu_{\tau} \sim \mathcal{N}(1, 1)$\              | $\tau_i \sim \mathcal{N}(\mu_{\tau}, \sigma_{\tau})$                              |
+|                     | $\sigma_{\tau} \sim \text{Cauchy}(0, 2.5)$        |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+
+where $\mu$ and $\sigma$ denote the group-level hyperparameters, and the subscript $i$ signifies the individual-level parameters.
 
 ## Model Performance
 
-### Base Models: Random Effects Panel Logit
-
-### Hierarchical Bayesian Method
-
-Our data contains 400 teacher-classroom pairs spanned across approximately 40 weeks. Estimating individual level with maximum likelihood estimation would yield noisy results as each teacher has an insufficient amount of data. A group-level estimation does yield reliable estimates (see Results) but ultimately ignores individual differences, which are important to our analysis .
-
-Our estimation method of choice is a hierarchical Bayesian analysis, which allows us to pool information across individuals, while allowing for individual differences. Individual-level parameters are merely a function of group-level hyperparameters, and this anchoring improves our power by assuming commonalities among individuals (CITE Ahn et al., 2011; Huys et al., 2011). One particular feature of this estimation technique is that pooling is evident in the hyperparameter variance. Strong pooling means low hierarchical variance, and vice verse for weak pooling.
-
-For Bayesian updating, we use the Stan software package (http://mc-stan.org/), which implements a Hamiltonian Monte Carlo algorithm (See <http://mc-stan.org/documentation/>). In the case of Zearn data, fast convergence of the algorithm required us to use priors that are weakly informed by parameter values found by searching the whole grid of parameter space (i.e., grid search).
+To evaluate the performance of the Bayesian models, we used the Leave-One-Out Information Criterion (LOOIC), a robust measure of model quality. The LOOIC is a variant of the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC). However, unlike AIC and BIC, which use asymptotic approximations, LOOIC is a fully Bayesian criterion that provides a more accurate estimate of out-of-sample prediction error. We used the `loo` package in R to compute the LOOIC [@vehtari2023]. The package uses Pareto smoothed importance sampling (PSIS), a beneficial technique for models where standard cross-validation is computationally expensive or impractical [@vehtari2017].
 
 ## Heterogeneity
 
-### Across Teachers
-
-### Across Schools
+To investigate the heterogeneity across teachers, we first extracted the posterior samples from the hierarchical model that demonstrated the best performance. For each teacher, we calculated the mean of each parameter: the estimated cost for each action, the discount rate, the learning rate, and the inverse temperature. We then correlated these parameters with the classroom-level variables: the average number of students, average minutes per student, average number of badges per student, average number of tower alerts, the number of classes per teacher, the grade level, the total number of weeks, the proportion of students under the poverty level, the average income level in the school, and whether the school had a paid Zearn account. Subsequently, we fit a linear regression model to predict the average number of badges per active user, using the estimated parameters as predictors.
 
 ### Across Demographics
+
+We extended our analysis to examine the relationship between the estimated parameters and demographic variables for each classroom to reveal whether learning and decision-making processes captured by our model vary across different demographic groups.
 
 # Results
 
