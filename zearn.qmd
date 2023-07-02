@@ -25,9 +25,9 @@ execute:
 
 # Introduction
 
-Predicting repeated behavior has been a long-standing goal of the behavioral sciences, including economics, psychology, and neuroscience. Much of human behavior results from stimulus-response associations, which are context-sensitive and not always consciously deliberated . Reinforcement learning (RL) algorithms have emerged as a prominent way of quantifying these relationships, assigning a mathematical relationship between contextual cues (states), behavior (actions), and reward \[\^2\^\]. These algorithms have found wide application in neuroscience and cognitive psychology, where they are used on data sets to model agents in specific environments \[\^3\^\]. However, these disciplines generally do not work with the kind of practical and applied data typically used in social psychology and economics \[\^4\^\].
+Predicting repeated behavior has been a long-standing goal of the behavioral sciences, including economics, psychology, and neuroscience. Much of human behavior results from stimulus-response associations, which are context-sensitive and not always consciously deliberated [@buyalskaya2023]. Reinforcement learning (RL) algorithms have emerged as a prominent way of quantifying these relationships, assigning a mathematical relationship between contextual cues (states), behavior (actions), and reward [@sutton2018b]. These algorithms have found wide application in neuroscience and cognitive psychology, where they are used on data sets to model agents in specific environments. However, these disciplines generally do not work with the kind of practical and applied data typically used in social psychology and economics [@buyalskaya2023].
 
-This gap presents a novel opportunity to use methods from one set of disciplines on data traditionally used in another. In this paper, we aim to further this integration by applying RL algorithms to model the decision-making process of teachers in the math-teaching platform Zearn. Reinforcement learning (RL) provides a system of rewards and punishments where the agent (in this case, the teacher) learns to make optimal decisions by maximizing the rewards and minimizing the punishments. By assuming every teacher has an objective function to balance with their potential rewards, we model the sequential behavior of a teacher throughout a school year. For instance, the teacher chooses which pedagogical actions to employ, such as assigning homework, checking student progress, or reviewing content, in anticipation of enhancing student achievement. Applying the RL algorithm allows for flexibility in learning the best strategy given certain contextual information, revealing
+This gap presents a novel opportunity to use methods from one set of disciplines on data traditionally used in another. In this paper, we aim to further this integration by applying RL algorithms to model the decision-making process of teachers in the math-teaching platform Zearn. Reinforcement learning (RL) provides a system of rewards and punishments where the agent (in this case, the teacher) learns to make optimal decisions by maximizing the rewards and minimizing the punishments. By assuming every teacher has an objective function to balance with their potential rewards, we model the sequential behavior of a teacher throughout a school year. For instance, the teacher chooses which pedagogical actions to employ, such as assigning homework, checking student progress, or reviewing content, in anticipation of enhancing student achievement. Applying the RL algorithm allows for flexibility in learning the best strategy given certain contextual information, revealing the intricate dynamics of the teaching-learning process. By modeling the tradeoff between teachers exploring unknown options and exploiting known information about the Zearn system, the RL algorithm provides a nuanced understanding of how teachers adapt their strategies in response to student performance and other contextual factors. This approach offers a flexible and robust model for our available data and opens up new avenues for understanding and enhancing human behavior in field settings.
 
 ## The Zearn Platform
 
@@ -203,7 +203,7 @@ Consider a typical teaching scenario: the state is the students' current progres
 
 $$
 State (S) \xrightarrow[\text{Action (A)}]{\text{Teacher Decides}} New State (S') \xrightarrow[\text{Reward (R)}]{\text{Resulting Outcome}} \text{Feedback}
-$$ {#exm-zearn-RL}
+$$ {#eq-zearn-RL}
 
 In the Zearn context, we define the decision process as follows:
 
@@ -332,11 +332,7 @@ In terms of the weighting of past reinforcers and choices, the Dynamic Analysis 
 
 ### Dynamic Analysis in the Zearn context
 
-In the context of the Zearn dataset, we implement the Dynamic Analysis method to understand the temporal dependencies and complex interactions between teacher actions, student outcomes, and the learning environment. The method is applied to a panel data model, which allows for the inclusion of both time-invariant and time-varying variables, and accounts for individual-specific effects.
-
-(Based on theories A/B... these are the variables... show the relationship between the variables. Explain why one variable may be correlated to the other, etc. (why those relationships exist) -- Use diagram.) The key variables in the model are the rewards and choices. In this context, the rewards are represented by Badges per active student in a given week. The choices are represented by Teacher Minutes or the components from our dimensionality reduction process variable.
-
-The model also includes lagged versions of these variables, which capture the effects of past rewards and choices on current choices. The lag period ranges from 1 week to 8 weeks, allowing for the examination of the effects of past rewards and choices over different time horizons.
+In the context of the Zearn dataset, we implement the Dynamic Analysis method to understand the temporal dependencies and complex interactions between teacher actions, student outcomes, and the learning environment. The method is applied to a panel data model, which allows for the inclusion of both time-invariant and time-varying variables, and accounts for individual-specific effects. The key variables in the model are the rewards and choices. In this context, the rewards are represented by Badges per active student in a given week. The choices are represented by Teacher Minutes or the components from our dimensionality reduction. The model also includes lagged versions of these variables, which capture the effects of past rewards and choices on current choices. The lag period ranges from 1 week to 8 weeks, allowing for the examination of the effects of past rewards and choices over different time horizons.
 
 The model can be represented by the following equation:
 
@@ -744,32 +740,57 @@ Our Zearn data can be viewed as time-series (over the course of the school year,
 
 Another way of capturing teacher behavior is by analyzing their specific actions when they use Zearn. The platform provides a wide range of actions that teachers can take, including downloading resources, engaging in different teaching methods or activities, and choosing how much time they spend online. We can use these actions to create a more nuanced picture of teacher behavior on the platform. provides a list of the actions available in our data.
 
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Variable                                | Description                                                                               |
-|-----------------------------------------|-------------------------------------------------------------------------------------------|
++=========================================+===========================================================================================+
 | Assessments Answer Key Download         | Answer keys for assessments to facilitate grading.                                        |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Assessments Download                    | Assessments to demonstrate understanding of the material.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Guide Download                   | Overview of the content, objectives, and structure of Zearn's PD courses.                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Notes Download                   | Notes from Zearn's professional development (PD) courses.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Curriculum Map Download                 | Comprehensive overview of the learning objectives and content for each grade level.       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Elementary Schedule Download            | Schedule of elementary-level activities in the Zearn curriculum.                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Fluency Completed                       | Tracks completion of a fluency activity.                                                  |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Grade Level Overview Download           | Overview of the curriculum for a specific grade level.                                    |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Guided Practice Completed               | Tracks completion of the guided practice portion of a Zearn lesson.                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Activity Completed         | Tracks completion of a specific activity in the Kindergarten curriculum.                  |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Mission Download           | A specific learning mission in the Kindergarten curriculum.                               |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Schedule Download          | Detailed schedules for Kindergarten to help teachers plan their instruction.              |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Mission Overview Download               | Overview of a specific learning mission in the Zearn curriculum.                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Number Gym Activity Completed           | Tracks completion of a Number Gym activity.                                               |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Homework Download              | Optional homework assignments for extra practice.                                         |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Problem Sets Download          | Optional sets of problems for extra practice.                                             |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Small Group Lesson Download             | Lessons designed for completion in small groups.                                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Student Notes and Exit Tickets Download | Notes taken during a lesson and "exit tickets," brief assessments at the end of a lesson. |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Teaching and Learning Approach Download | Resources related to Zearn's teaching and learning approach.                              |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Completed                         | Tracks completion of a "Tower of Power" activity in a Zearn lesson.                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Stage Failed                      | Tracks failure of a stage in a "Tower of Power" activity.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Struggled                         | Tracks struggles with a "Tower of Power" activity.                                        |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Fluency Download            | Activities for practicing fluency skills as a whole group.                                |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Word Problems Download      | Word problem activities completed as a whole group.                                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 
 : List of Teacher Actions
 
@@ -2138,13 +2159,45 @@ In conclusion, our study provides compelling evidence for the potential of reinf
 
 ```
 
-## Meta-Analysis of Correlations between Components and Student Outcomes
+## Graphical Represnetation of the Bayesian Hierarchical Model
 
-Subsequently, we performed a meta-analysis of these correlations to reveal the pooled effect of our variables. In this case, we conducted a multivariate meta-analysis, offering the advantage of modeling multiple, potentially correlated, outcomes. We transformed the correlations using Fisher's z-transformation (to ensure a normal distribution of the correlations) and ran a random effects model with each unique combination of "Teacher" and "School".
+```{r, engine = 'tikz'}
+\begin{tikzpicture}
 
-The resulting multivariate meta-analysis provides a comprehensive estimate of the correlations for each outcome, considering the hierarchical structure of the data. Thus, we can understand the overarching relationships between the different outcomes and the Badges across diverse schools and teachers. This robust conclusion, therefore, provides a more resilient analysis than a simple correlation analysis.
+% Nodes for group-level parameters
+\node[obs] (muCost) {$\mu_{\text{cost}}$};
+\node[obs, right=of muCost] (sigmaCost) {$\sigma_{\text{cost}}$};
+\node[obs, below=of muCost] (muGamma) {$\mu_{\gamma}$};
+\node[obs, right=of muGamma] (sigmaGamma) {$\sigma_{\gamma}$};
+\node[obs, below=of muGamma] (muAlpha) {$\mu_{\alpha}$};
+\node[obs, right=of muAlpha] (sigmaAlpha) {$\sigma_{\alpha}$};
+\node[obs, below=of muAlpha] (muTau) {$\mu_{\tau}$};
+\node[obs, right=of muTau] (sigmaTau) {$\sigma_{\tau}$};
 
-@fig-meta-analysis presents the results of a meta-analysis on the correlation.
+% Nodes for individual-level parameters
+\node[latent, right=of sigmaCost] (cost) {$\text{cost}_{i,j}$};
+\node[latent, right=of sigmaGamma] (gamma) {$\gamma_i$};
+\node[latent, right=of sigmaAlpha] (alpha) {$\alpha_i$};
+\node[latent, right=of sigmaTau] (tau) {$\tau_i$};
+
+% Connecting nodes
+\draw[->] (muCost) -- (cost);
+\draw[->] (sigmaCost) -- (cost);
+\draw[->] (muGamma) -- (gamma);
+\draw[->] (sigmaGamma) -- (gamma);
+\draw[->] (muAlpha) -- (alpha);
+\draw[->] (sigmaAlpha) -- (alpha);
+\draw[->] (muTau) -- (tau);
+\draw[->] (sigmaTau) -- (tau);
+
+\end{tikzpicture}
+```
+
+## Pooled Correlations between Components and Student Outcomes
+
+We meta-analyzed individual correlations within our dataset to reveal the pooled relationships between student outcomes (badges) and the components from the dimensionality reduction procedure. This approach, termed 'internal meta-analysis,' is advantageous when dealing with large datasets with hierarchical structures, as it allows for simultaneously considering multiple, potentially correlated outcomes.
+
+To conduct this internal meta-analysis, we first transformed the correlations using Fisher's z-transformation, ensuring a normal distribution of the correlations. We then ran a random effects model with each unique combination of "Teacher" and "School." This multivariate meta-analysis offers the advantage of modeling multiple, potentially correlated outcomes, providing a comprehensive estimate of the correlations for each outcome, considering the hierarchical structure of the data. The outcome of this process is a robust understanding of the relationships between different outcomes and the Badges across diverse schools and teachers. This approach provides a more resilient analysis than simple correlations, as it accounts for the inherent variability and dependencies within the data. @fig-meta-analysis displays the results and illustrates the pooled correlations between the components and student outcomes.
 
 ```{r Meta-correlation prep}
 #| include: false
@@ -2293,7 +2346,6 @@ summary(res)
 ## Bayesian Model Diagnostics
 
 ```{r}
-#| eval: false
 #| cache: true
 #| label: tbl-diagnostics
 #| tbl-cap: "Diagnostics for the Bayesian Models used in Q-learning and Q-learning with states. The tables show diagnostics for three Non-negative Matrix Factorization (NMF) models: Frobenius (initialized with a Nonnegative Double Singular Value Decomposition), Frobenius Average (initialized with a Nonnegative Double Singular Value Decomposition with zeros filled with the average of each variable), and Kullback-Leibler. The rows correspond to 'alpha,' the learning rate, 'gamma,' the discount factor, 'tau,' the temperature parameter, 'cost' for each of the components from the NMF, 'sensi,' the reward sensitivity parameter, and 'Log Posterior,' the logarithm of the posterior probability. 'Rhat' indicates the potential scale reduction factor on split chains. Values close to 1.0 imply model convergence. 'ESS Bulk' and 'ESS Tail' represent the effective sample size for the bulk of the posterior distribution and its tail, respectively. An ESS of at least a few hundred is often considered sufficient for estimation purposes."
@@ -2406,186 +2458,3 @@ diag_df_actor_critic %>%
 We first present the following tables with the 25th, 50th, and 75th percentile of the learning rate (), inverse temperature (), weights, and cost parameters of the Q-learning models (non-hierarchical and hierarchical).
 
 These are the group-level parameters that reflect the distribution of the subject-level parameters.
-
-# Alternative models {.appendix}
-
-```{python LSTM autoencoder}
-#| eval: false
-import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from keras.models import Model, load_model
-from keras.layers import Input, Dense, LSTM, GRU, RepeatVector, TimeDistributed, Reshape, Flatten
-from keras.constraints import NonNeg
-from keras.callbacks import EarlyStopping
-from keras.regularizers import L1
-from keras_tuner import Hyperband
-from keras_tuner.engine.hyperparameters import HyperParameters
-
-# Function to reshape a 2D DataFrame into a 3D array
-def reshape_data(df, num_samples, num_features):
-    num_timesteps = dfpca_py['week'].nunique()
-    X_reshaped = np.zeros((num_samples, num_timesteps, num_features))
-    grouped = df.groupby('Classroom.ID')
-    for i, (classroom_id, group) in enumerate(grouped):
-        group = group.sort_values('week')
-        group_features = group.drop(['Classroom.ID', 'week'], axis=1)
-        X_reshaped[i, :len(group), :] = group_features.values
-    X_reshaped = np.nan_to_num(X_reshaped)
-    return X_reshaped
-# Function to prepare the data
-def prepare_data(df):
-    df_id_week = df[['Classroom.ID', 'week']]
-    df = df.drop(['Classroom.ID', 'week'], axis=1)
-    df = scaler.transform(df)
-    df = pd.DataFrame(df, columns=X_cols)
-    df = pd.concat([df_id_week, df], axis=1)
-    df_reshaped = reshape_data(
-      df,
-      df['Classroom.ID'].nunique(),
-      len(df.columns) - 2
-    )
-    return df_reshaped
-
-# Separate predictors and target variable for both training and testing data
-X_train = train_df.drop(['Badges.per.Active.User', 'set'], axis=1)
-Y_train = train_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
-X_test = test_df.drop(['Badges.per.Active.User', 'set'], axis=1)
-Y_test = test_df[['Badges.per.Active.User', 'Classroom.ID', 'week']]
-
-# Prepare the data
-X_train_reshaped = prepare_data(X_train)
-X_test_reshaped = prepare_data(X_test)
-Y_train_reshaped = reshape_data(
-  Y_train,
-  Y_train['Classroom.ID'].nunique(), 1)
-Y_test_reshaped = reshape_data(
-  Y_test,
-  Y_test['Classroom.ID'].nunique(), 1)
-
-################ Neural Net
-# Determine loss weights according to the data structure:
-decoding_weight = Y_train_reshaped.std() / (Y_train_reshaped.std() + X_train_reshaped.std())
-prediction_weight = 1 - decoding_weight
-# Function to build model
-def build_model(hp):
-    n_timesteps = X_train_reshaped.shape[1]
-    n_features = X_train_reshaped.shape[2]
-    n_labels = 1 # Regression: just one output node
-    
-    input_data = Input(shape=(n_timesteps, n_features))
-    x = input_data
-    
-    # Add a variable number of hidden LSTM layers for encoder
-    num_layers = hp.Int('num_layers', 2, 4)
-    lstm_units = [
-      hp.Choice('units_' + str(i), values=[2, 4, 8, 16, 32, 64, 128])
-      for i in range(num_layers)
-    ]
-    for i in range(num_layers):
-        x = LSTM(
-          units=lstm_units[i],
-          activation='tanh',
-          return_sequences=True)(x)
-    
-    # Generate the latent vector
-    latent_dim = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
-    l1_value = hp.Float('l1_value', min_value=0.005, max_value=0.05, default=0.01, step=0.001)
-    latent = TimeDistributed(Dense(
-      units=latent_dim,
-      activation='linear',
-      activity_regularizer= L1(l1=l1_value),
-      kernel_constraint=NonNeg(),
-      name='encoded-vector'),
-      name='latent')(x)
-    
-    # Decoder
-    x = latent
-    for i in range(num_layers):
-        x = LSTM(
-          units=lstm_units[i],
-          activation='tanh',
-          return_sequences=True)(x)
-          
-    decoded = TimeDistributed(
-      Dense(units=n_features,
-            activation='linear'),
-      name='decoding')(x)
-    
-    label_output = TimeDistributed(
-      Dense(1, activation='linear'),
-      name='prediction')(latent)
-    
-    # Instantiate Autoencoder Model using Input and Output
-    autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
-    autoencoder.compile(optimizer='adadelta',
-                        loss={
-                          'decoding': 'mean_squared_error',
-                          'prediction': 'mean_squared_error'
-                        },
-                        loss_weights={
-                          'decoding': decoding_weight,
-                          'prediction': prediction_weight
-                        })
-    return autoencoder
-
-# Set up hyperparameter tuner
-tuner = Hyperband(build_model,
-                  objective='val_loss',
-                  max_epochs=50,
-                  factor=3,
-                  directory='autoencoder_tuning',
-                  project_name='LSTM_2nd_tuning')
-
-# Perform hyperparameter search
-early_stopping_callback = EarlyStopping(monitor='val_loss', patience=3)
-tuner.search(x=X_train_reshaped, 
-            y=[X_train_reshaped, Y_train_reshaped],
-            epochs=500,
-            validation_data=(X_test_reshaped, [X_test_reshaped, Y_test_reshaped]),
-            callbacks=[early_stopping_callback])
-# tuner.results_summary()
-# Get the optimal hyperparameters
-best_hyperparameters = tuner.get_best_hyperparameters()[0]
-model = tuner.hypermodel.build(best_hyperparameters)
-history = model.fit(x=X_train_reshaped, 
-                    y=[X_train_reshaped, Y_train_reshaped],
-                    epochs=5_000,
-                    validation_data=(X_test_reshaped, [X_test_reshaped, Y_test_reshaped]))
-best_model = history
-
-# Function to get encoded representation and components
-def get_encoded_representation_and_components(best_model, X):
-    X_reshaped = reshape_data(
-      X,
-      X['Classroom.ID'].nunique(),
-      len(X.columns) - 2
-    )
-    # Get index of encoding layer
-    encoding_layer_index = next(
-      i for i,
-      layer in enumerate(best_model.layers) if layer.name == 'latent'
-    )
-    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
-    input_data = Input(shape=(X_reshaped.shape[1], X_reshaped.shape[2]))
-    x = input_data
-    for layer in encoder_layers[1:]:
-      x = layer(x)
-    encoder = Model(input_data, x)
-    
-    # Copy weights for each layer from the best model
-    for i, layer in enumerate(encoder.layers):
-      layer.set_weights(best_model.layers[i].get_weights())
-    
-    X_encoded = encoder.predict(X_reshaped)
-    X_hat = best_model.predict(X_reshaped)[0]
-    res = ((X_reshaped - X_hat)**2).sum(axis=(1,2)).sum()
-    n_components = X_encoded.shape[2]
-    
-    results.setdefault("Autoencoder", {})[n_components] = X_encoded
-    residuals.setdefault("Autoencoder", {})[n_components] = res
-
-# Get encoded representation and components
-X = pd.concat([dfpca_py[['Classroom.ID', 'week']], X_scaled], axis=1)
-get_encoded_representation_and_components(best_model, X)
-
-```
