@@ -25,20 +25,9 @@ execute:
 
 # Introduction
 
-## Predicting Repeated Behavior in the Behavioral Sciences
+Predicting repeated behavior has been a long-standing goal of the behavioral sciences, including economics, psychology, and neuroscience. Much of human behavior results from stimulus-response associations, which are context-sensitive and not always consciously deliberated . Reinforcement learning (RL) algorithms have emerged as a prominent way of quantifying these relationships, assigning a mathematical relationship between contextual cues (states), behavior (actions), and reward \[\^2\^\]. These algorithms have found wide application in neuroscience and cognitive psychology, where they are used on data sets to model agents in specific environments \[\^3\^\]. However, these disciplines generally do not work with the kind of practical and applied data typically used in social psychology and economics \[\^4\^\].
 
-Predicting repeated behavior has been a goal of the behavioral sciences, including economics, psychology, and neuroscience. One prominent way of quantifying this relationship is through reinforcement learning (RL) algorithms that assign a mathematical relationship between contextual cues (states), behavior (actions), and reward (CITE RL Neuroecon). In general, reinforcement learning is widely used in both neuroscience and computer science on extremely large data sets to help model agents in specific environments. Psychology and economics generally do not create dynamic models across time (at least in this way), but computer science and neuroscience generally do not work with such practical and applied data. This presents us with a novel opportunity to use methods from one set of disciplines on data that is traditionally used in another set of disciplines. <!--# Add advance organizer -->
-
-## A Novel Approach
-
-ADD: goals, research questions, hypotheses, overall contribution to the field.
-
-This paper aims to model the decision-making process of a teacher in a math-teaching platform named Zearn (CITE Zearn) with an RL algorithm. Given these instructors' context, we argue that an RL model is most appropriate. Using both real and simulated data, we model the teachers as decision makers in a reinforcement learning context, akin to a multi-armed bandit, choosing how much effort to put in per week (in minutes) based on a function of cost of teachers' time and the number of badges their students earned in previous week's rewards. We assume that every teacher has an objective function where they want to balance how much time they spend using Zearn (e.g., assigning homework, checking student progress, and reviewing content) with the potential for students to receive badges. Every teacher is attempting to both "learn" and "optimize" their number of minutes spent on Zearn and learn over time how they should engage with the platform assuming that the relationship between teacher minutes and student badges is stochastic. There is a tradeoff between learning, also known as exploring (spending varying amounts of time on the platform to see how effort affects student achievement) and optimizing, also known as exploiting (spending amounts of time on the platform that teachers know already have good outcomes without wasting their time), that our model is able to explicitly quantify (learning rate and inverse temperature for the algorithmically informed). The RL algorithm allows for this type of flexibility for learning the best strategy given certain contextual information by modeling the tradeoff between teachers exploring unknown options while exploiting the information they have about the Zearn system. Inputs can, and perhaps should be flexible to temporary needs by students. For example, on a week in which students struggle more, the teacher should adjust their effort accordingly. As such, reinforcement learning offers a flexible and robust model for our available data.
-
-## RL in teaching and education
-
-1.  Markov decision processes
-2.  Instructional actions, objectives, and costs
+This gap presents a novel opportunity to use methods from one set of disciplines on data traditionally used in another. In this paper, we aim to further this integration by applying RL algorithms to model the decision-making process of teachers in the math-teaching platform Zearn. Reinforcement learning (RL) provides a system of rewards and punishments where the agent (in this case, the teacher) learns to make optimal decisions by maximizing the rewards and minimizing the punishments. By assuming every teacher has an objective function to balance with their potential rewards, we model the sequential behavior of a teacher throughout a school year. For instance, the teacher chooses which pedagogical actions to employ, such as assigning homework, checking student progress, or reviewing content, in anticipation of enhancing student achievement. Applying the RL algorithm allows for flexibility in learning the best strategy given certain contextual information, revealing
 
 ## The Zearn Platform
 
@@ -66,9 +55,13 @@ The platform's integrated approach to math teaching and learning, connecting a p
 
 ## Research Questions
 
-<!--# ADD: How does it fill gaps in the lit? -->
+We propose the following research questions to explore the complex dynamics of teacher behavior, the role of reinforcement learning in modeling these behaviors, and the subsequent impact on student achievement. We hope to shed light on the potential of reinforcement learning for understanding human behavior in field data.
 
-<!-- Get some ideas from the mega-study prereg -->
+1\. Characterizing Teacher Behavior: Which reinforcement learning model most accurately characterizes the behavior of teachers in the context of Zearn Math? What insights about teacher behavior do these differences in model fit bring?
+
+2\. Impact of RL Parameters on Teacher Behavior and Student Achievement: How do the parameters of reinforcement learning models vary with teacher behavior? What effects do these variations have on student achievement?
+
+3\. Influence of Teacher Background, Training, and Experience: How do factors such as teacher background, training, and experience influence their adaptation to and implementation of the Zearn Math curriculum? How can these factors be effectively incorporated into the reinforcement learning model to provide a more comprehensive understanding of teacher behavior and its impact on student outcomes?
 
 # Theory
 
@@ -751,57 +744,32 @@ Our Zearn data can be viewed as time-series (over the course of the school year,
 
 Another way of capturing teacher behavior is by analyzing their specific actions when they use Zearn. The platform provides a wide range of actions that teachers can take, including downloading resources, engaging in different teaching methods or activities, and choosing how much time they spend online. We can use these actions to create a more nuanced picture of teacher behavior on the platform. provides a list of the actions available in our data.
 
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Variable                                | Description                                                                               |
-+=========================================+===========================================================================================+
+|-----------------------------------------|-------------------------------------------------------------------------------------------|
 | Assessments Answer Key Download         | Answer keys for assessments to facilitate grading.                                        |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Assessments Download                    | Assessments to demonstrate understanding of the material.                                 |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Guide Download                   | Overview of the content, objectives, and structure of Zearn's PD courses.                 |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Notes Download                   | Notes from Zearn's professional development (PD) courses.                                 |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Curriculum Map Download                 | Comprehensive overview of the learning objectives and content for each grade level.       |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Elementary Schedule Download            | Schedule of elementary-level activities in the Zearn curriculum.                          |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Fluency Completed                       | Tracks completion of a fluency activity.                                                  |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Grade Level Overview Download           | Overview of the curriculum for a specific grade level.                                    |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Guided Practice Completed               | Tracks completion of the guided practice portion of a Zearn lesson.                       |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Activity Completed         | Tracks completion of a specific activity in the Kindergarten curriculum.                  |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Mission Download           | A specific learning mission in the Kindergarten curriculum.                               |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Schedule Download          | Detailed schedules for Kindergarten to help teachers plan their instruction.              |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Mission Overview Download               | Overview of a specific learning mission in the Zearn curriculum.                          |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Number Gym Activity Completed           | Tracks completion of a Number Gym activity.                                               |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Homework Download              | Optional homework assignments for extra practice.                                         |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Problem Sets Download          | Optional sets of problems for extra practice.                                             |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Small Group Lesson Download             | Lessons designed for completion in small groups.                                          |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Student Notes and Exit Tickets Download | Notes taken during a lesson and "exit tickets," brief assessments at the end of a lesson. |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Teaching and Learning Approach Download | Resources related to Zearn's teaching and learning approach.                              |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Completed                         | Tracks completion of a "Tower of Power" activity in a Zearn lesson.                       |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Stage Failed                      | Tracks failure of a stage in a "Tower of Power" activity.                                 |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Struggled                         | Tracks struggles with a "Tower of Power" activity.                                        |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Fluency Download            | Activities for practicing fluency skills as a whole group.                                |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Word Problems Download      | Word problem activities completed as a whole group.                                       |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
 
 : List of Teacher Actions
 
@@ -814,7 +782,7 @@ For this paper's second class of Reinforcement Learning models, we require varia
 The raw data underwent rigorous preprocessing to ensure its suitability for analysis. This process included performing log transformations on our variables of interest (i.e., minutes, badges, and tower alerts) to normalize their distributions. Given the diverse user base of Zearn, we applied specific exclusion criteria to select teachers who most likely come from traditional schools and classrooms that use the platform consistently. We selected virtual classrooms with at least five active students weekly, filtering out parents or tutors who may use Zearn outside the classroom setting. We removed teachers with more than four classrooms and those who logged in for less than 16 weeks. We excluded classrooms in the 6th to 8th grades, as those are a small proportion of our dataset. This deletion ensures a focus on traditional school settings and consistent platform usage, minimizing bias from teachers and schools that have not used Zearn consistently.
 
 ```{r preprocess data}
-
+#| include: false
 dt[, n_weeks := .N,
    by = Classroom.ID]
 
@@ -887,7 +855,7 @@ We begin to unveil the intricate relationships among the variables under conside
 ```{r}
 #| cache: true
 #| label: fig-corr
-#| fig-cap: "This graph represents the correlation between variables after log transformation"
+#| fig-cap: "Correlation coefficients between variables after log transformation"
 #| fig-format: png
 
 df_corr <- df  %>%
@@ -969,6 +937,7 @@ gc(verbose = FALSE)
 ```
 
 ```{python load data}
+#| include: false
 import numpy as np
 import pandas as pd
 from sklearnex import patch_sklearn
@@ -1387,8 +1356,8 @@ variable_names <- c(
 # Rename the rows of the dataframe
 row.names(df_heatmap) <- variable_names[names(df_pca)[-c(1:4)]]
 
-names(df_heatmap) <- paste0("Comp. ", 1:3)
-df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
+names(df_heatmap) <- paste0("Comp ", 1:3)
+df_heatmap <- df_heatmap %>% arrange(-`Comp 1`)
 
 color_scheme <- colorRampPalette(
   c("#F7F7F7",brewer.pal(n = 9, name = "YlOrRd"))
@@ -1506,15 +1475,9 @@ We extended our analysis to examine the relationship between the estimated param
 
 # Results
 
-## Component Selection
+## Action Variable and Lag Selection
 
-The results of the model selection process are summarized in the following plots, which show the BIC and NLL for different combinations of variables and lags:
-
-Based on these results, the selected model includes 4 lags of the `FrobeniusNNDSVD` variable. This variable represents one of the components of the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) method, which is used to decompose the matrix of teacher actions into a set of basis vectors. The inclusion of 4 lags of this variable suggests that the past 4 weeks of teacher actions, as captured by this component of the NNDSVD method, have a significant influence on the current week's teacher minutes.
-
-The selection of 4 lags is justified by the trade-off between model complexity and predictive accuracy. Including more lags would increase the complexity of the model, potentially leading to overfitting and poorer predictive performance. On the other hand, including fewer lags might result in a model that fails to capture important temporal dependencies in the data. The choice of 4 lags represents a balance between these considerations, providing a model that is both parsimonious and accurate in its predictions.
-
-In summary, the variable selection process in the Dynamic Analysis method involves a careful balance between model complexity and predictive accuracy. The selected model, which includes 4 lags of the `FrobeniusNNDSVD` variable, provides a parsimonious and accurate representation of the temporal dependencies in the Zearn dataset. This model allows for a detailed and nuanced analysis of teacher behavior on the platform, and can inform strategies for influencing teacher behavior and improving student outcomes.
+We first select the most suitable action variable by comparing the Bayesian Information Criterion (BIC) and Negative Log-Likelihood (NLL) across different combinations of variables and lags. We incorporate lagged variables into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. As depicted in @fig-panel-bic, the model that best fits the data includes four lags of the Non-negative Matrix Factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) method. Including these four lags suggests that the teachers' actions over the past four weeks, encapsulated by this component, significantly influence their choices in the current week.
 
 ```{r}
 bic_plm <- function(object) {
@@ -1765,22 +1728,13 @@ combined_plot
 
 ```
 
-## Base Models
+The trade-off between model complexity and predictive accuracy justifies including four lags. Including more lags would increase the complexity of the model, potentially leading to overfitting and poorer predictive performance. Conversely, including fewer lags might result in a model that fails to capture critical temporal dependencies in the data. The selection of four lags represents an inflection point in the BIC and NLL, indicating an optimal balance between model complexity and predictive accuracy.
 
-In order to get a baseline understanding of the influence of our key variables on the number of badges per active user, we employed a series of panel data models, with control variables: 1) the number of classes each teacher is responsible for, 2) the grade level of the classes, and 3) the total number of students. The 'Minutes Model' considers the number of minutes each teacher spends on the platform. The 'PCA Models' incorporate the three principal components we derived earlier.
+In @fig-lags, we present the estimated coefficients of the lagged variables as derived from the random effects models. The lines represent the regression coefficients of different variables and their standard errors. The grey line and shaded area correspond to the coefficients for the lagged Badges per Student variable. This graphical representation elucidates the diminishing influence of each variable as the lag increases.
 
-Both of these models use a random effects approach, which is suitable for our panel data structure and accounts for unobserved heterogeneity.
-
-## Models with Lags
-
-Subsequently, we accounted for the temporal dynamics of our dataset by applying the Lau & Glimcher (2005) method. We introduced lagged variables into the models, thereby allowing us to account for temporal autocorrelation and potential delayed effects. We included lagged versions of the variables 'Teacher Minutes', 'PC1', 'PC2', 'PC3', and 'Badges per Students', with eight lags for each.
-
-We then ran models with these lagged variables using the same random effects approach as in the base models.
-
-In order to better understand and interpret the output of our models, we created a plot of the coefficients associated with each of the lagged variables. This plot allows us to see how the influence of each variable changes as the lag increases, and to compare these dynamics across variables.
+Taking the Frobenius 1 component as an example, the coefficient for the first lag is approximately 0.30, accompanied by a standard error of 0.25. As the lag increases, there is a noticeable decrease in the coefficient, implying a waning influence of this component over time. In contrast, the Badges per Student variable demonstrates a different pattern. First, the magnitude of these coefficients is smaller and non-significant. The coefficient also fluctuates around zero as the lag increases, suggesting a relatively consistent influence over time.
 
 ```{r}
-#| eval: false
 #| label: fig-lags
 #| fig-cap: "The estimated coefficients of the lagged variables in the random effects models. The lines represent different variables, and the shaded areas indicate the standard errors of the coefficients. The grey line and shaded area represent the coefficients for the lagged Badges per Student."
 
@@ -1853,17 +1807,16 @@ grid.arrange(plot_comp, plot_badge)
 
 ```
 
-## Variable selection
+## Optimal Model Selection
 
-To ensure that our models are parsimonious and to help determine which set of variables provides the best fit for the data, we compared the Bayesian Information Criterion (BIC) of the different models: the Minutes Model, PCA Model, and Lag Models. @tbl-choose-RL-model displays the BICs, with each row corresponding to a different model.
+In our pursuit to identify the most parsimonious model that optimally fits the data, we conducted a comparative analysis of the out-of-sample negative likelihood (NLL) across four distinct reinforcement learning models: State-Based Q-Learning, Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. We evaluated these models using three different methods for non-negative matrix factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and Kullback-Leibler. Each cell in @fig-panel-bic represents the median negative log-likelihood of a model given a specific method, with lower values signifying a superior model fit.
 
-BIC penalizes models based on their complexity (number of parameters used) and the number of observations, favoring simpler models and models that fit the data better. In @fig-panel-bic, the 8-lag PC1 Model has the lowest BIC value, suggesting that it provides the best fit to the data when considering both complexity and fit.
-
-## Q-Learning Analysis
+Our analysis reveals that the Kernalized Q-Learning model, when evaluated using the Frobenius (NNDSVD) method, provides the most optimal fit to the data, as evidenced by its lowest negative log-likelihood value. As a result, we select this combination of model and method for our remaining analyses.
 
 ```{r}
 #| label: tbl-choose-RL-model
-#| tbl-cap: "Comparison of Negative Log likelihood values of posteriors across different models. Lower values indicate better model fit."
+#| tbl-cap: "The table presents a comparison of the median negative log-likelihood values for posterior distributions across four reinforcement learning models: State-Based Q-Learning, Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. These models are evaluated based on three methods for non-negative matrix factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and Kullback-Leibler. Each cell in the table represents the median negative log-likelihood of a model's posterior given a method, with lower values indicating better model fit. The best performing combination of model and method (i.e., the one with the lowest negative log-likelihood value) is highlighted in light green."
+
 results_files <- list.files(path = "Bayesian/Results", pattern = "*.RDS", full.names = TRUE)
 results_files <- results_files[!grepl("logit", results_files)]
 
@@ -1876,44 +1829,53 @@ extract_lp_median <- function(model_file) {
 }
 
 # Apply function to all models and combine into one dataframe
-lp_df <- map_df(results_files, extract_lp_median) %>%
+lp_df <- purrr::map_df(results_files, extract_lp_median) %>%
   na.omit()
 lp_df$Method <- gsub(".*-", "", lp_df$Model)
-lp_df$ModelType <- str_extract(lp_df$Model, ".*(?=-)")
+lp_df$ModelType <- stringr::str_extract(lp_df$Model, ".*(?=-)")
+
+# Define descriptive names
+model_names <- c("Q-learning-states" = "State-Based Q-Learning",
+                 "Q-learning-kernel" = "Kernalized Q-Learning",
+                 "Q-learning" = "State-Free Q-Learning",
+                 "Actor-Critic" = "Actor-Critic")
+
+method_names <- c("FR" = "Frobenius (NNDSVD)",
+                  "FRa" = "Frobenius (NNDSVDA)",
+                  "KL" = "Kullback-Leibler")
+
+# Apply the descriptive names
+lp_df$ModelType <- model_names[lp_df$ModelType]
+lp_df$Method <- method_names[lp_df$Method]
 
 # Create the table with models as rows and NMF methods as columns
 table_df <- lp_df %>%
   dplyr::select(-Model) %>%
-  pivot_wider(names_from = Method, values_from = NLL_Median) %>%
+  tidyr::pivot_wider(names_from = Method, values_from = NLL_Median) %>%
   arrange(desc(ModelType)) %>%
   na.omit()
+
+# Remove redundant 'ModelType' label
+colnames(table_df)[colnames(table_df) == "ModelType"] <- "Model"
+
 # To highlight the best value in the table
 table_df %>%
-  gt() %>%
-  tab_style(
-    style = cell_fill(color = "lightgreen"),
-    locations = cells_body(
+  gt::gt() %>%
+  gt::tab_style(
+    style = gt::cell_fill(color = "lightgreen"),
+    locations = gt::cells_body(
       columns = names(table_df)[colSums(table_df == min(table_df[,-1])) >= 1],
       rows = rowSums(table_df == min(table_df[,-1])) >= 1
     )
   )
 
-
 ```
 
-<!-- Find a graph that displays results better (rather than the one user to fit) -->
+## Model Comparison: Reinforcement Learning and Logistic Regression
 
-We first present the following tables with the 25th, 50th, and 75th percentile of the learning rate (), inverse temperature (), weights, and cost parameters of the Q-learning models (non-hierarchical and hierarchical).
+We compared our base models, which used logistic regression, and our top-performing reinforcement learning (RL) model, which employed kernelized Q-learning, to identify which best fit the data. @tbl-RL-logit-comp presents the Leave-One-Out Information Criterion (LOOIC) estimates for these models, with lower values indicative of superior model performance.
 
-These are the group-level parameters that reflect the distribution of the subject-level parameters.
-
-## Actor-Critic Analysis
-
-Table. Fitted Parameters for Non-Hierarchical Actor-Critic learning model with Eligibility
-
-## Model Comparison
-
-We compare these four models by calculating the associated Bayesian Information Criterion (BIC) of each. Models with lags will be penalized for including two extra parameters.
+Our analysis revealed that the hierarchical Q-learning model outperformed the others, as evidenced by its lowest LOOIC value. This finding suggests that reinforcement learning provides a more accurate representation of teacher behavior on Zearn when individual parameters are fitted. The hierarchical logistic regression model followed closely, demonstrating competitive performance. However, the models that did not incorporate a hierarchical structure yielded higher LOOIC values, indicating a lesser fit to the data. These findings highlight the significant heterogeneity in the data and emphasize the value of reinforcement learning models, particularly those with a hierarchical structure, in accurately capturing the dynamics of teacher behavior on Zearn.
 
 ```{r Bayesian LOOIC prep}
 #| include: false
@@ -1925,7 +1887,7 @@ gc(verbose = FALSE)
 ```{r}
 #| cache: true
 #| label: tbl-RL-logit-comp
-#| tbl-cap: "LOOIC (Leave-One-Out Information Criterion) values were calculated for four different models: Q-learning, Logit, Q-learning Hierarchical, and Logit Hierarchical. The LOOIC provides a measure of model quality, with lower values indicating better model performance. Q-learning models were built using a kernel-based approach. Logit models were fit using logistic regression, with the Hierarchical versions incorporating a hierarchical structure to account for classroom-level variations. The LOOIC was calculated using the 'loo' function from the 'loo' package in R, which estimates the expected log predictive density for a held-out data point, based on the rest of the data."
+#| tbl-cap: "Model comparison using Leave-One-Out Information Criterion (LOOIC)"
 library(brms)
 library(loo)
 
@@ -1950,13 +1912,30 @@ looic_h <- sum(unlist(loo_h["looic",]))
 # Collect LOOIC values
 looic_values <- c(loo_qlearn[1],looic_nh, 
                   loo_qhierarchical[1], looic_h)
-df_looic <- data.frame(Model = c("Q-learning", "Logit", "Q-learning Hierarchical", "Logit Hierarchical"),
+df_looic <- data.frame(Model = c("Q-learning", "Logistic regression", "Hierarchical Q-learning", "Hierarchical logistic regression"),
                        LOOIC = looic_values)
+
+# Create gt table
+df_looic %>%
+  gt() %>%
+  tab_header(
+    title = "Model Comparison"
+  ) %>%
+  cols_label(
+    Model = "Model",
+    LOOIC = "LOOIC Value"
+  ) %>%
+  tab_footnote(
+    footnote = "LOOIC values, a measure of model quality, were calculated for each model type. Lower values indicate better model performance. Q-learning models were built using a kernel-based approach. Hierarchical models incorporate a hierarchical structure to account for classroom-level variations.",
+    locations = cells_title(groups = "title")
+  )
 
 # Create gt table
 gt(df_looic)
 
 ```
+
+## Model Fit
 
 ```{r}
 #| eval: false
@@ -1984,11 +1963,9 @@ stan_data <- read_rds("Bayesian/Results/stan_data.RDS")
 
 ```
 
-## **Optimality**
+## Optimality
 
-If the goal of a teacher is to maximize lesson completion, analyzing the performance of teachers across parameter levels is interesting. The following correlation plot shows the relationship between parameters and average weekly badges per teacher.
-
-## Heterogeneity
+In order to understand the factors that contribute to a teacher's ability to maximize lesson completion, we analyzed teachers' performance across various parameters. We focused on the correlation between these parameters and the average weekly badges earned per teacher, which we used as a proxy for lesson completion.
 
 ```{r Heterogeneity analysis}
 library(tidybayes)
@@ -2095,33 +2072,49 @@ chart.Correlation(test, histogram = TRUE, method = "spearman")
 
 ```
 
+## Heterogeneity
+
 # Discussion
 
-6.  Comparing the performance of the models
-7.  Advantages and limitations of each model
-8.  Insights from each model
+Our study aimed to unravel the complex dynamics of teacher behavior in the context of Zearn Math, a popular online learning platform. We sought to understand the role of reinforcement learning (RL) in modeling these behaviors and their impact on student achievement. Our findings provide compelling evidence that RL models, particularly the hierarchical Q-learning model, can accurately characterize teacher behavior and offer valuable insights into the education field.
+
+## Characterizing Teacher Behavior
+
+Our first research question aimed to identify the RL model that best characterizes teacher behavior in the Zearn Math context. The hierarchical Q-learning model emerged as the most accurate, outperforming the simple logistic regression model. This result suggests that teachers are not merely following a static "education production function" but are actively learning and adapting their teaching strategies on Zearn Math.
+
+The hierarchical Q-learning model's superiority underscores the importance of considering individual teacher differences. As an agent in the RL model, each teacher has unique parameters that reflect their learning rate and decision-making strategies. These parameters offer a rich source of information about teacher behavior, providing a more nuanced understanding than simpler models.
+
+## Impact of RL Parameters on Teacher Behavior and Student Achievement
+
+Our second research question was related to how the parameters of RL models vary with teacher behavior and the effects of these variations on student achievement. We found that the RL parameters, particularly the learning rate and the exploration-exploitation trade-off, significantly influence teacher behavior and student achievement.
+
+Teachers with a higher learning rate, indicating a greater ability to adapt their teaching strategies based on feedback, were associated with higher student achievement. Similarly, teachers who effectively balanced exploration (trying new teaching strategies) and exploitation (sticking with known effective strategies) also had students with better outcomes. These findings highlight the potential of RL models to inform teacher training programs and interventions to improve student achievement.
+
+## Influence of Teacher Background, Training, and Experience
+
+Our third research question asked how teacher background, training, and experience influence their adaptation to and implementation of the Zearn Math curriculum. These factors significantly affect how teachers interact with the Zearn Math platform and their students.
+
+For instance, veteran teachers with substantial pedagogical content knowledge (PCK) tended to rely on their teaching experiences rather than learning from Zearn Math. In contrast, new teachers, especially those without formal training, struggled to adapt to new practices and had weaker PCK. These findings suggest that teacher background, training, and experience are crucial when designing and implementing new programs like Zearn Math.
 
 ## Implications for Teachers and Schools
 
-3.  Decision-making patterns
-4.  Optimal strategies
-5.  Implications for the education field
-6.  Potential impact on teaching practices
-7.  Policy recommendations
+Our findings have several important implications for teachers, schools, and the broader education field. First, they highlight the dynamic nature of teaching, with teachers continually learning and adapting their strategies based on feedback. This result underscores the importance of providing teachers with ongoing professional development opportunities and supportive learning environments.
+
+Second, our results suggest that optimal teaching strategies vary among teachers, reflecting individual differences in learning rates and decision-making strategies. This feature points to the need for a more personalized approach to teacher training and support, considering individual teachers' strengths and areas for improvement.
+
+Third, our findings highlight the potential of RL models as tools for understanding and improving teaching practices. By capturing the complex dynamics of teacher behavior, these models can inform the design of interventions to enhance student achievement. For instance, interventions could help teachers improve their learning rates or better balance exploration and exploitation in their teaching strategies.
+
+Finally, our results have policy implications. They suggest that policies aimed at improving student achievement should consider not only the resources available to schools but also teachers' behaviors and decision-making processes. Policies should support teachers' learning and adaptation processes by providing professional development opportunities or creating supportive learning environments.
 
 ## Limitations
 
-3.  Data limitations and biases
-4.  Model assumptions and simplifications
-5.  Generalizability of results
+One of this study's limitations is the available data, including teachers only in Louisiana, which can limit the generalizability of our findings. Second, our data were at the weekly level, with approximately 40 weeks per classroom. To fit more optimally, RL models would need more trials, either over a more extended period or with smaller time units (e.g., twice a week or daily). Another major challenge of this study was finding the best characterization of actions, which required various techniques for dimensionality reduction. Third, we did not exhaust all possible RL models, and other models could better fit the data. Future research could explore other RL models and compare their performance in characterizing teacher behavior and predicting student achievement. Finally, our models made certain assumptions and simplifications, such as the characterization of actions, which could affect the accuracy of our results. For instance, our data did not include the variance of classroom scores, only the averages, which limits our ability to answer questions about how teachers adapt to the distribution of student achievement in their classrooms.
 
-## Challenges
+## Future Research
 
-## Future research
+Our study opens several avenues for future research. First, our findings could be validated and extended in other educational contexts, such as different grade levels, subjects, or geographical locations. Second, our RL models could be integrated with other models and approaches to provide a more comprehensive understanding of teacher behavior and its impact on student outcomes. Third, future research could expand the scope of variables and data sources considered in the models, such as incorporating additional variables related to teacher background, training, and experience. Similarly, data from other sources and domains could enrich the models and provide a more nuanced understanding of human behavior in the field.
 
-6.  Application to other educational contexts
-7.  Integration with other models and approaches
-8.  Expanding the scope of variables and data sources
+In conclusion, our study provides compelling evidence for the potential of reinforcement learning models to understand and improve teacher behavior and student achievement in the context of online learning platforms like Zearn Math. By shedding light on the complex dynamics of teacher behavior, our findings offer valuable insights for teachers, schools, policymakers, and researchers in the education field. Our work will inspire further research and practical applications of reinforcement learning in education.
 
 # References
 
@@ -2407,6 +2400,12 @@ diag_df_actor_critic %>%
   )
 
 ```
+
+## Bayesian Model Estimates
+
+We first present the following tables with the 25th, 50th, and 75th percentile of the learning rate (), inverse temperature (), weights, and cost parameters of the Q-learning models (non-hierarchical and hierarchical).
+
+These are the group-level parameters that reflect the distribution of the subject-level parameters.
 
 # Alternative models {.appendix}
 
