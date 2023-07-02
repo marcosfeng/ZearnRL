@@ -8,8 +8,8 @@ author:
     orcid: 0000-0002-8227-2661
 format:
   elsevier-pdf:
+    keep-tex: true
     journal:
-      keep-tex: true
       formatting: preprint
       model: 3p
       layout: onecolumn
