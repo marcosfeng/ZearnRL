@@ -24,7 +24,7 @@ execute:
 
 # Introduction
 
-Predicting repeated behavior has been a long-standing goal of the behavioral sciences, including economics, psychology, and neuroscience. Much of human behavior results from stimulus-response associations, which are context-sensitive and not always consciously deliberated [@buyalskaya2023]. Reinforcement learning (RL) algorithms have emerged as a prominent way of quantifying these relationships, assigning a mathematical relationship between contextual cues (states), behavior (actions), and reward [@sutton2018b]. These algorithms have found wide application in neuroscience and cognitive psychology, where they are used on data sets to model agents in specific environments. However, these disciplines generally do not work with the kind of practical and applied data typically used in social psychology and economics [@buyalskaya2023].
+Predicting repeated behavior has been a long-standing goal of the behavioral sciences, including economics, psychology, and neuroscience. Much of human behavior results from stimulus-response associations, which are context-sensitive and not always consciously deliberated [@buyalskaya2023]. Reinforcement learning (RL) algorithms have emerged as a prominent way of quantifying these relationships, assigning a mathematical relationship between contextual cues (states), behavior (actions), and reward [@sutton2018]. These algorithms have found wide application in neuroscience and cognitive psychology, where they are used on data sets to model agents in specific environments. However, these disciplines generally do not work with the kind of practical and applied data typically used in social psychology and economics [@buyalskaya2023].
 
 This gap presents a novel opportunity to use methods from one set of disciplines on data traditionally used in another. In this paper, we aim to further this integration by applying RL algorithms to model the decision-making process of teachers in the math-teaching platform Zearn. Reinforcement learning (RL) provides a system of rewards and punishments where the agent (in this case, the teacher) learns to make optimal decisions by maximizing the rewards and minimizing the punishments. By assuming every teacher has an objective function to balance with their potential rewards, we model the sequential behavior of a teacher throughout a school year. For instance, the teacher chooses which pedagogical actions to employ, such as assigning homework, checking student progress, or reviewing content, in anticipation of enhancing student achievement. Applying the RL algorithm allows for flexibility in learning the best strategy given certain contextual information, revealing the intricate dynamics of the teaching-learning process. By modeling the tradeoff between teachers exploring unknown options and exploiting known information about the Zearn system, the RL algorithm provides a nuanced understanding of how teachers adapt their strategies in response to student performance and other contextual factors. This approach offers a flexible and robust model for our available data and opens up new avenues for understanding and enhancing human behavior in field settings.
 
@@ -32,7 +32,7 @@ This gap presents a novel opportunity to use methods from one set of disciplines
 
 Zearn is a digital platform for mathematics education designed to facilitate the teaching and learning of mathematics, providing a rich environment for modeling the decision-making process of teachers. About 25% of elementary-school students and over 1 million middle-school students across the United States use Zearn [@post-weblog]. The platform's unique blend of hands-on teaching and immersive digital learning offers a fertile ground for understanding how teachers adapt their strategies to optimize student achievement.
 
-Zearn's pedagogical approach includes interactive digital lessons using visual aids (see @fig-zearn-poster) and real-time student feedback. The platform's approach to mathematical concepts, such as fractions, is particularly noteworthy. Students go through a series of representations: concrete, pictorial, and abstract, each designed to scaffold (i.e., "breaking down" problems, see [@jumaat2014a; @reiser2014]) their understanding and prepare them for subsequent levels. This approach aligns with the Common Core State Standards, enhancing relevance in the contemporary educational landscape.
+Zearn's pedagogical approach includes interactive digital lessons using visual aids (see @fig-zearn-poster) and real-time student feedback. The platform's approach to mathematical concepts, such as fractions, is particularly noteworthy. Students go through a series of representations: concrete, pictorial, and abstract, each designed to scaffold (i.e., "breaking down" problems, see [@jumaat2014; @reiser2014]) their understanding and prepare them for subsequent levels. This approach aligns with the Common Core State Standards, enhancing relevance in the contemporary educational landscape.
 
 ![Example of Teaching with Visual Models on Zearn](images/zearn-poster.jpg){#fig-zearn-poster fig-align="center"}
 
@@ -152,7 +152,7 @@ The temperature parameter $\tau$ controls the trade-off between exploration and 
 
 ### State-Free vs. State-Based Models
 
-So far, we have defined state-based models incorporating the environment into the Q-function. In state-free models, the Q-function, denoted as $Q(a)$, is solely a function of the action, $a$. The environmental state does not factor into the decision-making process. This simplifying assumption can be beneficial in scenarios where the environmental state exerts minimal influence on the outcome of the action. The agent learns a global policy that is independent of the specific state. This approach can be effective in environments with low state-action complexity or when the state is difficult to define or observe [@sutton2018a]. The Q-value update function, therefore, simplifies to:
+So far, we have defined state-based models incorporating the environment into the Q-function. In state-free models, the Q-function, denoted as $Q(a)$, is solely a function of the action, $a$. The environmental state does not factor into the decision-making process. This simplifying assumption can be beneficial in scenarios where the environmental state exerts minimal influence on the outcome of the action. The agent learns a global policy that is independent of the specific state. This approach can be effective in environments with low state-action complexity or when the state is difficult to define or observe [@sutton2018]. The Q-value update function, therefore, simplifies to:
 
 $$
 Q(a) = Q(a) + \alpha \left[ r(a) - Q(a) \right]
@@ -321,8 +321,7 @@ Based on logistic regression, the model captures the linear combination of past 
 
 $$
 \begin{aligned}\log \left(\frac{p_{R, i}}{p_{L, i}}\right)= & \sum_{j=1} \alpha_{ j}( r_{R, i-j}-r_{L, i-j}) \\& +\sum_{j=1} \beta_{j} (c_{R, i-j}-c_{L, i-j})+\gamma,\end{aligned}
-$$
-where $p$ is the probability of choice $c$ ($R$, right or $L$, left) at time $i$ as a function of the rewards, $r$, and choices for every time point $i-j$ in the history.
+$$ where $p$ is the probability of choice $c$ ($R$, right or $L$, left) at time $i$ as a function of the rewards, $r$, and choices for every time point $i-j$ in the history.
 
 A key aspect of Dynamic Analysis is its focus on local variations in behavior and how these relate to local variations in reinforcer history and behavioral history. This local focus allows for the identification of patterns and trends that may be obscured when looking at behavior on a larger scale. For example, the method can reveal a tendency to alternate between choices in the short term, while also showing a longer-term tendency to persist with the more frequently chosen alternative.
 
@@ -1440,7 +1439,7 @@ We performed the dynamic analysis using the `plm` package in R [@croissant2008],
 
 ## Base Models
 
-Our initial approach involved fitting non-hierarchical models for three binary action variables using a simple logistic regression model. The dependent variables were derived from the Non-negative Matrix Factorization (NMF) using the Frobenius Nonnegative Double Singular Value Decomposition (NNDSVD) method. For each of these variables, we generated a lagged version and incorporated it into the model alongside the 'Badges' and 'State' variables. The models were constructed using the `brms` package, specifying the Bernoulli family and employing the `cmdstanr` backend [@bates2015; @bürkner2017; @gabry2022a; @stanmod2022a; @bürkner2021; @croissant2008a]. The formula for these models are represented as follows:
+Our initial approach involved fitting non-hierarchical models for three binary action variables using a simple logistic regression model. The dependent variables were derived from the Non-negative Matrix Factorization (NMF) using the Frobenius Nonnegative Double Singular Value Decomposition (NNDSVD) method. For each of these variables, we generated a lagged version and incorporated it into the model alongside the 'Badges' and 'State' variables. The models were constructed using the `brms` package, specifying the Bernoulli family and employing the `cmdstanr` backend [@bates2015; @bürkner2017; @gabry2022; @stanmod2022; @bürkner2021; @croissant2008]. The formula for these models are represented as follows:
 
 $$
 a_t = a_{t-1} + Badges_t + s_t + \epsilon_t
@@ -2414,7 +2413,7 @@ diag_df_actor_critic %>%
 
 This section presents the group parameter estimates for all Reinforcement Learning (RL) models, both non-hierarchical and hierarchical. To generate these group parameter estimates, we first extract the posterior samples from the fitted models and calculate the mean (M), standard deviation (SD), 25th percentile (Q1), and 75th percentile (Q3) for each parameter. @tbl-group-parameters summarizes the distribution of the parameter estimates across classrooms, revealing their typical values and variability.
 
-``` {r}
+```{r}
 #| cache: true
 #| label: tbl-group-parameters
 #| tbl-cap: "Group parameter estimates for the Bayesian Models used in Q-learning and Q-learning with states."
