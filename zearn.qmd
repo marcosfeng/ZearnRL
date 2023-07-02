@@ -562,7 +562,7 @@ Zearn provided administrative data for teachers and students at a granular level
 
 The dataset represents various aspects of Zearn schools including identifiers, usage data, and demographic information. It contains information for `r length(unique(df$Classroom.ID))` classrooms and `r length(unique(df$Teacher.User.ID))` teachers, with an average of `r mean(df$Students...Total, 1)` students per classroom.
 
-The school summary statistics, as presented in Table @tbl-summary, provide a snapshot of the schools' characteristics. The table reveals the average number of teachers, students, and weeks of data per school. @tbl-proportions presents the proportions of schools across different poverty levels, income brackets, and other variables, such as the percentage of charter schools and schools with paid accounts. These proportions provide insights into the socio-economic context of the schools in the dataset, which is crucial for understanding the external factors that may influence teacher effort and student achievement.
+The school summary statistics, as presented in @tbl-summary, provide a snapshot of the schools' characteristics. The table reveals the average number of teachers, students, and weeks of data per school. @tbl-proportions presents the proportions of schools across different poverty levels, income brackets, and other variables, such as the percentage of charter schools and schools with paid accounts. These proportions provide insights into the socio-economic context of the schools in the dataset, which is crucial for understanding the external factors that may influence teacher effort and student achievement.
 
 ```{r}
 #| label: tbl-summary
@@ -669,7 +669,7 @@ gt_proportions
 
 ### Temporal Dynamics of Student Engagement
 
-The total number of weeks of data per classroom, as shown in Figure @fig-classroom-weeks, reveals that the distribution of the number of weeks is bimodal, with one mode representing classrooms with less than 3 to 4 months of data and the other mode representing classrooms with four months or more. The classrooms with less than 16 weeks of data are color-coded in red and are excluded from the analysis.
+The total number of weeks of data per classroom, as shown in @fig-classroom-weeks, reveals that the distribution of the number of weeks is bimodal, with one mode representing classrooms with less than 3 to 4 months of data and the other mode representing classrooms with four months or more. The classrooms with less than 16 weeks of data are color-coded in red and are excluded from the analysis.
 
 @fig-logins-week illustrates the total number of student logins over time, offering a dynamic view of student engagement with the Zearn platform. Notably, there are marked decreases in logins during Thanksgiving and Christmas, as indicated by the text annotations on the plot.
 
@@ -2455,6 +2455,53 @@ diag_df_actor_critic %>%
 
 ## Bayesian Model Estimates
 
-We first present the following tables with the 25th, 50th, and 75th percentile of the learning rate (), inverse temperature (), weights, and cost parameters of the Q-learning models (non-hierarchical and hierarchical).
+This section presents the group parameter estimates for all Reinforcement Learning (RL) models, both non-hierarchical and hierarchical. To generate these group parameter estimates, we first extract the posterior samples from the fitted models and calculate the mean (M), standard deviation (SD), 25th percentile (Q1), and 75th percentile (Q3) for each parameter. @tbl-group-parameters summarizes the distribution of the parameter estimates across classrooms, revealing their typical values and variability.
 
-These are the group-level parameters that reflect the distribution of the subject-level parameters.
+``` {r}
+#| cache: true
+#| label: tbl-group-parameters
+#| tbl-cap: "Group parameter estimates for the Bayesian Models used in Q-learning and Q-learning with states."
+
+# Initialize an empty data frame to store the group parameter estimates
+group_params_df <- data.frame()
+
+# Loop over the results files
+for (result_file in results_files) {
+  # Load the fitted model
+  fit <- readRDS(result_file)
+  
+  # Extract the posterior samples of the parameters
+  post_samples <- fit$draws()
+  
+  # Calculate the group parameter estimates
+  group_params <- post_samples %>%
+    as.data.frame() %>%
+    summarise(across(everything(), list(M = mean, SD = sd, Q1 = ~quantile(., 0.25), Q3 = ~quantile(., 0.75))))
+  
+  # Add the model name to the data frame
+  group_params$Model <- gsub("Bayesian/Results/||.RDS", "", result_file)
+  
+  # Add the group parameter estimates to the overall data frame
+  group_params_df <- rbind(group_params_df, group_params)
+}
+
+# Create a gt table
+group_params_df %>%
+  gt() %>%
+  tab_header(
+    title = "Group Parameter Estimates",
+    subtitle = "The table shows the mean (M), standard deviation (SD), 25th percentile (Q1), and 75th percentile (Q3) of the learning rate (alpha), inverse temperature (beta), weights, and cost parameters for each model."
+  ) %>%
+  cols_label(
+    Model = "Model",
+    M = "Mean",
+    SD = "Standard Deviation",
+    Q1 = "25th Percentile",
+    Q3 = "75th Percentile"
+  ) %>%
+  fmt_number(
+    columns = c("M", "SD", "Q1", "Q3"),
+    decimals = 2
+  )
+
+```
