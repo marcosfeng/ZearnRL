@@ -42,17 +42,21 @@ This paper aims to model the decision-making process of a teacher in a math-teac
 
 ## The Zearn Platform
 
-![Example of Teaching with Visual Models on Zearn](images/zearn-poster.jpg){#zearn-poster fig-align="center"}
-
 Zearn is a digital platform for mathematics education designed to facilitate the teaching and learning of mathematics, providing a rich environment for modeling the decision-making process of teachers. About 25% of elementary-school students and over 1 million middle-school students across the United States use Zearn [@post-weblog]. The platform's unique blend of hands-on teaching and immersive digital learning offers a fertile ground for understanding how teachers adapt their strategies to optimize student achievement.
 
-Zearn's pedagogical approach includes interactive digital lessons using visual aids and real-time student feedback. The platform's approach to mathematical concepts, such as fractions, is particularly noteworthy. Students go through a series of representations: concrete, pictorial, and abstract, each designed to scaffold (i.e., "breaking down" problems, see [@jumaat2014a; @reiser2014]) their understanding and prepare them for subsequent levels. This approach aligns with the Common Core State Standards, enhancing relevance in the contemporary educational landscape.
+Zearn's pedagogical approach includes interactive digital lessons using visual aids (see @fig-zearn-poster) and real-time student feedback. The platform's approach to mathematical concepts, such as fractions, is particularly noteworthy. Students go through a series of representations: concrete, pictorial, and abstract, each designed to scaffold (i.e., "breaking down" problems, see [@jumaat2014a; @reiser2014]) their understanding and prepare them for subsequent levels. This approach aligns with the Common Core State Standards, enhancing relevance in the contemporary educational landscape.
 
-The platform's structure facilitates a personalized learning experience for students, allowing teachers to track student progress and make informed decisions. This structure includes self-paced online lessons and small group instruction, a rotational model that allows students to learn new grade-level content in two ways: independently through engaging digital lessons, and in small groups with their teacher and classmates. This dual approach enables students to learn at their own pace, fostering a sense of autonomy and self-directed learning.
+![Example of Teaching with Visual Models on Zearn](images/zearn-poster.jpg){#fig-zearn-poster fig-align="center"}
 
-A key feature of Zearn is its badge system, which serves as a mechanism for tracking student progress and motivating continued learning. Students earn badges upon mastery of specific skills, providing a tangible representation of their achievement. This system motivates students and provides teachers with valuable data on student performance, informing their decision-making process [@knudsen2020]. Zearn also incorporates notifications, known as Tower Alerts, sent to teachers when a student struggles with a specific concept. This feature allows teachers to provide timely support and address learning gaps, enhancing the platform's capacity for personalized learning.
+The platform's structure facilitates a personalized learning experience for students (see SI for a screenshot of the student portal), allowing teachers to track student progress and make informed decisions (see @fig-class-report for a sample class report). This structure includes self-paced online lessons and small group instruction, a rotational model that allows students to learn new grade-level content in two ways: independently through engaging digital lessons, and in small groups with their teacher and classmates. This dual approach enables students to learn at their own pace, fostering a sense of autonomy and self-directed learning.
 
-Another noteworthy aspect is the platform's professional development component, which is available for schools with a paid account. Teachers explore each unit or mission through word problems, fluencies, and small group lessons, conducting collaborative analysis of student work and problem-solving strategies. This professional development revolves around each mission's big mathematical idea, visual representations to scaffold learning, and strategies to address unfinished learning from prior grades and preparation for future learning [@morrison2019].
+![Sample Class Report](images/class-report.png){#fig-class-report fig-align="center"}
+
+A key feature of Zearn is its badge system, which serves as a mechanism for tracking student progress and motivating continued learning (see @fig-badges-screen). Students earn badges upon mastery of specific skills, providing a tangible representation of their achievement. This system motivates students and provides teachers with valuable data on student performance, informing their decision-making process [@knudsen2020]. Zearn also incorporates notifications, known as Tower Alerts, sent to teachers when a student struggles with a specific concept. This feature allows teachers to provide timely support and address learning gaps, enhancing the platform's capacity for personalized learning.
+
+![Badge System for Student Achievement](images/badges.PNG){#fig-badges-screen fig-align="center"}
+
+Another noteworthy aspect is the platform's professional development component, which is available for schools with a paid account (see SI for a sample training schedule). Teachers explore each unit or mission through word problems, fluencies, and small group lessons, conducting collaborative analysis of student work and problem-solving strategies. This professional development revolves around each mission's big mathematical idea, visual representations to scaffold learning, and strategies to address unfinished learning from prior grades and preparation for future learning [@morrison2019].
 
 In order to model interesting behavioral patterns, we focus our analysis on the teachers who most likely take advantage of a wide range of resources on the platform. Thus, we select teachers who consistently use the platform and work in traditional school settings.
 
@@ -94,7 +98,9 @@ $$
 \text{Agent} \xrightarrow[\text{Actions}]{\text{Performs}} \text{Environment} \xrightarrow[\text{Observations, Rewards}]{\text{Provides}} \text{Agent}
 $$
 
-In the context of predicting repeated behavior, we can use RL algorithms to model the decision-making process of individuals or groups, such as teachers, by learning from the patterns in their actions and the resulting outcomes. This approach allows us to model how individual teachers learn the relationships between actions, states, and rewards, thereby creating a typification of instructors. It then becomes possible to identify how teachers differ in their learning and behavior and how these characteristics relate to student outcomes. For example, teacher flexibility may be optimal in a learning environment, but without estimation of individual parameters, differentiating teachers would not be possible. Further, if a policy-maker can shift these individual-level parameters, they can affect student outcomes. These so-called "counterfactual analyses" can be powerful tools in creating innovative interventions or nudges to improve an outcome of interest. Finally, the RL model carries potential beyond the goals of this study. For instance, it can learn the associations between actions and rewards, allowing for automation of certain instructional inputs; if a teacher often assigns an activity under a certain state, the model could automate this action, freeing some of the teacher's time.
+In the context of predicting repeated behavior, we can use RL algorithms to model the decision-making process of individuals or groups, such as teachers, by learning from the patterns in their actions and the resulting outcomes. This approach allows us to model how individual teachers learn the relationships between actions, states, and rewards, thereby creating a typification of instructors. The RL framework's flexibility and robustness make it adaptable to changes in the learning environment and individual student needs. Furthermore, it allows for incorporating a diverse range of state, action, and reward variables and can be tailored to different educational contexts and objectives. RL models can also capture the inherent uncertainty in the teaching environment, providing a framework for making optimal decisions under uncertainty. This feature is particularly relevant in the context of teaching, where the effectiveness of a teaching strategy may not be immediately apparent, and the optimal strategy may evolve as students' understanding develops.
+
+With RL, it then becomes possible to identify how teachers differ in their learning and behavior and how these characteristics relate to student outcomes. For example, teacher flexibility may be optimal in a learning environment, but without estimation of individual parameters, differentiating teachers would not be possible. Further, if a policy-maker can shift these individual-level parameters, they can affect student outcomes. These so-called "counterfactual analyses" can be powerful tools in creating innovative interventions or nudges to improve an outcome of interest. Finally, the RL model carries potential beyond the goals of this study. For instance, it can learn the associations between actions and rewards, allowing for automation of certain instructional inputs; if a teacher often assigns an activity under a certain state, the model could automate this action, freeing some of the teacher's time.
 
 ### Q-Learning Model
 
@@ -104,113 +110,226 @@ In the context of Q-learning, the agent interacts with the environment to gain e
 
 The Q-learning model is based on the concept of a Q-function, which is a function of both state and action, and represents the expected future reward for taking a particular action in a particular state. The Q-function is updated iteratively using the Bellman equation, which expresses the value of a state-action pair in terms of the immediate reward plus the discounted value of the best future state-action pair.
 
-### State-free model vs. model with states
+The Q-function, denoted as $Q(s, a)$, is defined for all state-action pairs $(s, a)$, where $s$ is the state and $a$ is the action. The Q-function represents the expected return or future reward for taking action $a$ in state $s$ following a certain policy $\pi$. The Q-function is updated iteratively using the Bellman equation, as follows:
 
-In the state-free model, the Q-function is a function of the action only, and does not take into account the state of the environment [@sutton2018a]. This is a simplifying assumption that can be useful in situations where the state of the environment does not have a significant impact on the outcome of the action.
+$$
+Q(s, a) = Q(s, a) + \alpha \delta
+$$ {#eq-q-learn}
 
-In contrast, the model with states takes into account the state of the environment when updating the Q-function. This allows the model to capture more complex dynamics, where the outcome of an action depends not only on the action itself but also on the state of the environment.
+where $\alpha$ is the learning rate, which determines how much the Q-value is updated based $\delta$, the reward prediction error. The reward prediction error is the difference between the estimated Q-value and the observed reward plus the discounted future Q-value. This error is used to update the Q-value in the direction of the observed reward, as follows:
 
-In this Q-learning model, the reward at a given week is given as
+$$
+\delta = r + \gamma \max_{a'} Q(s', a') - Q(s, a)
+$$ {#eq-RPE}
 
-R(a\|St)=Badges(St+1\|a)-cost(a)
+where:
 
-where is a discount factor, cost(not work)=0, and cost(work)=c is a free parameter.
+-   $r$ is the immediate reward received after taking action $a$ in state $s$,
 
-### The kernel function
+-   $\gamma$ is the discount factor,
+
+-   $s'$ is the new state after taking action $a$,
+
+-   $a'$ is the action to be taken in the new state $s'$,
+
+-   $s$ is the current state,
+
+-   $a$ is the action taken,
+
+-   $\max_{a'} Q(s', a')$ is the maximum reward that can be obtained in the next state $s'$,
+
+-   $Q(s, a)$ is the current estimate of the Q-value for action $a$ in state $s$.
+
+The Q-learning algorithm uses this update rule to learn the Q-function and, hence, the optimal policy. The agent starts with an initial Q-function (which can be arbitrary) and then updates the Q-values based on the experiences it gathers from interactions with the environment. The update rule is applied every time the agent transitions from a state $s$ to a state $s'$ by taking an action $a$ and receiving a reward $r$. The agent selects actions based on a policy derived from the Q-values. A common choice is the softmax action selection method, which is a way to balance exploration and exploitation. The softmax method chooses actions probabilistically based on their Q-values. The softmax function determines the probability of choosing a particular action and is defined as follows:
+
+$$
+P(a) = \frac{e^{Q(s, a)/\tau}}{\sum_{a'} e^{Q(s, a')/\tau}}
+$$ {#eq-softmax}
+
+where:
+
+-   $P(a)$ is the probability of choosing action $a$,
+
+-   $Q(s, a)$ is the Q-value of action $a$ in state $s$,
+
+-   $\tau$ is a parameter known as the temperature, which controls the level of exploration,
+
+-   the denominator is the sum over all possible actions $a'$ of the exponential of their Q-values divided by the temperature.
+
+The temperature parameter $\tau$ controls the trade-off between exploration and exploitation. When $\tau$ is high, the agent explores more because the action probabilities are more uniform. When $\tau$ is low, the agent exploits more because the action with the highest Q-value is more likely to be chosen than the others. As the agent learns, it can be beneficial to start with a high temperature to encourage exploration and then gradually decrease it to favor exploitation of the learned policy.
+
+### State-Free vs. State-Based Models
+
+So far, we have defined state-based models incorporating the environment into the Q-function. In state-free models, the Q-function, denoted as $Q(a)$, is solely a function of the action, $a$. The environmental state does not factor into the decision-making process. This simplifying assumption can be beneficial in scenarios where the environmental state exerts minimal influence on the outcome of the action. The agent learns a global policy that is independent of the specific state. This approach can be effective in environments with low state-action complexity or when the state is difficult to define or observe [@sutton2018a]. The Q-value update function, therefore, simplifies to:
+
+$$
+Q(a) = Q(a) + \alpha \left[ r(a) - Q(a) \right]
+$$ {#eq-state-free}
+
+where:
+
+-   $Q(a)$ is the current estimate of the Q-value for action $a$,
+
+-   $\alpha$ is the learning rate,
+
+-   $r(a)$ is the immediate reward received after taking action $a$.
+
+In this equation, the term in the brackets, $r(a) - Q(a)$, is the reward prediction error. It represents the difference between the observed reward and the current estimate of the Q-value. The Q-value is updated in the direction of this error, scaled by the learning rate $\alpha$.
+
+### The Kernel Function
 
 The kernel function is a mathematical tool used to measure the similarity between different states or actions [@ormoneit2002; @domingues; @liu]. In the context of the Q-learning model with states and a kernel, the kernel function is used to compute a weighted average of the rewards obtained in similar state-action pairs in the past. This allows the model to generalize from past experience and to make more informed decisions about future actions.
 
-### Actor-Critic Model
+### The Actor-Critic Model
 
-The Actor-Critic model is a type of reinforcement learning algorithm that separates the task of selecting actions (the "actor") from the task of evaluating those actions (the "critic"). This separation allows the model to learn more efficiently by using the critic to guide the learning of the actor. The actor uses the information from the critic to update its policy, and the critic uses the information from the actor to update its value function.
+The next model we attempt to fit divides the action selection and action evaluation tasks into two components: the "actor" and the "critic" [@sutton2018b]. This division theoretically allows for more efficient learning, as the critic guides the actor's learning process.
 
-The Actor-Critic model is different from the Q-learning model in several ways:
+The "actor" in this model selects actions based on a policy function, denoted as $\pi(a|s)$, which maps states to actions, determining the probability of taking each action in each state. The actor aims to learn an optimal policy that maximizes the expected cumulative reward. In our setting, we set the policy as a softmax function over action preferences:
 
-1.  Separation of Action and Evaluation: In Q-learning, the same function (the Q-function) is used to both select actions and evaluate those actions. In the Actor-Critic model, these tasks are separated into two different functions: the actor (policy function) and the critic (value function).
+$$
+\pi(a|s) = \frac{e^{h(a, s)}}{\sum_{a'} e^{h(a', s)}}
+$$
 
-2.  Policy and Value Function: The Actor-Critic model uses a policy function (the actor) to select actions and a value function (the critic) to evaluate those actions. The Q-learning model, on the other hand, uses a single Q-function to both select and evaluate actions.
+where $h(a, s)$ is the preference for action $a$ in state $s$.
 
-3.  Learning Efficiency: The Actor-Critic model can learn more efficiently than the Q-learning model because it uses the critic to guide the learning of the actor. This allows the actor to focus on improving its policy based on the feedback from the critic, rather than having to learn from trial and error.
+The "critic," on the other hand, evaluates the actions taken by the actor by learning a value function, denoted as $V(s)$. Given the actor's current policy, the critic estimates the expected cumulative reward from each state. The critic's feedback, in the form of the value function, guides the actor's learning. We update the value function based on the Temporal Difference (TD) error, a measure of the difference between the estimated and actual return:
 
-In the Zearn context, the Actor-Critic model estimates several variables:
+$$
+\delta = r + \gamma V(s') - V(s)
+$$
 
-1.  Cost in badge-units for each component.
+where $r$ is the reward, $\gamma$ is the discount factor, $s'$ is the new state, and $s$ is the current state.
 
-2.  Discount rate ($\gamma$).
-
-3.  **Alpha**: These are the step-sizes for the update equations. They determine how much the weights are updated in each step of the learning process. A larger alpha means that the weights are updated more in each step, which can lead to faster learning but may also cause the model to overshoot the optimal solution.
-
-The weights and policy are updated based on the prediction error and the outcome minus the cost, according to The equations for updating the weights (w) and policy (theta) are as follows:
-
-w\[, j\] += alpha\[1\] \* delta \* to_vector(current_state); theta\[, j\] += alpha\[2\] \* delta \* to_vector(current_state);
-
-where delta is the prediction error, alpha\[1\] and alpha\[2\] are the step-sizes, and current_state is the current state of the model.
-
-1.  Full RL framework
-2.  Policy learning and state value learning
-
-On the other hand, our second model uses the full RL framework by defining states, the relationship between actions and states, and the relationship between states and rewards. In particular, we apply an Actor-Critic algorithm to fit our data. In this model, teachers do not learn the value of logging in. Instead, (1) the "critic" learns the value of each week (the states) and (2) the "actor" learns a function that determines what action to take (i.e., a parameterized policy). Importantly, the teacher may decide to login independently from the value of their actions, but the value of each week may affect the functional form of the choice function. This type of model is beneficial because it offers higher flexibility in the decision process. Because actions are a function of how the last week went for the students (the state), the Actor-Critic method can provide more powerful predictions if teachers indeed modulate their choice based on these measures. In RL terms, this model is considered fully online (updates to the actions, states, and values occur at each time step). Mathematically, we define these objects and functions as:
-
-S={Student Minutest-1,Tower Alertst-1}
-
-A=Prob(login)=Logit-1(S)
-
-VS=WS
-
-where S are the states, V are the values of each state, and A is the parameterized policy. Each teacher learns the policy and value functions by increments, taking steps determined by gradient ascent of a scalar performance measure (see appendix for detailed algorithm).
+This separation of action selection and evaluation distinguishes the Actor-Critic model. In Q-learning, a single Q-function selects and evaluates actions. Conversely, in the Actor-Critic case, the actor updates its policy to increase the probability of actions that lead to higher-than-expected returns and decrease the probability of actions that lead to lower-than-expected returns.
 
 # Applying RL Models to the Zearn Context
 
-In the context of predicting repeated behavior, RL algorithms can be used to model the decision-making process of individuals or groups by learning from the patterns in their actions and the resulting outcomes. The RL framework is particularly suitable for modeling teacher decision-making as it captures the dynamic and sequential nature of teaching. For instance, the state could be represented by the current progress of students in the class, and the actions could include assigning additional practice, providing personalized feedback, or adjusting lesson plans. The rewards could be improved student performance, increased student engagement, or reduced learning gaps. This interaction can be represented as:
+In this section, we propose an application of the Reinforcement Learning (RL) algorithms for modeling teacher decision-making within the Zearn platform.
+
+Consider a typical teaching scenario: the state is the students' current progress in the class, and the actions are a range of pedagogical strategies, such as assigning additional practice, providing personalized feedback, or adjusting lesson plans. Some relevant reward variables include improved student performance, increased student engagement, or reduced learning gaps. We represent this interaction as:
 
 $$
 State (S) \xrightarrow[\text{Action (A)}]{\text{Teacher Decides}} New State (S') \xrightarrow[\text{Reward (R)}]{\text{Resulting Outcome}} \text{Feedback}
+$$ {#exm-zearn-RL}
+
+In the Zearn context, we define the decision process as follows:
+
+1.  Agents are the teachers.
+
+2.  Actions include the time spent on the platform and the choice to apply specific pedagogical strategies.
+
+3.  The environment is the Zearn platform with its students.
+
+4.  The state is the week-over-week change in Tower Alerts.
+
+5.  The reward is a linear function of the number of badges earned.
+
+Mathematically mapping the agent-environment interaction is flexible, with many models potentially satisfying our initial assumptions. We approach this problem as a competition of models, selecting a set of models applicable to our setting, fitting them to the data, and comparing their performances.
+
+## State-Free Q-Learning Model
+
+We use the Q-learning model to predict the actions of teachers based on their past actions and the rewards they received.
+
+The Q-value for a given state $s$ and action $a$ is updated based on the reward prediction error $\delta$:
+
+$$
+Q(a) = Q(a) + \alpha \left( \gamma (\text{Badges}_t - \text{cost}(a)) - Q(a) \right)
 $$
 
-The flexibility and robustness of the RL framework make it adaptable to changes in the learning environment and individual student needs. It allows for the incorporation of various state, action, and reward variables, and can be tailored to different educational contexts and objectives. Moreover, RL can capture the inherent uncertainty in the teaching environment. Teachers often face uncertainty about the best course of action to take to maximize student learning. RL models can capture this uncertainty and provide a framework for making optimal decisions under uncertainty. This is particularly relevant in the context of teaching, where the effectiveness of a teaching strategy may not be immediately apparent, and the optimal strategy may change as students' understanding evolves.
+where
 
-**Flexibility and robustness**
+-   $\alpha$ is the learning rate,
+-   $\gamma$ is the discount rate,
+-   $\text{Badges}_t$ is the immediate reward received after taking action $a$ in state $s$,
+-   $\text{cost}(a)$ is the cost associated with action $a$,
+-   $Q(a)$ is the current estimate of the Q-value for action $a$.
 
--   Adapts to changes in the learning environment and individual student needs
+The probability of choosing a particular action is determined by the softmax function and is defined as follows:
 
--   Example: Adapting to new curriculum or varying levels of student preparedness
+$$
+P(a) = \frac{e^{Q(a)/\tau}}{\sum_{a'} e^{Q(a')/\tau}}
+$$
 
--   Allows for the incorporation of various state, action, and reward variables
+where:
 
--   Example: Including external factors such as school policies or testing schedules
+-   $P(a)$ is the probability of choosing action $a$,
+-   $Q(a)$ is the Q-value of action $a$,
+-   $\tau$ is a parameter known as the temperature, which controls the level of exploration.
 
--   Can be tailored to different educational contexts and objectives
+Note that the reward is assumed to be a linear function of the number of badges earned, with the learning rate $\alpha$ as the multiplier and the cost as the constant subtracted from the reward. We interpret each of these parameters as follows:
 
--   Example: Customizing the model for different grade levels
+-   Reward: A linear function of the number of badges earned, indicating that the more badges a teacher earns, the higher the reward. The learning rate determines how quickly the teacher updates their Q-values in response to new information, while the cost represents the perceived effort or inconvenience associated with the action.
 
--   Tradeoff between learning (exploring) and optimizing (exploiting)
+-   Cost: The perceived effort or inconvenience associated with the action, such as the effort required to complete a particular task or the inconvenience of deviating from a preferred teaching method.
 
-**Example:**
+-   Learning rate ($\alpha$): The extent to which the newly acquired information will override the old information. A factor of 0 will make the agent not learn anything.
 
--   State: Current progress of students in the class.
--   Actions: Assigning additional practice, providing personalized feedback, adjusting lesson plans.
--   Rewards: Improved student performance, student engagement, reduced learning gaps.
--   
+-   Discount rate ($\gamma$): The degree to which future rewards are discounted compared to immediate rewards. A high discount rate means that future rewards are considered almost as valuable as immediate rewards, which encourages long-term planning. A low discount rate means that immediate rewards are much more valuable than future rewards, which encourages short-term thinking.
 
-In simple terms, reinforcement learning may be represented as a relationship between an agent, their actions, states, and rewards, as the following image depicts (CITE Sutton Barto).
+-   Inverse temperature ($\tau$): The degree of randomness in the choice behavior. A high inverse temperature means that the agent is more likely to choose the action with the highest expected reward, while a low inverse temperature means that the agent is more likely to choose actions randomly. This parameter can be interpreted as a measure of the agent's confidence in its Q-values, reflecting the trade-off between exploration (trying out new actions) and exploitation (sticking to known beneficial actions).
 
-In the case of Zearn, we define this decision process as follows: (1) agents are the teachers; (2) actions are their decision to login; (3) the environment is the Zearn platform with its students; (4) the rewards are the average number of badges students attained on a given week; and (5) the states are vectors of Tower Alerts and student usage minutes from the previous week.
+## State-Based Q-Learning Model
 
-Mathematically mapping the agent-environment interaction, however, is a flexible endeavor, in which a large number of models may satisfy our initial assumptions. Thus, we approach this problem as a competition of models, in which the best fit for the data, given a penalty for the number of parameters, determines the winning candidate. Thus, we first choose a set of models that we believe to be applicable to our setting, fit them to the data, and compare their performances.
+In this model, the state $s$ represents the current situation or context in which the teacher decides. The state could include factors such as the students' current performance level. The state-dependent model is particularly relevant in teaching, where the effectiveness of a given strategy may depend on the specific circumstances of the class. Here, the Q-value for a given state $s$ and action $a$ is:
+
+$$ Q(s, a) = Q(s, a) + \alpha \left( \gamma (\text{Badges}_t - \text{cost}(a)) - Q(s, a) \right) $$
+
+where:
+
+-   $\alpha$ is the learning rate,
+-   $\gamma$ is the discount rate,
+-   $\text{Badges}_t$ is the immediate reward received after taking action $a$ in state $s$,
+-   $\text{cost}(a)$ is the cost associated with action $a$,
+-   $Q(s, a)$ is the current estimate of the Q-value for action $a$ in state $s$.
+
+Like the state-free model, the softmax function determines the probability of choosing a particular action.
+
+## The Kernel Function
+
+We anticipate that the reward associated with a given action may be delayed, reflecting the time it takes for the effects of an action to manifest. For instance, teachers might spend the first week of each month planning activities on the platform, with the rewards of these actions becoming apparent in subsequent weeks. To capture this temporal aspect of teacher behavior, we employ a kernel function that incorporates a measure of similarity between the current and past state-action pairs, modulated by a discount factor that accounts for the delay in reward. The kernel function is defined as the Jaccard similarity, as follows:
+
+$$
+K(t, t') = 0.5 \cdot \text{I}(a_t = a_{t'}) \cdot \left[ 1 + \text{I}(s_t = s_{t'})\right]
+$$
+
+where:
+
+-   $K(t, t')$ is the kernel function,
+-   $t$ and $t'$ are the current and past time steps (weeks), respectively,
+-   $\text{I}(\cdot)$ is the indicator function, which equals 1 if the condition inside the parentheses is true and 0 otherwise,
+-   $a_t$ and $a_{t'}$ are the choices made at the current and past time steps, respectively,
+-   $s_t$ and $s_{t'}$ are the states at the current and past time steps, respectively.
+
+### Kernel-Based Reinforcement
+
+We use the kernel function to compute a weighted average of past rewards (kernel reward), which updates the Q-value for the current state-action pair. The kernel reward is:
+
+$$
+R_K = \frac{\sum_{t' = 1}^{T} K(t, t') \cdot \gamma^{(t - t')}  \text{Badges}_{t'}}{\sum_{t' = 1}^{T} K(t, t')}
+$$
+
+where:
+
+-   $R_K$ is the kernel reward,
+-   $\gamma$ is the discount rate,
+-   $\text{Badges}_{t'}$ is the number of badges earned at the past time step $t'$,
+-   $T$ is the number of lags in the kernel.
+
+Subsequently, the Q-value for the current state-action pair is updated:
+
+$$
+Q(s, a) = Q(s, a) + \alpha \left( R_K - \text{cost}(a) - Q(s, a) \right)
+$$
 
 ## Dynamic Analysis (Lau & Glimcher, 2005)
 
-The Dynamic Analysis method, as proposed by [@lau2005], is a powerful tool for understanding choice behavior in the context of reinforcement learning. This method is particularly useful in tasks where reinforcement contingencies vary within a session, as it allows for the analysis of behavior at a granular, response-by-response level, while also providing insights into behavior averaged over multiple trials.
-
-The Dynamic Analysis method is based on the premise that both past reinforcers and past choices significantly influence an individual's choices on each trial. This is a departure from simple reinforcement learning models, which often fail to account for the effects of past choices, leading to an incomplete characterization of behavior.
-
-Dynamic Analysis provides a nuanced understanding of choice allocation. It implies that the ratio of responses to different alternatives matches the ratio of reinforcements obtained from these alternatives. The method allows for the prediction of response rate using weighted sums of past reinforcers, a technique that has been applied to predict choice allocation in concurrent schedules on both short (response-by-response) and longer (within and between sessions) time scales.
+In order to determine the number of lags in the kernel, we apply the Dynamic Analysis method, as proposed by [@lau2005]. The Dynamic Analysis method is based on the premise that both past reinforcers and past choices significantly influence an individual's choices on each trial. It is a powerful tool for understanding choice behavior in the context of reinforcement learning. This method is particularly useful in tasks where reinforcement contingencies vary within a session, as it allows for the analysis of behavior at a granular, response-by-response level, while also providing insights into behavior averaged over multiple trials. It also implies that the ratio of responses to different alternatives matches the ratio of reinforcements obtained from these alternatives. The method allows for the prediction of response rate using weighted sums of past reinforcers, a technique that has been applied to predict choice allocation in concurrent schedules on both short (response-by-response) and longer (within and between sessions) time scales.
 
 Based on logistic regression, the model captures the linear combination of past reinforcers and choices on each trial, as defined by @eq-lauglimcher, where $p$ is the probability of choice $c$ ($R$, right or $L$, left) at time $i$ as a function of the rewards, $r$, and choices for every time point $i-j$ in the history.
 
 $$
 \begin{aligned}\log \left(\frac{p_{R, i}}{p_{L, i}}\right)= & \sum_{j=1} \alpha_{ j}( r_{R, i-j}-r_{L, i-j}) \\& +\sum_{j=1} \beta_{j} (c_{R, i-j}-c_{L, i-j})+\gamma,\end{aligned}
-$$ {#eq-lauglimcher}
+$$
 
 A key aspect of Dynamic Analysis is its focus on local variations in behavior and how these relate to local variations in reinforcer history and behavioral history. This local focus allows for the identification of patterns and trends that may be obscured when looking at behavior on a larger scale. For example, the method can reveal a tendency to alternate between choices in the short term, while also showing a longer-term tendency to persist with the more frequently chosen alternative.
 
@@ -230,7 +349,7 @@ The model can be represented by the following equation:
 
 $$
 y_{it} = \beta_0 + \sum_{j=1}^{L} \beta_{1j} y_{it-j} + \beta_2 x_{it} + \sum_{j=1}^{L} \beta_{3j} x_{it-j} + u_i + \epsilon_{it}
-$$ {#eq-dynamiczearn}
+$$
 
 where:
 
@@ -248,81 +367,32 @@ The Dynamic Analysis method offers several advantages in the context of the Zear
 
 Second, the method allows for the identification of a kernel that best describes the temporal dynamics of the data. This kernel, represented by the lagged variables in the model, captures how far back rewards and past actions matter. This can provide valuable insights into the temporal scope of the effects of rewards and actions, and can inform strategies for influencing teacher behavior on the platform.
 
-## Connecting Variables to Reinforcement Learning Model
+## The Actor-Critic Model
 
-**States**
+In this model, we estimate several variables: the cost in badge-units for each component, the discount rate ($\gamma$), and step-sizes ($\alpha_v$ and $\alpha_\pi$). These step-sizes are similar to learning rates, as they determine the extent to which the model updates the weights for the value and policy functions, respectively.
 
--   Tower Alerts points to how many students are struggling with the content.
-
--   Minutes per Student / Badges per Student
-
--   Total Active Students
-
--   Different combinations of these variables to create unique states.
-
-**Rewards**
-
--   Learning progress through objective measures such as badges, boosts.
-
--   Quantify the effectiveness of teacher actions in promoting student learning.
-
-**Actions**
-
--   Teachers can download resources, engage in different teaching methods or activities.
-
--   Teachers can choose how much time they spend online.
-
--   RL optimizes the action selection based on the rewards observed.
-
-<!-- ![Student View](https://help.zearn.org/hc/article_attachments/5698093595927/HC_-_StudentFeed_3.PNG) -->
-
-<!-- *Image of Zearn's classroom structure* -->
-
-![Badges](https://help.zearn.org/hc/article_attachments/5547000521495/HC_-_LockedLessons.PNG) *Image of the badge system for student achievement*
-
--- Outline the equations in the Zearn context.
-
-We know, qualitatively, that teachers may expect the reward of a given input to come after a couple of weeks following the action. In particular, some Zearn teachers have mentioned that they spend the first week of each month on the platform planning activities for the rest of the month. As such, it is expected that the reward associated with a given action will be delayed.
-
-The kernel function is defined as follows:
+Our Actor-Critic model maintains two sets of parameters: the weights $w_a$ that parameterize the value function (the critic) and the parameters $\theta_a$ that define the policy (the actor). The weights and policy are updated based on the prediction error $\delta$. The equations for updating the weights and policy are as follows:
 
 $$
-K(t, t') = \gamma^{t - t'} \times J(t, t')
-$$ {#eq-kernel}
+\begin{align}
+w_a &= w_a + \alpha_{v} \cdot \delta \cdot S \\
+\theta_a &= \theta_a + \alpha_{\pi} \cdot \delta \cdot S
+\end{align}
+$$
 
-where:
+where $w_a, \theta_a$ are the vectors of policy and value weights, respectively, for action $a$, and $S$ is a vector that characterizes the current state, defined as $S = \begin{bmatrix} 1 \\ \text{Tower Alerts}_t - \text{Tower Alerts}_{t-1} \end{bmatrix}$.
 
--   $K(t, t')$ is the kernel function,
--   $\gamma$ is the discount rate,
--   $t$ and $t'$ are the current and past time steps (weeks), respectively,
--   $J(t, t')$ is the Jaccard similarity between the current and past state-action pairs.
-
-The Jaccard similarity is computed as follows:
+We define the parameterized policy as $\text{Prob}(a)=\text{Logit}^{-1}(\theta_a \cdot S)$, the values of each state as $v(S,a) = w_a \cdot S$, and prediction error $\delta$ as the difference between the actual outcome and the estimated value of the state-action pair:
 
 $$
-J(t, t') = 0.5 \times \text{choice}[t] \times \text{choice}[t'] + 0.5 \times \text{state}[t] \times \text{state}[t']
-$$ {#eq-jaccard}
+\delta = (\text{Badges}_{t} - \text{cost}(a)) - \left( \gamma v(S,a) - v(S',a) \right)
+$$
 
-where:
+## Hierarchical Models
 
--   $\text{choice}_t$ and $\text{choice}_t'$ are the choices made at the current and past time steps, respectively,
--   $\text{state}_t$ and $\text{state}_t'$ are the states at the current and past time steps, respectively.
+Our dataset comprises of classrooms spanning a period of around 40 weeks. Given the limited amount of data per classroom, individual-level estimation using maximum likelihood estimation would yield noisy results. Although group-level estimation provides reliable estimates, it overlooks individual differences, which are crucial to our analysis.
 
-### Implementing into the Zearn context
-
-In the context of Zearn, the Q-learning model is used to predict the actions of teachers based on their past actions and the rewards they received. The reward is assumed to be a linear function of the number of badges earned, with the learning rate $\alpha$ as the multiplier and the cost as the constant subtracted from the reward. The discount rate $\gamma$ represents the degree to which future rewards are discounted compared to immediate rewards, and the inverse temperature $\tau$ controls the degree of randomness in the choice behavior. The estimated parameters in the Zearn context have the following interpretations:
-
--   Reward: In the context of Zearn, the reward is a linear function of the number of badges earned. This means that the more badges a teacher earns, the higher the reward. The learning rate determines how quickly the agent updates its Q-values in response to new information, while the cost represents the perceived effort or inconvenience associated with the action.
-
--   Cost: The cost parameter in the Q-learning model represents the perceived effort or inconvenience associated with the action. In the context of Zearn, this could represent the effort required to complete a particular task or the inconvenience of deviating from a preferred teaching method. A high cost means that the action is perceived as difficult or inconvenient, which makes it less likely to be chosen.
-
--   Learning rate ($\alpha$): The learning rate determines the extent to which the newly acquired information will override the old information. A factor of 0 will make the agent not learn anything.
-
--   Discount rate ($\gamma$): The discount rate represents the degree to which future rewards are discounted compared to immediate rewards. A high discount rate means that future rewards are considered almost as valuable as immediate rewards, which encourages long-term planning. A low discount rate means that immediate rewards are much more valuable than future rewards, which encourages short-term thinking (Doya, K. (2002). Metalearning and neuromodulation. Neural Networks, 15(4-6), 495-506).
-
--   Inverse temperature ($\tau$): The inverse temperature controls the degree of randomness in the choice behavior. A high inverse temperature means that the agent is more likely to choose the action with the highest expected reward, while a low inverse temperature means that the agent is more likely to choose actions randomly. This parameter can be interpreted as a measure of the agent's confidence in its Q-values, or the trade-off between choosing actions that are known to yield high rewards (exploitation) and actions that might yield higher rewards (exploration) (Glaeser, S., & Gläscher, J. (2010). Dynamic adjustment of the speed--accuracy trade-off in value-based decisions. Journal of Neuroscience, 30(29), 9655-9662 Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness, J., Bellemare, M. G., ... & Petersen, S. (2015). Human-level control through deep reinforcement learning. Nature, 518(7540), 529-533).
-
--   State: In the state-dependent model, the state represents the current situation or context in which the decision is being made. This could include factors such as the current week of the course, the current topic being taught, or the current performance level of the students. The state can influence the expected reward of different actions and thus affect the decision-making process.
+To address this, we employed a hierarchical Bayesian analysis, which allows for information pooling across individuals while accommodating individual differences. In this approach, individual-level parameters are functions of group-level hyperparameters, and this anchoring enhances our power by assuming commonalities among individuals [@ahn2017]. A notable feature of this estimation technique is that the extent of pooling is reflected in the hyperparameter variance. Strong pooling corresponds to low hierarchical variance, and vice versa for weak pooling.
 
 # Data
 
@@ -681,32 +751,57 @@ Our Zearn data can be viewed as time-series (over the course of the school year,
 
 Another way of capturing teacher behavior is by analyzing their specific actions when they use Zearn. The platform provides a wide range of actions that teachers can take, including downloading resources, engaging in different teaching methods or activities, and choosing how much time they spend online. We can use these actions to create a more nuanced picture of teacher behavior on the platform. provides a list of the actions available in our data.
 
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Variable                                | Description                                                                               |
-|--------------------------------|----------------------------------------|
++=========================================+===========================================================================================+
 | Assessments Answer Key Download         | Answer keys for assessments to facilitate grading.                                        |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Assessments Download                    | Assessments to demonstrate understanding of the material.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Guide Download                   | Overview of the content, objectives, and structure of Zearn's PD courses.                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Course Notes Download                   | Notes from Zearn's professional development (PD) courses.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Curriculum Map Download                 | Comprehensive overview of the learning objectives and content for each grade level.       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Elementary Schedule Download            | Schedule of elementary-level activities in the Zearn curriculum.                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Fluency Completed                       | Tracks completion of a fluency activity.                                                  |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Grade Level Overview Download           | Overview of the curriculum for a specific grade level.                                    |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Guided Practice Completed               | Tracks completion of the guided practice portion of a Zearn lesson.                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Activity Completed         | Tracks completion of a specific activity in the Kindergarten curriculum.                  |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Mission Download           | A specific learning mission in the Kindergarten curriculum.                               |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Kindergarten Schedule Download          | Detailed schedules for Kindergarten to help teachers plan their instruction.              |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Mission Overview Download               | Overview of a specific learning mission in the Zearn curriculum.                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Number Gym Activity Completed           | Tracks completion of a Number Gym activity.                                               |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Homework Download              | Optional homework assignments for extra practice.                                         |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Optional Problem Sets Download          | Optional sets of problems for extra practice.                                             |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Small Group Lesson Download             | Lessons designed for completion in small groups.                                          |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Student Notes and Exit Tickets Download | Notes taken during a lesson and "exit tickets," brief assessments at the end of a lesson. |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Teaching and Learning Approach Download | Resources related to Zearn's teaching and learning approach.                              |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Completed                         | Tracks completion of a "Tower of Power" activity in a Zearn lesson.                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Stage Failed                      | Tracks failure of a stage in a "Tower of Power" activity.                                 |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Tower Struggled                         | Tracks struggles with a "Tower of Power" activity.                                        |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Fluency Download            | Activities for practicing fluency skills as a whole group.                                |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 | Whole Group Word Problems Download      | Word problem activities completed as a whole group.                                       |
++-----------------------------------------+-------------------------------------------------------------------------------------------+
 
 : List of Teacher Actions
 
@@ -837,7 +932,7 @@ Next, we perform an NMF using two different loss functions (Frobenius norm and K
 
 Finally, we implement an autoencoder to perform dimensionality reduction. The autoencoder is a neural network designed to learn an encoded, compressed representation of the input data and then reconstruct the original data from this encoded representation. The architecture of the autoencoder is optimized using a hyperparameter search, which involves training multiple versions of the model with different hyperparameters and selecting the one that performs best on the validation data. These hyperparameters include (1) the number of layers in the autoencoder, (2) the number of units in each layer, (3) the regularization strength, and (4) the number of components in the encoded representation. The target score for the training period is an average of mean squared error losses for the input reconstruction and the target variable prediction (Badges per Student), weighted by the standard deviations of the input data and the target variable.
 
-The PCA, NMF, and AE results are then compared by plotting the sum of squared residuals and silhouette scores for each method and the number of components used. @fig-nmf-pca-comparison allows us to visually compare the performance of the different methods and choose the one that provides the best balance between reconstruction accuracy (as measured by the sum of squared residuals) and cluster separation (as measured by the silhouette score). As such, we select the NMF with three components as our preferred method.
+We performed these model estimations with the scikit-learn library [@pedregosa2011]. Subsequently, we compare the PCA, NMF, and AE results by plotting the sum of squared residuals and silhouette scores for each method and the number of components used. @fig-nmf-pca-comparison visually compares the performance of the different methods and allows us to choose the one that provides the best balance between reconstruction accuracy (as measured by the sum of squared residuals) and cluster separation (as measured by the silhouette score). As such, we select the NMF with three components as our preferred method.
 
 ```{r pca nmf data-prep}
 #| include: false
@@ -1292,7 +1387,7 @@ variable_names <- c(
 # Rename the rows of the dataframe
 row.names(df_heatmap) <- variable_names[names(df_pca)[-c(1:4)]]
 
-names(df_heatmap) <- paste0("Component ", 1:3)
+names(df_heatmap) <- paste0("Comp. ", 1:3)
 df_heatmap <- df_heatmap %>% arrange(-`Component 1`)
 
 color_scheme <- colorRampPalette(
@@ -1305,7 +1400,7 @@ pheatmap(df_heatmap %>%
          cluster_rows = FALSE,
          cluster_cols = FALSE,
          angle_col = 0,
-         main = "Loadings of NMF components",
+         # main = "Loadings of NMF components",
          color = color_scheme,  # Use the color scheme defined above
          breaks = breaks,  # Use breaks defined above
          border_color = NA,
@@ -1353,37 +1448,61 @@ gc(verbose = FALSE)
 
 ## Dynamic Analysis
 
-The model is estimated using the `plm` function from the `plm` package, which allows for the estimation of linear models for panel data. We estimate both within and random effects models, and the Hausman test is used to select the most appropriate model based on its p-value.
+We performed the dynamic analysis using the `plm` package in R [@croissant2008], which estimates linear models for panel data. We estimated both within and random effects models and used the Hausman test to select the most appropriate model based on its p-value [@hausman1978]. We estimated each model with different numbers of lags (from 1 to 8) and different methods of matrix factorization (PCA, NMF, and Autoencoder). We divided the data into training (80%) and testing (20%) sets to compute the Bayesian Information Criterion (BIC) and the negative log-likelihood (NLL) for each model. We then selected the number of lags based on the model with the lowest BIC and NLL.
 
-## Variable Selection
+## Base Models
 
-The selection of variables in the model is a crucial step in the Dynamic Analysis method. The goal is to identify the variables that best explain the dependent variable, while also considering the complexity of the model and the risk of overfitting.
+Our initial approach involved fitting non-hierarchical models for three binary action variables using a simple logistic regression model. The dependent variables were derived from the Non-negative Matrix Factorization (NMF) using the Frobenius Nonnegative Double Singular Value Decomposition (NNDSVD) method. For each of these variables, we generated a lagged version and incorporated it into the model alongside the 'Badges' and 'State' variables. The models were constructed using the `brms` package, specifying the Bernoulli family and employing the `cmdstanr` backend [@bates2015; @bürkner2017; @gabry2022a; @stanmod2022a; @bürkner2021; @croissant2008a]. The formula for these models are represented as follows:
 
-The selection process involves comparing models with different combinations of variables and lags, and selecting the model that provides the best fit to the data. The fit of the models is evaluated using two criteria: the Bayesian Information Criterion (BIC) and the out-of-sample negative log-likelihood (NLL). The BIC is a criterion for model selection that balances the goodness of fit of the model against its complexity (the number of parameters in the model). The NLL is a measure of the predictive accuracy of the model, with lower values indicating better predictive performance.
+$$
+a_t = a_{t-1} + Badges_t + s_t + \epsilon_t
+$$
+
+where $a_t$ represents the action variable at time $t$, $a_{t-1}$ is the lagged version of the action variable, $Badges_t$ is the reward variable, $s_t$ is the 'State' variable, and $ε_t$ is the error term.
+
+### Hierarchical Base Models
+
+Subsequently, we constructed hierarchical models for the same set of action variables. We assume Classroom, Teacher, and School are the three levels of the hierarchy. The hierarchical models were similar to their non-hierarchical counterparts but included random intercepts and random slopes for the predictors.
 
 ## Reinforcement Learning Model Fit
 
-The reinforcement learning models were estimated using the Bayesian statistical framework implemented in Stan, a probabilistic programming language for statistical inference. The Stan models were interfaced using the CmdStanR package in R. Stan uses the Hamiltonian Monte Carlo (HMC) algorithm, which is a state-of-the-art Markov Chain Monte Carlo (MCMC) method that is particularly well-suited for high-dimensional and complex posterior distributions. We specify 3 independent MCMC chains to check for convergence of the MCMC algorithm by comparing them. Each chain had 2,500 warmup (or "burn-in") iterations and 2,500 sampling iterations. During the warmup phase, the HMC algorithm adapts its parameters to the shape of the posterior distribution. The samples drawn during the warmup phase are discarded. The models were run until convergence was achieved, as assessed by the R-hat statistic, which compares the within-chain and between-chain variance of the MCMC samples; values close to 1 indicate that the chains have converged to the same distribution.
+The reinforcement learning models were implemented using the Stan programming language, a probabilistic programming language designed for statistical inference [@stanmod2022; @gabry2022]. We trained the models on data that included the number of weeks, choices made, and outcomes (log badges) for each classroom. The model parameters, including cost, discount rate, learning rate, and inverse temperature, were estimated from the data. The models employed a Bernoulli logit model to compute action probabilities and updated the expected values of the actions based on prediction errors. The models also generated posterior predictions and computed the log-likelihood for each subject.
+
+Stan employs the Hamiltonian Monte Carlo (HMC) algorithm, a state-of-the-art Markov Chain Monte Carlo (MCMC) method that is particularly well-suited for high-dimensional and complex posterior distributions [@betancourt2017]. We specified three independent MCMC chains to check for convergence of the MCMC algorithm by comparing them. Each chain had 2,500 warmup (burn-in) iterations and 2,500 sampling iterations. During the warmup phase, the HMC algorithm adapts its parameters to the shape of the posterior distribution. The samples drawn during the warmup phase were discarded, and the models ran until they achieved convergence, as assessed by the R-hat statistic, which compares the within-chain and between-chain variance of the MCMC samples; values close to 1 indicate that the chains have converged to the same distribution [@gelman1992].
+
+### Hierarchical RL Method
+
+We extended the base reinforcement learning models by incorporating a hierarchical structure to account for individual commonalities and enhance robustness. This hierarchical framework defines individual-level parameters as random effects from a group-level distribution. We used the parameter values found by the non-hierarchical models to generate weakly informed priors for the hyper-parameters (group-level parameters). This approach was necessary to ensure the rapid convergence of the Hamiltonian Monte Carlo algorithm. We specified the priors as follows:
+
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Parameter           | Group-level Prior                                 | Individual-level Prior                                                            |
++=====================+===================================================+===================================================================================+
+| Cost                | $\mu_{\text{cost}} \sim \mathcal{N}(0.5, 1)$\     | $\text{cost}_{i,j} \sim \mathcal{N}(\mu_{\text{cost}_j}, \sigma_{\text{cost}_j})$ |
+|                     | $\sigma_{\text{cost}} \sim \text{Cauchy}(0, 2.5)$ |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Discount Rate       | $\mu_{\gamma} \sim \mathcal{N}(0.7, 1)$\          | $\gamma_i \sim \mathcal{N}(\mu_{\gamma}, \sigma_{\gamma})$                        |
+|                     | $\sigma_{\gamma} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Step Size           | $\mu_{\alpha} \sim \mathcal{N}(0.5, 1)$\          | $\alpha_i \sim \mathcal{N}(\mu_{\alpha}, \sigma_{\alpha})$                        |
+|                     | $\sigma_{\alpha} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Inverse Temperature | $\mu_{\tau} \sim \mathcal{N}(1, 1)$\              | $\tau_i \sim \mathcal{N}(\mu_{\tau}, \sigma_{\tau})$                              |
+|                     | $\sigma_{\tau} \sim \text{Cauchy}(0, 2.5)$        |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+
+where $\mu$ and $\sigma$ denote the group-level hyperparameters, and the subscript $i$ signifies the individual-level parameters.
 
 ## Model Performance
 
-### Base Models: Random Effects Panel Logit
-
-### Hierarchical Bayesian Method
-
-Our data contains 400 teacher-classroom pairs spanned across approximately 40 weeks. Estimating individual level with maximum likelihood estimation would yield noisy results as each teacher has an insufficient amount of data. A group-level estimation does yield reliable estimates (see Results) but ultimately ignores individual differences, which are important to our analysis .
-
-Our estimation method of choice is a hierarchical Bayesian analysis, which allows us to pool information across individuals, while allowing for individual differences. Individual-level parameters are merely a function of group-level hyperparameters, and this anchoring improves our power by assuming commonalities among individuals (CITE Ahn et al., 2011; Huys et al., 2011). One particular feature of this estimation technique is that pooling is evident in the hyperparameter variance. Strong pooling means low hierarchical variance, and vice verse for weak pooling.
-
-For Bayesian updating, we use the Stan software package (http://mc-stan.org/), which implements a Hamiltonian Monte Carlo algorithm (See <http://mc-stan.org/documentation/>). In the case of Zearn data, fast convergence of the algorithm required us to use priors that are weakly informed by parameter values found by searching the whole grid of parameter space (i.e., grid search).
+To evaluate the performance of the Bayesian models, we used the Leave-One-Out Information Criterion (LOOIC), a robust measure of model quality. The LOOIC is a variant of the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC). However, unlike AIC and BIC, which use asymptotic approximations, LOOIC is a fully Bayesian criterion that provides a more accurate estimate of out-of-sample prediction error. We used the `loo` package in R to compute the LOOIC [@vehtari2023]. The package uses Pareto smoothed importance sampling (PSIS), a beneficial technique for models where standard cross-validation is computationally expensive or impractical [@vehtari2017].
 
 ## Heterogeneity
 
-### Across Teachers
-
-### Across Schools
+To investigate the heterogeneity across teachers, we first extracted the posterior samples from the hierarchical model that demonstrated the best performance. For each teacher, we calculated the mean of each parameter: the estimated cost for each action, the discount rate, the learning rate, and the inverse temperature. We then correlated these parameters with the classroom-level variables: the average number of students, average minutes per student, average number of badges per student, average number of tower alerts, the number of classes per teacher, the grade level, the total number of weeks, the proportion of students under the poverty level, the average income level in the school, and whether the school had a paid Zearn account. Subsequently, we fit a linear regression model to predict the average number of badges per active user, using the estimated parameters as predictors.
 
 ### Across Demographics
+
+We extended our analysis to examine the relationship between the estimated parameters and demographic variables for each classroom to reveal whether learning and decision-making processes captured by our model vary across different demographic groups.
 
 # Results
 
@@ -2010,6 +2129,12 @@ chart.Correlation(test, histogram = TRUE, method = "spearman")
 :::
 
 # Supplemental Information {.appendix}
+
+## Figures {#sec-supp-fig}
+
+![Zearn Student Portal](images/student-feed.PNG){#fig-st-portal fig-align="center"}
+
+![Professional Development Calendar](images/PD-calendar.jpg){#fig-prof-dev fig-align="center"}
 
 ## Zearn's Eye View of the Data
 
