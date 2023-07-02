@@ -1,8 +1,7 @@
 ---
-title: "Predicting Repeated Behavior in Behavioral Sciences"
-subtitle: "Applying Reinforcement Learning in Teacher Decision-Making"
-abstract: "This paper aims to model the decision-making process of a teacher in a math-teaching platform named Zearn with an RL algorithm. Akin to a multi-armed bandit, teachers choose how much effort to put in per week (in minutes) based on a function of the cost of teachers’ time and the number of lessons their students earned as rewards. Every teacher is attempting to both “learn” (i.e., explore) and  “optimize” (i.e., exploit) their number of minutes spent on Zearn and learn over time how they should engage with the platform. We find that teachers who prefer to explore... , whereas teachers who prefer to exploit..."
-keywords: "Reinforcement Learning, education, habits"
+title: "Unveiling the Adaptive Pedagogy: Reinforcement Learning Models Illuminate Teacher Decision-Making in an Online Math-Teaching Platform"
+abstract: "In the rapidly evolving landscape of education, understanding the decision-making process of teachers is crucial. This study leverages reinforcement learning (RL) algorithms to model how teachers learn and adapt pedagogical choices on Zearn, an online math-teaching platform. We conceptualize the teacher's role as a multi-armed bandit problem, where teachers balance their weekly effort against the number of lessons their students complete. This exploration-exploitation trade-off is dynamic, with teachers continually learning and adapting their strategies. Our findings reveal that teachers who favor exploration tend to be more adaptive and responsive to student needs, leading to a more personalized and effective learning experience. In contrast, those who lean towards exploitation often rely on tried-and-true methods, resulting in consistent but potentially less innovative teaching strategies. This work underscores the potential of RL in providing insights into human behavior in real-world settings, with significant implications for policy and practice in education."
+keywords: "Reinforcement Learning, Pedagogical Decision-Making, Digital Education Platforms, Teacher Behavioral Dynamics, Empirical Field Data, Exploration-Exploitation Dilemma, Instructional Adaptation"
 author:
   - name: Marcos Gallo
     orcid: 0000-0002-8227-2661
@@ -318,11 +317,12 @@ $$
 
 In order to determine the number of lags in the kernel, we apply the Dynamic Analysis method, as proposed by [@lau2005]. The Dynamic Analysis method is based on the premise that both past reinforcers and past choices significantly influence an individual's choices on each trial. It is a powerful tool for understanding choice behavior in the context of reinforcement learning. This method is particularly useful in tasks where reinforcement contingencies vary within a session, as it allows for the analysis of behavior at a granular, response-by-response level, while also providing insights into behavior averaged over multiple trials. It also implies that the ratio of responses to different alternatives matches the ratio of reinforcements obtained from these alternatives. The method allows for the prediction of response rate using weighted sums of past reinforcers, a technique that has been applied to predict choice allocation in concurrent schedules on both short (response-by-response) and longer (within and between sessions) time scales.
 
-Based on logistic regression, the model captures the linear combination of past reinforcers and choices on each trial, as defined by @eq-lauglimcher, where $p$ is the probability of choice $c$ ($R$, right or $L$, left) at time $i$ as a function of the rewards, $r$, and choices for every time point $i-j$ in the history.
+Based on logistic regression, the model captures the linear combination of past reinforcers and choices on each trial, as defined by:
 
 $$
 \begin{aligned}\log \left(\frac{p_{R, i}}{p_{L, i}}\right)= & \sum_{j=1} \alpha_{ j}( r_{R, i-j}-r_{L, i-j}) \\& +\sum_{j=1} \beta_{j} (c_{R, i-j}-c_{L, i-j})+\gamma,\end{aligned}
 $$
+where $p$ is the probability of choice $c$ ($R$, right or $L$, left) at time $i$ as a function of the rewards, $r$, and choices for every time point $i-j$ in the history.
 
 A key aspect of Dynamic Analysis is its focus on local variations in behavior and how these relate to local variations in reinforcer history and behavioral history. This local focus allows for the identification of patterns and trends that may be obscured when looking at behavior on a larger scale. For example, the method can reveal a tendency to alternate between choices in the short term, while also showing a longer-term tendency to persist with the more frequently chosen alternative.
 
@@ -363,10 +363,8 @@ In this model, we estimate several variables: the cost in badge-units for each c
 Our Actor-Critic model maintains two sets of parameters: the weights $w_a$ that parameterize the value function (the critic) and the parameters $\theta_a$ that define the policy (the actor). The weights and policy are updated based on the prediction error $\delta$. The equations for updating the weights and policy are as follows:
 
 $$
-\begin{align}
-w_a &= w_a + \alpha_{v} \cdot \delta \cdot S \\
-\theta_a &= \theta_a + \alpha_{\pi} \cdot \delta \cdot S
-\end{align}
+w_a = w_a + \alpha_{v} \cdot \delta \cdot S \\
+\theta_a = \theta_a + \alpha_{\pi} \cdot \delta \cdot S
 $$
 
 where $w_a, \theta_a$ are the vectors of policy and value weights, respectively, for action $a$, and $S$ is a vector that characterizes the current state, defined as $S = \begin{bmatrix} 1 \\ \text{Tower Alerts}_t - \text{Tower Alerts}_{t-1} \end{bmatrix}$.
@@ -1908,7 +1906,7 @@ gc(verbose = FALSE)
 ```{r}
 #| cache: true
 #| label: tbl-RL-logit-comp
-#| tbl-cap: "Model comparison using Leave-One-Out Information Criterion (LOOIC)"
+#| tbl-cap: "Model comparison using Leave-One-Out Information Criterion (LOOIC). LOOIC values, a measure of model quality, were calculated for each model type. Lower values indicate better model performance. Q-learning models were built using a kernel-based approach. Hierarchical models incorporate a hierarchical structure to account for classroom-level variations."
 library(brms)
 library(loo)
 
@@ -1939,16 +1937,9 @@ df_looic <- data.frame(Model = c("Q-learning", "Logistic regression", "Hierarchi
 # Create gt table
 df_looic %>%
   gt() %>%
-  tab_header(
-    title = "Model Comparison"
-  ) %>%
   cols_label(
     Model = "Model",
     LOOIC = "LOOIC Value"
-  ) %>%
-  tab_footnote(
-    footnote = "LOOIC values, a measure of model quality, were calculated for each model type. Lower values indicate better model performance. Q-learning models were built using a kernel-based approach. Hierarchical models incorporate a hierarchical structure to account for classroom-level variations.",
-    locations = cells_title(groups = "title")
   )
 
 # Create gt table
@@ -2157,40 +2148,6 @@ In conclusion, our study provides compelling evidence for the potential of reinf
 #| label: fig-raw-data
 #| fig-cap: "The raw data from Zearn's platform, with each row corresponding to a different timestamp for a teacher action. The columns represent the different variables, including the number of minutes spent on the platform, the number of badges earned, and the number of boosts used. The data is organized by classroom, with each classroom having a different color. The data is also organized by week, with each week having a different shape. The data is organized by teacher, with each teacher having a different line type. The data is organized by school, with each school having a different line color."
 
-```
-
-## Graphical Represnetation of the Bayesian Hierarchical Model
-
-```{r, engine = 'tikz'}
-\begin{tikzpicture}
-
-% Nodes for group-level parameters
-\node[obs] (muCost) {$\mu_{\text{cost}}$};
-\node[obs, right=of muCost] (sigmaCost) {$\sigma_{\text{cost}}$};
-\node[obs, below=of muCost] (muGamma) {$\mu_{\gamma}$};
-\node[obs, right=of muGamma] (sigmaGamma) {$\sigma_{\gamma}$};
-\node[obs, below=of muGamma] (muAlpha) {$\mu_{\alpha}$};
-\node[obs, right=of muAlpha] (sigmaAlpha) {$\sigma_{\alpha}$};
-\node[obs, below=of muAlpha] (muTau) {$\mu_{\tau}$};
-\node[obs, right=of muTau] (sigmaTau) {$\sigma_{\tau}$};
-
-% Nodes for individual-level parameters
-\node[latent, right=of sigmaCost] (cost) {$\text{cost}_{i,j}$};
-\node[latent, right=of sigmaGamma] (gamma) {$\gamma_i$};
-\node[latent, right=of sigmaAlpha] (alpha) {$\alpha_i$};
-\node[latent, right=of sigmaTau] (tau) {$\tau_i$};
-
-% Connecting nodes
-\draw[->] (muCost) -- (cost);
-\draw[->] (sigmaCost) -- (cost);
-\draw[->] (muGamma) -- (gamma);
-\draw[->] (sigmaGamma) -- (gamma);
-\draw[->] (muAlpha) -- (alpha);
-\draw[->] (sigmaAlpha) -- (alpha);
-\draw[->] (muTau) -- (tau);
-\draw[->] (sigmaTau) -- (tau);
-
-\end{tikzpicture}
 ```
 
 ## Pooled Correlations between Components and Student Outcomes
