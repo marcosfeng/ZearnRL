@@ -205,7 +205,7 @@ Education Platforms, Teacher Behavioral Dynamics, Empirical Field Data,
 Exploration-Exploitation Dilemma, Instructional Adaptation
 \end{keyword}
 \end{frontmatter}
-    \ifdefined\Shaded\renewenvironment{Shaded}{\begin{tcolorbox}[interior hidden, enhanced, frame hidden, borderline west={3pt}{0pt}{shadecolor}, boxrule=0pt, breakable, sharp corners]}{\end{tcolorbox}}\fi
+    \ifdefined\Shaded\renewenvironment{Shaded}{\begin{tcolorbox}[boxrule=0pt, breakable, frame hidden, borderline west={3pt}{0pt}{shadecolor}, interior hidden, enhanced, sharp corners]}{\end{tcolorbox}}\fi
 
 \hypertarget{introduction}{%
 \section{Introduction}\label{introduction}}
@@ -1636,7 +1636,7 @@ models. Given the loadings, we interpret the components as follows:
   which could indicate a higher level of engagement with the curriculum
   and resources. High values in this component suggest that teachers are
   actively using the platform, spending time reviewing reports and
-  possibly engaging with other features \citep{morrison2019a}.
+  possibly engaging with other features \citep{morrison2019}.
 \item
   \textbf{Component 2 (Resource Utilization)}: This component has high
   weights for variables related to different resources available on the
@@ -1644,7 +1644,7 @@ models. Given the loadings, we interpret the components as follows:
   Exit Tickets,'' and ``Mission Overview''. High values in this
   component suggest that teachers are downloading and possibly using a
   variety of resources in their teaching. This pattern is consistent
-  with the findings from \citep{knudsen2020a} that teachers reported
+  with the findings from \citep{knudsen2020} that teachers reported
   learning from a variety of Zearn Math resources and that the
   curriculum materials and their implementation are important sources of
   learning.
@@ -1655,7 +1655,7 @@ models. Given the loadings, we interpret the components as follows:
   Completed,'' suggesting that teachers may be engaged in acquiring
   subject-matter-specific pedagogy, learning to scaffold and to explain
   concepts in a variety of ways. This finding aligns with
-  \citep{morrison2019a}, where teachers were most likely to report using
+  \citep{morrison2019}, where teachers were most likely to report using
   Independent Digital Lessons, student notes and workbooks, small-group
   lessons, and paper Exit Tickets frequently or very frequently.
 \end{enumerate}
@@ -2039,6 +2039,53 @@ Hierarchical logistic regression & 19573.54 \\
 \hypertarget{model-fit}{%
 \subsection{Model Fit}\label{model-fit}}
 
+We compared the hierarchical model's predictions and the original choice
+data, representing a distinct action. We averaged the model predictions
+across teachers weekly and overlayed them with the average action from
+the choice data. We also calculated the standard error around these
+averages accounting for missing data, which provided a measure of
+uncertainty around these values.
+
+Figure~\ref{fig-model-fit} shows the model fit for each action where the
+y-axis represents the probability of a=1, and the x-axis represents the
+time in weeks. The line plot includes the mean probabilities,
+highlighted by colored lines, and their respective standard errors,
+represented by shaded ribbons surrounding the lines. The results section
+of the data for `Action 1' revealed that the model predictions initially
+remained relatively close to the mean probability of 0.5, demonstrating
+some variability but remaining within a reasonable range. The model's
+variability increased over time, denoted by the broadening standard
+error ribbons, peaking at week 36 with a significant increase in the
+mean predicted probability. This peak corresponded to a drastic decline
+in the choice data, implying a divergence between the model's
+predictions and the data towards the end of the observed period.
+
+In the case of `Action 2' and `Action 3,' the model prediction started
+at the mean probability of 0.5 and demonstrated a declining trend over
+the weeks. Although the declining trend was present in both model fit
+and data, the model predicted a less drastic decline. The standard error
+for this action also increased over time, albeit not as dramatically as
+in the case of `Action 1', indicating that the model's predictions
+became more uncertain as time progressed. Despite this variability, the
+model provided a reasonable fit for the choice data across the weeks for
+the first months of the study period.
+
+\begin{figure}
+
+{\centering \includegraphics{zearn_files/figure-pdf/fig-model-fit-1.pdf}
+
+}
+
+\caption{\label{fig-model-fit}Model predictions for teacher actions
+compared with choice data over time. The y-axis denotes the probability
+of a particular action being taken (a=1), while the x-axis indicates
+time in weeks. The figure showcases three distinct actions (NMF
+components). The solid lines represent the weekly averaged model
+predictions for each action, while the shaded ribbons denote the
+respective standard errors.}
+
+\end{figure}
+
 \hypertarget{optimality}{%
 \subsection{Optimality}\label{optimality}}
 
@@ -2142,7 +2189,62 @@ F Statistic & \multicolumn{1}{c}{0.554 (df = 6; 200)} & \multicolumn{1}{c}{9.175
 \hypertarget{heterogeneity-1}{%
 \subsection{Heterogeneity}\label{heterogeneity-1}}
 
-\includegraphics{zearn_files/figure-pdf/unnamed-chunk-17-1.pdf}
+Building on these results, we investigated how teachers' adaptation and
+implementation of the Zearn Math curriculum vary with various
+school-specific and demographic factors. The goal was to uncover
+potential disparities and leverage points that could inform intervention
+strategies and policy decisions to reduce educational inequities.
+
+Our multi-pronged statistical approach matched the diverse nature of our
+classroom variables. We selected each model to best account for the
+distribution and characteristics of the dependent variable. We used an
+ordered logistic regression for ordinal classroom variables, such as
+Income Level and Poverty Level. Binary variables, which included Charter
+School and Paid School Account status, naturally lent themselves to
+logistic regression modeling. Finally, we used Poisson regression to
+model the variable representing the number of classes taught by each
+teacher.
+
+Figure~\ref{fig-heterogeneity} presents a detailed summary of the
+associations between different factors and classroom variables. Among
+these, the interaction between ``Cost 3'' and ``Poverty Level'' is
+notable. Our data suggest that a higher estimated cost of applying
+Pedagogical Content Knowledge predicts a lower median income level in
+the school. The estimated Discount Rate is another variable
+significantly associated with a school's Poverty Level
+(\(\beta = -0.39,\text{ } p<0.05\)). Furthermore, the negative
+relationship between being a Charter School and the Learning Rate, with
+a coefficient of -0.67 (p\textless0.001), suggests that teachers in
+charter schools are slower to adapt and modify their teaching methods in
+response to new information.
+
+\begin{figure}
+
+{\centering \includegraphics{zearn_files/figure-pdf/fig-heterogeneity-1.pdf}
+
+}
+
+\caption{\label{fig-heterogeneity}Predicting classroom variables with RL
+parameters. The data comes from a comprehensive set of classroom
+records, including income level, poverty level, charter school status,
+whether a school account is paid, and the number of classes each
+teaches. These classroom variables (columns) are regressed on the
+estimated cost parameters for each action (Cost 1, Cost 2, Cost 3), the
+discount rate, the learning rate, and the inverse temperature. Each cell
+in the heatmap represents the estimate of a linear, Poisson, or logistic
+regression model, depending on the variable type. For ordinal classroom
+variables (Income Level and Poverty Level), ordered logistic regression
+(proportional odds model) is used, while for binary variables (Charter
+School, Paid School Account), logistic regression is applied. The number
+of classes by each teacher, being a count data, is modeled with Poisson
+regression. The coefficients are scaled estimates of the effect of each
+parameter on the respective classroom variable. The asterisks indicate
+the level of statistical significance based on p-values (\emph{p
+\textless{} 0.1; \textbf{p \textless{} 0.01; }}p \textless{} 0.001). The
+coefficients are color-coded with a gradient from light blue (negative)
+to white (zero) to dark blue (positive).}
+
+\end{figure}
 
 \hypertarget{discussion}{%
 \section{Discussion}\label{discussion}}
@@ -2174,23 +2276,55 @@ learning rate and decision-making strategies. These parameters offer a
 rich source of information about teacher behavior, providing a more
 nuanced understanding than simpler models.
 
-\hypertarget{impact-of-rl-parameters-on-teacher-behavior-and-student-achievement}{%
-\subsection{Impact of RL Parameters on Teacher Behavior and Student
-Achievement}\label{impact-of-rl-parameters-on-teacher-behavior-and-student-achievement}}
+\hypertarget{parameter-variations-and-their-influence-on-student-achievement}{%
+\subsection{Parameter Variations and Their Influence on Student
+Achievement}\label{parameter-variations-and-their-influence-on-student-achievement}}
 
-Our second research question was related to how the parameters of RL
-models vary with teacher behavior and the effects of these variations on
-student achievement. We found that the RL parameters, particularly the
-learning rate and the exploration-exploitation trade-off, significantly
-influence teacher behavior and student achievement.
+Our second research question explored how variations in the parameters
+of RL models (i.e., the learning rate and the exploration-exploitation
+trade-off) affect teacher behavior and, consequently, student
+achievement. The learning rate suggests a teacher's adaptability in
+altering teaching strategies based on feedback. The
+exploration-exploitation trade-off encapsulates a teacher's ability to
+balance using new teaching strategies (exploration) and sticking with
+known effective strategies (exploitation).
 
-Teachers with a higher learning rate, indicating a greater ability to
-adapt their teaching strategies based on feedback, were associated with
-higher student achievement. Similarly, teachers who effectively balanced
-exploration (trying new teaching strategies) and exploitation (sticking
-with known effective strategies) also had students with better outcomes.
-These findings highlight the potential of RL models to inform teacher
-training programs and interventions to improve student achievement.
+Our findings indicated that teachers exhibiting a higher learning rate,
+a marker of greater adaptability, were associated with higher student
+achievement. This finding echoes the sentiments expressed by teachers in
+\citep{knudsen2020}, who found value in the multifaceted strategies
+provided by Zearn Math. A 3rd-grade Zearn teacher stated, ``I like that
+Zearn provides several strategies to get to the answer\ldots you see the
+problems; you see what you need to hit on and stress the first time
+around.'' This sentiment aligns with our observation that the ability to
+adapt teaching strategies based on feedback, akin to a higher learning
+rate in RL models, is a valuable attribute in promoting student
+achievement.
+
+Similarly, teachers who effectively balanced exploration and
+exploitation had students with superior outcomes. \citep{morrison2019}
+noted that teachers exhibited varied levels of preparedness for
+implementing the Zearn Math curriculum, with just under half of the
+teachers reporting feeling adequately prepared for implementation. This
+lack of preparation could influence how effectively teachers navigate
+the exploration-exploitation trade-off, impacting student outcomes.
+
+Our results also highlight the complex dynamics underlying teacher
+behaviors and their implications for student outcomes. For instance,
+\citep{knudsen2020}, found that veteran teachers with strong PCK leaned
+heavily on traditional teaching methods, reducing their engagement with
+the novel practices proposed by Zearn Math. Conversely, new teachers
+exhibited a blend of traditional and innovative practices, despite their
+initial resistance to Zearn Math, underscoring their learning curve with
+the new curriculum.
+
+Our findings point to the potential of RL parameters to provide valuable
+insights into teacher behaviors and their subsequent effects on student
+achievement. Understanding and leveraging these parameters could enhance
+teacher training programs and interventions, ultimately improving
+student outcomes. By incorporating insights from our study into such
+initiatives, we can help foster a more adaptive and effective teaching
+landscape that better supports student learning and achievement.
 
 \hypertarget{influence-of-teacher-background-training-and-experience}{%
 \subsection{Influence of Teacher Background, Training, and
@@ -2198,16 +2332,57 @@ Experience}\label{influence-of-teacher-background-training-and-experience}}
 
 Our third research question asked how teacher background, training, and
 experience influence their adaptation to and implementation of the Zearn
-Math curriculum. These factors significantly affect how teachers
-interact with the Zearn Math platform and their students.
+Math curriculum. Our findings confirm the fundamental role of teachers'
+background, training, and experience when implementing new educational
+platforms like Zearn Math. They also underscore the importance of
+differentiating support and training strategies to cater to teachers'
+unique backgrounds and needs, which may prove pivotal in fostering
+effective adoption and implementation of such platforms. A prominent
+theme that emerged from our investigation was the interaction between
+teacher behaviors, school characteristics, and broader socio-economic
+contexts.
 
-For instance, veteran teachers with substantial pedagogical content
-knowledge (PCK) tended to rely on their teaching experiences rather than
-learning from Zearn Math. In contrast, new teachers, especially those
-without formal training, struggled to adapt to new practices and had
-weaker PCK. These findings suggest that teacher background, training,
-and experience are crucial when designing and implementing new programs
-like Zearn Math.
+Our analyses revealed a telling association between Poverty Level and
+Cost 3, denoting the estimated cost of applying PCK, suggesting that
+schools in higher poverty strata are more likely to encounter additional
+barriers in the form of resource constraints when implementing the Zearn
+Math curriculum.
+
+This observation points towards a potential resource disparity where
+schools in lower-income areas grapple with the challenge of investing in
+critical teacher training and resources needed for effective curriculum
+implementation. Implementing a comprehensive math curriculum like Zearn
+becomes particularly daunting in economically disadvantaged areas where
+financial constraints may obstruct optimal pedagogical strategies.
+
+Moreover, we unveiled a striking finding regarding charter schools. Our
+data showed a negative relationship between being a Charter School and
+the Learning Rate. This finding was unexpected, given the increased
+flexibility often associated with charter schools. It raises pertinent
+questions about the pedagogical dynamics within such institutions and
+points towards the necessity for further research into the support
+systems and professional development opportunities provided for teachers
+in these settings.
+
+One of the more disconcerting findings was the negative relationship
+between Poverty Level and Discount Rate, indicating that teachers in
+schools with higher poverty levels might place less emphasis on
+long-term student outcomes. This phenomenon may occur due to the
+pressing short-term challenges related to student well-being and
+engagement, often prevalent in high-poverty settings, which demand
+immediate attention and resources.
+
+These findings underscore the complex challenges facing schools in
+lower-income and high-poverty areas. They illuminate the complexities
+teachers must navigate when adapting to new teaching habits and
+implementing curricula, which are only magnified by demographic and
+school-specific factors.
+
+Our Reinforcement Learning model uncovered the need for a deeper
+examination of systemic educational disparities and the development of
+targeted interventions and policies to bridge these gaps. By shedding
+light on these complex relationships, we contribute to the broader goal
+of creating a more equitable educational landscape.
 
 \hypertarget{implications-for-teachers-and-schools}{%
 \subsection{Implications for Teachers and
