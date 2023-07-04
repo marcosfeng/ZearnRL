@@ -1,6 +1,6 @@
 ---
 title: "Unveiling the Adaptive Pedagogy: Reinforcement Learning Models Illuminate Teacher Decision-Making in an Online Math-Teaching Platform"
-abstract: "In the rapidly evolving landscape of education, understanding the decision-making process of teachers is crucial. This study leverages reinforcement learning (RL) algorithms to model how teachers learn and adapt pedagogical choices on Zearn, an online math-teaching platform. We conceptualize the teacher's role as a multi-armed bandit problem, where teachers balance their weekly effort against the number of lessons their students complete. This exploration-exploitation trade-off is dynamic, with teachers continually learning and adapting their strategies. Our findings reveal that teachers who favor exploration tend to be more adaptive and responsive to student needs, leading to a more personalized and effective learning experience. In contrast, those who lean towards exploitation often rely on tried-and-true methods, resulting in consistent but potentially less innovative teaching strategies. This work underscores the potential of RL in providing insights into human behavior in real-world settings, with significant implications for policy and practice in education."
+abstract: "In the rapidly evolving landscape of education, understanding the decision-making process of teachers is crucial. Based on a sample of over 2,000 classrooms from the online math-teaching platform Zearn, this study leverages reinforcement learning (RL) algorithms to model how teachers learn and adapt pedagogical choices. We conceptualize the teacher's role as a multi-armed bandit problem, where teachers balance their weekly effort against the number of lessons their students complete. This exploration-exploitation trade-off is dynamic, with teachers continually learning and adapting their strategies. Our findings reveal that teachers who favor exploration tend to be more adaptive and responsive to student needs, leading to a more personalized and effective learning experience. In contrast, those who lean towards exploitation often rely on tried-and-true methods, resulting in consistent but potentially less innovative teaching strategies. This work underscores the potential of RL in providing insights into human behavior in real-world settings, with significant implications for policy and practice in education."
 keywords: "Reinforcement Learning, Pedagogical Decision-Making, Digital Education Platforms, Teacher Behavioral Dynamics, Empirical Field Data, Exploration-Exploitation Dilemma, Instructional Adaptation"
 author:
   - name: Marcos Gallo
@@ -8,6 +8,9 @@ author:
 format:
   elsevier-pdf:
     keep-tex: true
+    include-in-header:
+      - text: |
+          \usepackage{dcolumn}
     journal:
       formatting: preprint
       model: 3p
@@ -1976,10 +1979,19 @@ stan_data <- read_rds("Bayesian/Results/stan_data.RDS")
 
 ## Optimality
 
-In order to understand the factors that contribute to a teacher's ability to maximize lesson completion, we analyzed teachers' performance across various parameters. We focused on the correlation between these parameters and the average weekly badges earned per teacher, which we used as a proxy for lesson completion.
+To understand the factors contributing to a teacher's ability to maximize lesson completion, we conducted an in-depth analysis of teachers' performance across various parameters from the previous hierarchical model. We focused specifically on the learning rate ("Alpha") and the inverse temperature ("Tau"). We examined their correlation with the average weekly badges earned per teacher, a proxy for lesson completion, and Tower Alerts, a measure of student struggle with the materials.
 
-```{r Heterogeneity analysis}
+@tbl-optimality presents the coefficients of six different linear regression models. Each model predicts the average weekly badges earned per teacher (Models 1-3) or the average weekly Tower Alerts (Models 4-6) based on different combinations of the parameters and control variables. The control variables include the number of active students, the number of classes taught by the teacher, the grade level, the number of weeks, the poverty level, the income level, whether the school is a charter school, and whether the school has a paid account.
+
+Alpha and Tau achieved statistical significance when adding all the control variables (columns 3 and 6, respectively). These results suggest that a higher learning rate may lead to fewer badges earned and more Tower Alerts. A higher inverse temperature is associated with a slight increase in badges earned.
+
+```{r, results='asis'}
+#| cache: true
+#| label: tbl-optimality
+#| tbl-cap: "The impact of different parameters and control variables on average weekly badges and Tower Alerts. Six linear regression models were used to examine the correlations between a teacher's RL parameters (Cost 1, Cost 2, Cost 3, Gamma, Alpha, Tau) and two measures of student engagement: average weekly Badges earned per student (Models 1-3) and average weekly Tower Alerts per student (Models 4-6). Models 2-3 and 5-6 also control for other variables including number of active students, number of classes taught, grade level, weeks, poverty level, income level, whether the school is a charter school, and whether the school has a paid account. Coefficients and standard errors are provided for each parameter in each model."
+
 library(tidybayes)
+library(stargazer)
 
 hierarchical_model <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
 classroom_data <- read.csv("Bayesian/df_subset.csv") %>%
@@ -2039,19 +2051,110 @@ summary_all <- merge(summary_cost, summary_gamma_alpha_tau, by = "teacher")
 
 classroom_data <- classroom_data %>%
   arrange(Teacher.User.ID) %>%
-  bind_cols(summary_all)
+  bind_cols(summary_all) %>%
+  dplyr::mutate(
+    income = factor(income, ordered = TRUE), 
+    grade = factor(grade, ordered = TRUE,
+                   levels = c("Kindergarten",
+                              "1st", "2nd", "3rd", "4th", "5th")),
+    poverty = factor(poverty, ordered = TRUE)
+  )
 
-lm1 <- lm(badges ~ mean_C1 + mean_C2 + mean_C3 +
+ordered_factor <- function(fact_var) {
+  categories <- levels(fact_var)
+  n_cat <- length(categories)
+  cont <- matrix(data = 0, nrow = n_cat, ncol = (n_cat - 1))
+  cont[col(cont) < row(cont)] <- 1
+  rownames(cont) <- categories
+  colnames(cont) <- paste(categories[2:n_cat],
+                          categories[1:(n_cat - 1)],
+                          sep = " vs. ")
+  contrasts(fact_var) <- cont
+  return(fact_var)
+}
+classroom_data <- classroom_data %>%
+  dplyr::mutate(
+    income = ordered_factor(income), 
+    grade = ordered_factor(grade),
+    poverty = ordered_factor(poverty)
+  )
+
+model1 <- lm(badges ~ mean_C1 + mean_C2 + mean_C3 +
             gamma + alpha + tau,
-            # n_active_students +
-            # n_classes_by_teacher +
-            # grade +
-            # n_weeks +
-            # poverty +
-            # income +
-            # charter_school +
-            # school_account,
           classroom_data)
+
+model2 <- lm(badges ~ mean_C1 + mean_C2 + mean_C3 +
+            gamma + alpha + tau +
+            n_active_students +
+            n_classes_by_teacher +
+            grade +
+            n_weeks,
+          classroom_data)
+
+model3 <- lm(badges ~ mean_C1 + mean_C2 + mean_C3 +
+            gamma + alpha + tau +
+            n_active_students +
+            n_classes_by_teacher +
+            grade +
+            n_weeks +
+            poverty +
+            income +
+            charter_school +
+            school_account,
+          classroom_data)
+
+model4 <- lm(tower_alers ~ mean_C1 + mean_C2 + mean_C3 +
+            gamma + alpha + tau,
+          classroom_data)
+
+model5 <- lm(tower_alers ~ mean_C1 + mean_C2 + mean_C3 +
+            gamma + alpha + tau +
+            n_active_students +
+            n_classes_by_teacher +
+            grade +
+            n_weeks,
+          classroom_data)
+
+model6 <- lm(tower_alers ~ mean_C1 + mean_C2 + mean_C3 +
+            gamma + alpha + tau +
+            n_active_students +
+            n_classes_by_teacher +
+            grade +
+            n_weeks +
+            poverty +
+            income +
+            charter_school +
+            school_account,
+          classroom_data)
+
+# Create table with stargazer
+stargazer(model1, model2, model3, model4, model5, model6,
+          type = "latex",
+          header=FALSE,
+          align = TRUE,
+          covariate.labels = c("Cost 1", "Cost 2", "Cost 3",
+                               "Gamma", "Alpha", "Tau",
+                               "Number of Active Students", "Number of Classes",
+                               "Number of Weeks", "Charter School", "Paid School Account"),
+          omit = c("grade", "poverty", "income"),
+          dep.var.caption = "Dependent variables:",
+          dep.var.labels = c("Badges", "Tower Alerts"),
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*", "**", "***"),
+          add.lines = list(c("Control for Grade Level",
+                             "", "Yes", "Yes", "", "Yes", "Yes"),
+                           c("Control for Poverty Level",
+                             "", "", "Yes", "", "", "Yes"),
+                           c("Control for Income Level",
+                             "", "", "Yes", "", "", "Yes")))
+
+
+```
+
+
+## Heterogeneity
+
+```{r}
 
 test <- classroom_data %>%
   select(badges,
@@ -2082,8 +2185,6 @@ chart.Correlation(test, histogram = TRUE, method = "spearman")
 
 
 ```
-
-## Heterogeneity
 
 # Discussion
 
@@ -2302,6 +2403,7 @@ summary(res)
 ## Bayesian Model Diagnostics
 
 ```{r}
+#| eval: false
 #| cache: true
 #| label: tbl-diagnostics
 #| tbl-cap: "Diagnostics for the Bayesian Models used in Q-learning and Q-learning with states. The tables show diagnostics for three Non-negative Matrix Factorization (NMF) models: Frobenius (initialized with a Nonnegative Double Singular Value Decomposition), Frobenius Average (initialized with a Nonnegative Double Singular Value Decomposition with zeros filled with the average of each variable), and Kullback-Leibler. The rows correspond to 'alpha,' the learning rate, 'gamma,' the discount factor, 'tau,' the temperature parameter, 'cost' for each of the components from the NMF, 'sensi,' the reward sensitivity parameter, and 'Log Posterior,' the logarithm of the posterior probability. 'Rhat' indicates the potential scale reduction factor on split chains. Values close to 1.0 imply model convergence. 'ESS Bulk' and 'ESS Tail' represent the effective sample size for the bulk of the posterior distribution and its tail, respectively. An ESS of at least a few hundred is often considered sufficient for estimation purposes."
@@ -2414,15 +2516,13 @@ diag_df_actor_critic %>%
 This section presents the group parameter estimates for all Reinforcement Learning (RL) models, both non-hierarchical and hierarchical. To generate these group parameter estimates, we first extract the posterior samples from the fitted models and calculate the mean (M), standard deviation (SD), 25th percentile (Q1), and 75th percentile (Q3) for each parameter. @tbl-group-parameters summarizes the distribution of the parameter estimates across classrooms, revealing their typical values and variability.
 
 ```{r}
+#| eval: false
 #| cache: true
 #| label: tbl-group-parameters
 #| tbl-cap: "Group parameter estimates for the Bayesian Models used in Q-learning and Q-learning with states."
 
-# Initialize an empty data frame to store the group parameter estimates
-group_params_df <- data.frame()
-
-# Loop over the results files
-for (result_file in results_files) {
+# Define a function that processes one file
+process_file <- function(result_file) {
   # Load the fitted model
   fit <- readRDS(result_file)
   
@@ -2437,11 +2537,13 @@ for (result_file in results_files) {
   # Add the model name to the data frame
   group_params$Model <- gsub("Bayesian/Results/||.RDS", "", result_file)
   
-  # Add the group parameter estimates to the overall data frame
-  group_params_df <- rbind(group_params_df, group_params)
+  return(group_params)
 }
 
-# Create a gt table
+# Apply the function to each results file and bind the results into one data frame
+group_params_df <- purrr::map_dfr(results_files, process_file)
+
+# Continue with the rest of your code
 group_params_df %>%
   gt() %>%
   tab_header(
@@ -2459,5 +2561,6 @@ group_params_df %>%
     columns = c("M", "SD", "Q1", "Q3"),
     decimals = 2
   )
+
 
 ```
