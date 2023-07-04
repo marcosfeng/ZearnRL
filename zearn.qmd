@@ -1951,28 +1951,144 @@ gt(df_looic)
 
 ## Model Fit
 
+We compared the hierarchical model's predictions and the original choice data, representing a distinct action. We averaged the model predictions across teachers weekly and overlayed them with the average action from the choice data. We also calculated the standard error around these averages accounting for missing data, which provided a measure of uncertainty around these values.
+
+@fig-model-fit shows the model fit for each action where the y-axis represents the probability of a=1, and the x-axis represents the time in weeks. The line plot includes the mean probabilities, highlighted by colored lines, and their respective standard errors, represented by shaded ribbons surrounding the lines. The results section of the data for 'Action 1' revealed that the model predictions initially remained relatively close to the mean probability of 0.5, demonstrating some variability but remaining within a reasonable range. The model's variability increased over time, denoted by the broadening standard error ribbons, peaking at week 36 with a significant increase in the mean predicted probability. This peak corresponded to a drastic decline in the choice data, implying a divergence between the model's predictions and the data towards the end of the observed period.
+
+In the case of 'Action 2' and 'Action 3,' the model prediction started at the mean probability of 0.5 and demonstrated a declining trend over the weeks. Although the declining trend was present in both model fit and data, the model predicted a less drastic decline. The standard error for this action also increased over time, albeit not as dramatically as in the case of 'Action 1', indicating that the model's predictions became more uncertain as time progressed. Despite this variability, the model provided a reasonable fit for the choice data across the weeks for the first months of the study period.
+
+``` {r}
+#| cache: true
+#| label: fig-model-fit
+#| fig-cap: "Model predictions for teacher actions compared with choice data over time. The y-axis denotes the probability of a particular action being taken (a=1), while the x-axis indicates time in weeks. The figure showcases three distinct actions (NMF components). The solid lines represent the weekly averaged model predictions for each action, while the shaded ribbons denote the respective standard errors."
+stan_data <- read_rds("./Bayesian/stan_data.RDS")
+choice_data <- stan_data$choice
+
+prediction_hierarchical <- read.csv("./Bayesian/Results/prediction_hierarchical.csv") %>%
+  filter(grepl("y_pred", variable)) %>%
+  dplyr::select(variable, mean)
+
+prediction_hierarchical <- prediction_hierarchical %>%
+  mutate(variable = str_extract(variable, "\\[.*\\]"),
+         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
+  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
+
+prediction_hierarchical_3d <- array(dim = c(max(prediction_hierarchical$dim1),
+                                            max(prediction_hierarchical$dim2),
+                                            max(prediction_hierarchical$dim3)))
+
+for (i in 1:nrow(prediction_hierarchical)) {
+  dim1 <- prediction_hierarchical$dim1[i]
+  dim2 <- prediction_hierarchical$dim2[i]
+  dim3 <- prediction_hierarchical$dim3[i]
+  prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
+}
+
+prediction_hierarchical_3d[prediction_hierarchical_3d == 0] <- NA
+choice_data[is.na(prediction_hierarchical_3d)] <- NA
+
+# Get the number of layers
+num_layers <- dim(prediction_hierarchical_3d)[3]
+# Custom function to calculate standard error based on the number of non-NA elements
+calc_se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
+
+df_compare <- data.frame()
+
+# Generate a plot for each layer
+for (k in 1:num_layers) {
+  y_pred_avg <- apply(prediction_hierarchical_3d[, , k], 2, mean, na.rm = TRUE)
+  y_pred_se <- apply(prediction_hierarchical_3d[, , k], 2, calc_se)
+  
+  choice_data_avg <- apply(choice_data[, , k], 2, mean, na.rm = TRUE)
+  choice_data_se <- apply(choice_data[, , k], 2, calc_se)
+
+  weeks <- seq_len(length(y_pred_avg))
+
+  df_pred <- data.frame(weeks = weeks,
+                        probability = y_pred_avg,
+                        type = rep("Model Fit", length(y_pred_avg)),
+                        se = y_pred_se,
+                        action = rep(paste("Action", k), length(y_pred_avg)))
+
+  df_real <- data.frame(weeks = weeks,
+                        probability = choice_data_avg,
+                        type = rep("Real Data", length(choice_data_avg)),
+                        se = choice_data_se,
+                        action = rep(paste("Action", k), length(choice_data_avg)))
+
+  df_compare <- rbind(df_compare, df_pred, df_real)
+}
+
+p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
+  geom_line() +
+  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
+  labs(x = "Week", y = "Probability of a=1") +
+  facet_wrap(~action, ncol = 1) +
+  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  theme_bw()
+
+print(p)
+
+```
+
 ```{r}
 #| eval: false
 
-prediction <- post$summary()
-prediction_hierarchical <- post_hierarchical$summary()
-# write.csv(prediction, "./Bayesian/Results/prediction.csv")
-# write.csv(prediction_hierarchical, "./Bayesian/Results/prediction_hierarchical.csv")
+stan_data <- read_rds("./Bayesian/stan_data.RDS")
+choice_data <- stan_data$choice
 
-## Prediction data:
-# y_pred[teacher, week, choice]
-stan_data <- read_rds("Bayesian/Results/stan_data.RDS")
-## Choice data:
-# stan_data$choice
+# prediction_hierarchical <- post_hierarchical$summary()
+prediction_hierarchical <- read.csv("./Bayesian/Results/prediction_hierarchical.csv") %>%
+  filter(grepl("y_pred", variable)) %>%
+  dplyr::select(variable, mean)
+prediction_hierarchical <- prediction_hierarchical %>%
+  mutate(variable = str_extract(variable, "\\[.*\\]"),
+         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
+  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
+# Create an empty 3D array
+prediction_hierarchical_3d <- array(dim = c(max(prediction_hierarchical$dim1),
+                                            max(prediction_hierarchical$dim2),
+                                            max(prediction_hierarchical$dim3)))
+# Fill the 3D array with the 'mean' values
+for (i in 1:nrow(prediction_hierarchical)) {
+  dim1 <- prediction_hierarchical$dim1[i]
+  dim2 <- prediction_hierarchical$dim2[i]
+  dim3 <- prediction_hierarchical$dim3[i]
+  prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
+}
+# Now prediction_hierarchical_3d is a 3D array like choice_data.
 
+prediction_hierarchical_3d[prediction_hierarchical_3d == 0] <- NA
+choice_data[is.na(prediction_hierarchical_3d)] <- NA
 
-## TO-DO
-# Here I'd like to have a visual representation of the model fit.
-# I'm thinking of Having the number of weeks in the x-axis
-# and the probability of each y=1 on the y-axis.
-# Then graph two lines: one for the model fit (y_pred from the bayesian models)
-#                   and one for the real data.
-# Probably need to do this for the average across a number of teachers.
+y_pred_avg <- apply(prediction_hierarchical_3d, c(2, 3), mean, na.rm = TRUE)
+y_pred_se <- apply(prediction_hierarchical_3d, c(2, 3), sd, na.rm = TRUE) / sqrt(dim(prediction_hierarchical_3d)[1])
+
+choice_data_avg <- apply(choice_data, c(2, 3), mean, na.rm = TRUE)
+
+weeks <- seq_len(dim(y_pred_avg)[1])
+
+# Create data frames
+df_pred <- data.frame(weeks = rep(weeks, dim(y_pred_avg)[2]),
+                      probability = c(y_pred_avg),
+                      type = rep("Model Fit", length(y_pred_avg)),
+                      se = c(y_pred_se))
+
+df_real <- data.frame(weeks = rep(weeks, dim(choice_data_avg)[2]),
+                      probability = c(choice_data_avg),
+                      type = rep("Real Data", length(choice_data_avg)),
+                      se = rep(NA, length(choice_data_avg)))
+# Combine data frames
+df_compare <- rbind(df_pred, df_real)
+
+# Plot
+ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
+  geom_line() +
+  geom_ribbon(data = df_pred, aes(ymin = probability - se, ymax = probability + se), alpha = 0.1) +
+  labs(x = "Number of Weeks", y = "Probability of Y=1") +
+  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  theme_bw()
 
 
 ```
@@ -2154,35 +2270,119 @@ stargazer(model1, model2, model3, model4, model5, model6,
 
 ## Heterogeneity
 
-```{r}
+Building on these results, we investigated how teachers' adaptation and implementation of the Zearn Math curriculum vary with various school-specific and demographic factors. The goal was to uncover potential disparities and leverage points that could inform intervention strategies and policy decisions to reduce educational inequities.
 
-test <- classroom_data %>%
-  select(badges,
-         mean_C1, mean_C2, mean_C3,
-         gamma, alpha, tau)
+Our multi-pronged statistical approach matched the diverse nature of our classroom variables. We selected each model to best account for the distribution and characteristics of the dependent variable. We used an ordered logistic regression for ordinal classroom variables, such as Income Level and Poverty Level. Binary variables, which included Charter School and Paid School Account status, naturally lent themselves to logistic regression modeling. Finally, we used Poisson regression to model the variable representing the number of classes taught by each teacher.
 
-chart.Correlation(test, histogram = TRUE, method = "spearman")
+@fig-heterogeneity presents a detailed summary of the associations between different factors and classroom variables. Among these, the interaction between "Cost 3" and "Poverty Level" is notable. Our data suggest that a higher estimated cost of applying Pedagogical Content Knowledge predicts a lower median income level in the school. The estimated Discount Rate is another variable significantly associated with a school's Poverty Level ($\beta = -0.39,\text{ } p<0.05$). Furthermore, the negative relationship between being a Charter School and the Learning Rate, with a coefficient of -0.67 (p<0.001), suggests that teachers in charter schools are slower to adapt and modify their teaching methods in response to new information. 
 
+``` {r}
+#| cache: true
+#| label: fig-heterogeneity
+#| fig-cap: "Predicting classroom variables with RL parameters. The data comes from a comprehensive set of classroom records, including income level, poverty level, charter school status, whether a school account is paid, and the number of classes each teaches. These classroom variables (columns) are regressed on the estimated cost parameters for each action (Cost 1, Cost 2, Cost 3), the discount rate, the learning rate, and the inverse temperature. Each cell in the heatmap represents the estimate of a linear, Poisson, or logistic regression model, depending on the variable type. For ordinal classroom variables (Income Level and Poverty Level), ordered logistic regression (proportional odds model) is used, while for binary variables (Charter School, Paid School Account), logistic regression is applied. The number of classes by each teacher, being a count data, is modeled with Poisson regression. The coefficients are scaled estimates of the effect of each parameter on the respective classroom variable. The asterisks indicate the level of statistical significance based on p-values (*p < 0.1; **p < 0.01; ***p < 0.001). The coefficients are color-coded with a gradient from light blue (negative) to white (zero) to dark blue (positive)."
+library(broom)
+library(MASS)
 
-## TO-DO
+# Prepare data
+hetero <- classroom_data %>%
+  dplyr::select(income, poverty, charter_school, school_account, n_classes_by_teacher,
+         mean_C1, mean_C2, mean_C3, gamma, alpha, tau) %>%
+  dplyr::mutate(
+    income = factor(income, ordered = TRUE),
+    poverty = factor(poverty, ordered = TRUE)
+  )
 
-# Here I would like to correlate individual parameters from the hierarchical
-# model with specific classroom level variables.
-# Including:
-## Student Variables (mean across classroom):
-# "Active.Users...Total", "Minutes.per.Active.User",
-# "Badges.per.Active.User", "Boosts.per.Tower.Completion",
-# "Tower.Alerts.per.Tower.Completion",
-## Classroom and Teacher Variables
-# "teacher_number_classes", "Grade.Level",
-# "Students...Total", "n_weeks",
-## School Variables
-# "poverty", "income", "charter.school",
-# "school.account
+# Define predictors and responses
+responses <- c("income", "poverty",
+               "charter_school", "school_account", "n_classes_by_teacher")
+predictors <- c("mean_C1", "mean_C2", "mean_C3", "gamma", "alpha", "tau")
+hetero[predictors] <- scale(hetero[predictors])
+# Create the formula for the model with all predictors
+predictors_formula <- paste(predictors, collapse = " + ")
 
-# That is, do the parameters from the Bayesian model change with these variables?
-# If so, how?
+# Run models for each response, and extract coefficients
+coef_matrix <- map_dfr(responses, function(response) {
+  if (response == "income" | response == "poverty") {
+    model <- polr(as.formula(paste0(response, " ~ ", predictors_formula)),
+                  data = hetero, Hess = TRUE)
+  } else if (response == "n_classes_by_teacher") {
+    model <- glm(as.formula(paste0(response, " ~ ", predictors_formula)),
+                 data = hetero, family = poisson(link = "log"))
+  } else {
+    model <- glm(as.formula(paste0(response, " ~ ", predictors_formula)),
+                 data = hetero, family = binomial(link = "logit"))
+  }
+  
+  tidy(model, p.values = TRUE) %>%
+    filter(term %in% predictors) %>%
+    dplyr::select(term, estimate, p.value) %>%
+    mutate(response = response,
+           sig = ifelse(p.value < 0.05, "***",
+                        ifelse(p.value < 0.01, "**",
+                               ifelse(p.value < 0.1, "*", ""))))
+})
 
+# Convert to wide format
+coef_matrix <- coef_matrix %>%
+  pivot_wider(names_from = term, values_from = c(estimate, p.value, sig))
+
+# Reorder the rows to match the original order of responses
+coef_matrix <- coef_matrix %>%
+  mutate(response = factor(response, levels = responses)) %>%
+  arrange(response)
+
+# Reshape for plotting
+coef_matrix_long <- coef_matrix %>%
+  pivot_longer(cols = starts_with("estimate"), names_to = "term", values_to = "estimate") %>%
+  pivot_longer(cols = starts_with("sig"), names_to = "term_sig", values_to = "sig")
+
+# Clean up term names
+coef_matrix_long$term <- str_replace(coef_matrix_long$term, "estimate_", "")
+coef_matrix_long$term_sig <- str_replace(coef_matrix_long$term_sig, "sig_", "")
+
+# Make sure the term columns match
+coef_matrix_long <- coef_matrix_long[coef_matrix_long$term == coef_matrix_long$term_sig,]
+
+# Rename the variables
+var_names <- c("income" = "Income Level", "poverty" = "Poverty Level",
+               "charter_school" = "Charter School",
+               "school_account" = "Paid School Account",
+               "n_classes_by_teacher" = "Number of Classes by Teacher",
+               "mean_C1" = "Cost 1", "mean_C2" = "Cost 2", "mean_C3" = "Cost 3",
+               "gamma" = "Discount Rate",
+               "alpha" = "Learning Rate",
+               "tau" = "Inverse Temperature")
+coef_matrix_long$term <- var_names[coef_matrix_long$term]
+
+responses_new <- c("Income\n Level", "Poverty\n Level",
+                   "Charter\n School", "Paid School\n Account", 
+                   "Classes\n per Teacher")
+
+names(responses_new) <- responses
+
+# Update variable labels
+coef_matrix_long$response <- factor(coef_matrix_long$response, 
+                                    levels = responses, 
+                                    labels = responses_new)
+
+# Create the plot
+ggplot(coef_matrix_long, aes(x = response, y = term, fill = as.numeric(estimate))) +
+  scale_y_discrete(limits = c("Cost 1", "Cost 2", "Cost 3",
+                              "Inverse Temperature", "Discount Rate", "Learning Rate")) +
+  geom_tile() +
+  geom_text(aes(label = paste0(round(as.numeric(estimate), 2), sig)), size = 4) +
+  scale_fill_gradient2(low = "lightblue", high = "darkblue", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), 
+                       name = "Regression\n Coefficient") +
+  scale_x_discrete(position = "top") + # This line moves the x-axis labels to the top
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 12, angle = 0, vjust = 1, hjust = 0.5), 
+        axis.text.y = element_text(size = 12), 
+        legend.title = element_text(size = 11), 
+        legend.text = element_text(size = 10),
+        legend.spacing.x = unit(0.5, "cm"),
+        legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = NULL)
 
 ```
 
@@ -2196,17 +2396,33 @@ Our first research question aimed to identify the RL model that best characteriz
 
 The hierarchical Q-learning model's superiority underscores the importance of considering individual teacher differences. As an agent in the RL model, each teacher has unique parameters that reflect their learning rate and decision-making strategies. These parameters offer a rich source of information about teacher behavior, providing a more nuanced understanding than simpler models.
 
-## Impact of RL Parameters on Teacher Behavior and Student Achievement
+## Parameter Variations and Their Influence on Student Achievement
 
-Our second research question was related to how the parameters of RL models vary with teacher behavior and the effects of these variations on student achievement. We found that the RL parameters, particularly the learning rate and the exploration-exploitation trade-off, significantly influence teacher behavior and student achievement.
+Our second research question explored how variations in the parameters of RL models (i.e., the learning rate and the exploration-exploitation trade-off) affect teacher behavior and, consequently, student achievement. The learning rate suggests a teacher's adaptability in altering teaching strategies based on feedback. The exploration-exploitation trade-off encapsulates a teacher's ability to balance using new teaching strategies (exploration) and sticking with known effective strategies (exploitation).
 
-Teachers with a higher learning rate, indicating a greater ability to adapt their teaching strategies based on feedback, were associated with higher student achievement. Similarly, teachers who effectively balanced exploration (trying new teaching strategies) and exploitation (sticking with known effective strategies) also had students with better outcomes. These findings highlight the potential of RL models to inform teacher training programs and interventions to improve student achievement.
+Our findings indicated that teachers exhibiting a higher learning rate, a marker of greater adaptability, were associated with higher student achievement. This finding echoes the sentiments expressed by teachers in [@knudsen2020], who found value in the multifaceted strategies provided by Zearn Math. A 3rd-grade Zearn teacher stated, "I like that Zearn provides several strategies to get to the answer...you see the problems; you see what you need to hit on and stress the first time around." This sentiment aligns with our observation that the ability to adapt teaching strategies based on feedback, akin to a higher learning rate in RL models, is a valuable attribute in promoting student achievement.
+
+Similarly, teachers who effectively balanced exploration and exploitation had students with superior outcomes. [@morrison2019] noted that teachers exhibited varied levels of preparedness for implementing the Zearn Math curriculum, with just under half of the teachers reporting feeling adequately prepared for implementation. This lack of preparation could influence how effectively teachers navigate the exploration-exploitation trade-off, impacting student outcomes.
+
+Our results also highlight the complex dynamics underlying teacher behaviors and their implications for student outcomes. For instance, [@knudsen2020], found that veteran teachers with strong PCK leaned heavily on traditional teaching methods, reducing their engagement with the novel practices proposed by Zearn Math. Conversely, new teachers exhibited a blend of traditional and innovative practices, despite their initial resistance to Zearn Math, underscoring their learning curve with the new curriculum.
+
+Our findings point to the potential of RL parameters to provide valuable insights into teacher behaviors and their subsequent effects on student achievement. Understanding and leveraging these parameters could enhance teacher training programs and interventions, ultimately improving student outcomes. By incorporating insights from our study into such initiatives, we can help foster a more adaptive and effective teaching landscape that better supports student learning and achievement. 
 
 ## Influence of Teacher Background, Training, and Experience
 
-Our third research question asked how teacher background, training, and experience influence their adaptation to and implementation of the Zearn Math curriculum. These factors significantly affect how teachers interact with the Zearn Math platform and their students.
+Our third research question asked how teacher background, training, and experience influence their adaptation to and implementation of the Zearn Math curriculum. Our findings confirm the fundamental role of teachers' background, training, and experience when implementing new educational platforms like Zearn Math. They also underscore the importance of differentiating support and training strategies to cater to teachers' unique backgrounds and needs, which may prove pivotal in fostering effective adoption and implementation of such platforms. A prominent theme that emerged from our investigation was the interaction between teacher behaviors, school characteristics, and broader socio-economic contexts. 
 
-For instance, veteran teachers with substantial pedagogical content knowledge (PCK) tended to rely on their teaching experiences rather than learning from Zearn Math. In contrast, new teachers, especially those without formal training, struggled to adapt to new practices and had weaker PCK. These findings suggest that teacher background, training, and experience are crucial when designing and implementing new programs like Zearn Math.
+Our analyses revealed a telling association between Poverty Level and Cost 3, denoting the estimated cost of applying PCK, suggesting that schools in higher poverty strata are more likely to encounter additional barriers in the form of resource constraints when implementing the Zearn Math curriculum.
+
+This observation points towards a potential resource disparity where schools in lower-income areas grapple with the challenge of investing in critical teacher training and resources needed for effective curriculum implementation. Implementing a comprehensive math curriculum like Zearn becomes particularly daunting in economically disadvantaged areas where financial constraints may obstruct optimal pedagogical strategies.
+
+Moreover, we unveiled a striking finding regarding charter schools. Our data showed a negative relationship between being a Charter School and the Learning Rate. This finding was unexpected, given the increased flexibility often associated with charter schools. It raises pertinent questions about the pedagogical dynamics within such institutions and points towards the necessity for further research into the support systems and professional development opportunities provided for teachers in these settings.
+
+One of the more disconcerting findings was the negative relationship between Poverty Level and Discount Rate, indicating that teachers in schools with higher poverty levels might place less emphasis on long-term student outcomes. This phenomenon may occur due to the pressing short-term challenges related to student well-being and engagement, often prevalent in high-poverty settings, which demand immediate attention and resources. 
+
+These findings underscore the complex challenges facing schools in lower-income and high-poverty areas. They illuminate the complexities teachers must navigate when adapting to new teaching habits and implementing curricula, which are only magnified by demographic and school-specific factors.
+
+Our Reinforcement Learning model uncovered the need for a deeper examination of systemic educational disparities and the development of targeted interventions and policies to bridge these gaps. By shedding light on these complex relationships, we contribute to the broader goal of creating a more equitable educational landscape.
 
 ## Implications for Teachers and Schools
 
