@@ -313,8 +313,8 @@ for (choice in names(choices)) {
       data = stan_data,
       chains = 3,
       parallel_chains = 3,
-      iter_warmup = 5000,
-      iter_sampling = 5000
+      iter_warmup = 1000,
+      iter_sampling = 1000
     )
 
     # Save the fit object
