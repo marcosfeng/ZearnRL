@@ -1,1 +1,0 @@
-load('/home/master/zearn/CBM/data/stan_data.mat')

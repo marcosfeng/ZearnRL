@@ -1,24 +1,20 @@
 library(R.matlab)
 
-# Import
+# Assuming stan_data is your existing data list
 stan_data <- readRDS("~/zearn/Bayesian/stan_data.RDS")
 
-# Convert to a List of Matrices
-stan_data$Tsubj <- matrix(stan_data$Tsubj, nrow = length(stan_data$Tsubj), ncol = 1)
-stan_data$group <- matrix(stan_data$group, nrow = length(stan_data$group), ncol = 1)
-stan_data$number_teachers <- matrix(stan_data$number_teachers, nrow = 1, ncol = 1)
+# Initialize an empty list to hold each subject's data
+data_list <- vector("list", length = stan_data$N)
 
-# Write to .mat File
-writeMat("./CBM/data/stan_data.mat",
-         N = stan_data$N,
-         T = stan_data$T,
-         S = stan_data$S,
-         K = stan_data$K,
-         C = stan_data$C,
-         Tsubj = stan_data$Tsubj,
-         choice = stan_data$choice,
-         outcome = stan_data$outcome,
-         week = stan_data$week,
-         state = stan_data$state,
-         group = stan_data$group,
-         number_teachers = stan_data$number_teachers)
+# Populate the list
+for (i in 1:stan_data$N) {
+  subj_data <- list(
+    actions = stan_data$choice[i, 1:stan_data$Tsubj[i], ],
+    outcome = stan_data$outcome[i, 1:stan_data$Tsubj[i]],
+    state = stan_data$state[i, 1:stan_data$Tsubj[i]]
+  )
+  data_list[[i]] <- subj_data
+}
+
+# Save as a .mat file
+writeMat("all_data.mat", data = data_list)
