@@ -1,20 +1,14 @@
-% Load data
-load('data/stan_data.mat');
 
-% Prepare data structure
-data = struct('N', N, 'Tsubj', Tsubj, 'choice', choice, 'outcome', outcome, 'state', state);
-
-data_cell = cell(1, N);  % Initialize cell array
-for i = 1:N
-    data_cell{i} = struct('Tsubj', Tsubj(i), 'choice', choice(i, :, :), 'outcome', outcome(i, :), 'state', state(i, :));
-end
+% load data
+fdata = load('../data/all_data.mat');
+data  = fdata.data;
 
 % Define prior
 prior.mean = [0.5; 0.5; 0.5; ones(C, 1)];
 prior.variance = eye(length(prior.mean));
 
 % Add path to CBM toolbox
-addpath(fullfile('codes'));
+addpath(fullfile('..' ,'codes'));
 
 % Run model fitting
 output_file = 'q_learning_fit.mat';
