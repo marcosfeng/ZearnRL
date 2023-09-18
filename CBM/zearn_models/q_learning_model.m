@@ -12,10 +12,10 @@ function [loglik] = q_learning_model(parameters, subj)
     cost = parameters(4:end);  % Assuming cost is a vector
     
     % Unpack data
-    Tsubj = subj.Tsubj;
-    choice = subj.choice;  % 1 for action=1 and 2 for action=2, etc.
+    Tsubj = length(subj.actions);
+    choice = subj.actions;  % 1 for action=1 and 2 for action=2, etc.
     outcome = subj.outcome;  % 1 for outcome=1 and 0 for outcome=0
-    state = subj.state;
+    state = subj.simmed.state;
     
     % Initialize Q-value for each action
     C = length(cost);  % Number of choices
@@ -23,7 +23,7 @@ function [loglik] = q_learning_model(parameters, subj)
     ev = zeros(C, S);  % Expected value (Q-value) for both actions initialized at 0
     
     % To save probability of choice. Currently NaNs, will be filled below
-    p = nan(Tsubj, 1);
+    p = 0.5 * ones(Tsubj, 1);
     
     % Loop through trials
     for t = 1:Tsubj
