@@ -4,12 +4,13 @@ function [loglik] = q_learning_model(parameters, subj)
     alpha = 1 / (1 + exp(-nd_alpha));
     
     nd_gamma = parameters(2);
-    gamma = exp(nd_gamma);
+    gamma = 1 / (1 + exp(-nd_gamma));
     
     nd_tau = parameters(3);
     tau = exp(nd_tau);
     
-    cost = parameters(4:end);  % Assuming cost is a vector
+    nd_cost = parameters(4:end);  % cost is a vector
+    cost = exp(nd_cost);
     
     % Unpack data
     Tsubj = length(subj.actions);

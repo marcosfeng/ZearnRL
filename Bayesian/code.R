@@ -34,7 +34,7 @@ df <- read.csv(file = "Bayesian/df.csv")
 
 FR_cols <- grep("FrobeniusNNDSVD", names(df), value = TRUE)
 FRa_cols <- grep("FrobeniusNNDSVDA", names(df), value = TRUE)
-KL_cols <- grep("Kullback.Leibler", names(df), value = TRUE)
+KL_cols <- grep("KullbackLeibler", names(df), value = TRUE)
 
 df <- df %>%
   arrange(Classroom.ID, week) %>%

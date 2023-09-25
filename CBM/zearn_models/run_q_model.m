@@ -30,7 +30,3 @@ cbm_hbi(data,models,fcbm_maps,fname_hbi);
 fname_hbi  = load("hbi_lap_ql.mat");
 cbm = fname_hbi.cbm;
 cbm.output
-
-
-disp(['MAP estimates: ', num2str(map)]);
-disp(['Log evidence: ', num2str(log_evidence)]);
