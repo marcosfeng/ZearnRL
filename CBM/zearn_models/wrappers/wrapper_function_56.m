@@ -1,5 +1,4 @@
 function [loglik] = wrapper_function_56(parameters, subj)
-    load('../data/all_data.mat');
     % Outcome variable: boosts
     subj.outcome = subj.boosts;
     % State variables: activest alerts badges 

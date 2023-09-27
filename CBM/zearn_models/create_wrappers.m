@@ -22,7 +22,6 @@ for i = 1:length(all_combinations)
     fid = fopen(fname, 'w');
     
     fprintf(fid, 'function [loglik] = wrapper_function_%d(parameters, subj)\n', i);
-    fprintf(fid, '    load(''../data/all_data.mat'');\n');
     
     comb = all_combinations{i};
     outcome_var = comb{1};  % Extract the outcome variable from the first element

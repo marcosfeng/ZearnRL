@@ -13,12 +13,13 @@ num_parameters = 7;
 % Create the prior structure for your new model
 prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
-% Initialize a cell array to store the HBI results for each dataset
-hbi_results = cell(75, 1);
-
 % Load the common data for all datasets
 fdata = load('../data/all_data.mat');
 data  = fdata.data;
+
+% Initialize models and fcbm_maps arrays
+models = cell(1, 75);
+fcbm_maps = cell(1, 75);
 
 % Initialize a parallel pool if it doesn't already exist
 if isempty(gcp('nocreate'))
@@ -35,18 +36,19 @@ parfor wrapper_num = 1:75
     
     % Run the cbm_lap function for your new model
     cbm_lap(data, wrapper_func, prior_ac, fname);
-    
-    % Load and display results
-    models = {wrapper_func};  % Update the function name
-    fcbm_maps = {sprintf('lap_ac_%d.mat', wrapper_num)};  % Update the file name
-    fname_hbi = sprintf('hbi_lap_ac_%d.mat', wrapper_num);  % Update the file name
-    
-    cbm_hbi(data, models, fcbm_maps, fname_hbi);
-    
-    % Load the HBI results and store them
-    fname_hbi_loaded = load(fname_hbi);
-    hbi_results{wrapper_num} = fname_hbi_loaded.cbm;
+
+    % Store the function handle and file name for later
+    models{wrapper_num} = wrapper_func;
+    fcbm_maps{wrapper_num} = sprintf('lap_ac_%d.mat', wrapper_num);
 end
 
+% Run cbm_hbi for all models
+fname_hbi = 'hbi_AC.mat';
+cbm_hbi(data, models, fcbm_maps, fname_hbi);
+
+% Load the HBI results and store them
+fname_hbi_loaded = load(fname_hbi);
+hbi_results = fname_hbi_loaded.cbm;
+
 % Save the HBI results for all datasets
-save('all_hbi_results.mat', 'hbi_results');
+save('hbi_AC_results.mat', 'hbi_results');
