@@ -1,11 +1,16 @@
 function [loglik] = actor_critic_model(parameters, subj)
     % Extract parameters
-    alpha_w = parameters(1);  % Learning rate for w (critic)
-    alpha_theta = parameters(2);  % Learning rate for theta (actor)
-    gamma = parameters(3);  % Discount factor
-    tau = parameters(4);  % Inverse temperature for softmax action selection
-    cost = parameters(5:end);  % Cost for each action
-    
+    nd_alpha_w = parameters(1);  % Learning rate for w (critic)
+    alpha_w = exp(nd_alpha_w);
+    nd_alpha_theta = parameters(2);  % Learning rate for theta (actor)
+    alpha_theta = exp(nd_alpha_theta);
+    nd_gamma = parameters(3);  % Discount factor
+    gamma = 1/(1+exp(-nd_gamma));
+    nd_tau = parameters(4);  % Inverse temperature for softmax action selection
+    tau = exp(nd_tau);
+    nd_cost = parameters(5:end);  % Cost for each action
+    cost = exp(nd_cost);
+
     % Unpack data
     Tsubj = length(subj.actions);
     choice = subj.actions;
