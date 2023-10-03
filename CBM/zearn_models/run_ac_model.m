@@ -11,7 +11,8 @@ v = 2;
 num_parameters = 7;
 
 % Create the prior structure for your new model
-prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
+prior_ac = struct('mean', zeros(num_parameters, 1) - 0.7, 'variance', v);
+prior_ac.mean(3) = prior_ac.mean(3) + 3;
 
 % Load the common data for all datasets
 fdata = load('../data/all_data.mat');

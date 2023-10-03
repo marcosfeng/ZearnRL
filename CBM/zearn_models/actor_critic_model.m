@@ -17,14 +17,14 @@ function [loglik] = actor_critic_model(parameters, subj)
     outcome = subj.outcome;
     state = [ones(Tsubj, 1), subj.state];
     week = subj.simmed.week;
-    
+
     % Initialize
     C = size(choice, 2);  % Number of choices
     D = size(state, 2);  % Dimensionality of state space
     w = zeros(D, C);  % Critic's state-action value estimates
     theta = zeros(D, C);  % Actor's policy parameters
     p = zeros(size(subj.actions, 1), 1);  % Log probabilities of choices
-    
+
     % Loop through trials
     for t = 1:Tsubj
         % End the loop if the week is zero
@@ -35,15 +35,16 @@ function [loglik] = actor_critic_model(parameters, subj)
         s = state(t, :);  % Current state (now a vector)
         a = choice(t, :);  % Action on this trial (vector of 0s and 1s)
         o = outcome(t);  % Outcome on this trial
-        
+
         % Actor: Compute policy (probability of taking each action)
-        logits = s * theta;
         % Clipping to avoid numerical overflow
-        policy = max(1 ./ (1 + exp(-logits * tau)), 1e-100);
-        
+        policy = max(1 ./ (1 + exp(-s * theta * tau)), 1e-100);
+
         % Compute log probability of the chosen actions
         p(t) = sum(log(policy(a == 1)));
-        
+        % Add a == 0
+        p(t) = p(t) + sum(log(max(1 - policy(a == 0), 1e-100)));
+
         % Critic: Compute TD error (delta)
         if t < Tsubj
             w_t_next = week(t + 1); % Week on next trial
@@ -53,12 +54,13 @@ function [loglik] = actor_critic_model(parameters, subj)
             PE = 0;  % Terminal state
         end
         delta = (o - cost) - PE;
-        
+
         % Update weights
-        theta = theta + alpha_theta * s' * delta;
+        % Derivative of the logistic function: a/(1 + e^(a x))
+        theta = theta + alpha_theta * (-tau * s') * (1 + exp(s * theta * tau)).^(-1) .* delta;
         w = w + alpha_w * s' * delta;
     end
-    
+
     % Compute log-likelihood
-    loglik = sum(p);
+    loglik = double(sum(p));
 end
