@@ -153,7 +153,8 @@ for n=1:N
             if verbose, fprintf(fid,'No minimum found, use prior values as individual parameters\n'); end
             theta_n   = mu;
             [loglik_n]  = cbm_loggaussian(theta_n',model,prior,dat);
-            A_n       = A;
+            % A_n       = A;  % old
+            A_n       = A{n};  % new
             G_n       = nan(1,d);
         else
             cbm     = sprintf(fid,'No minimum found for subject %02d\n',n);
