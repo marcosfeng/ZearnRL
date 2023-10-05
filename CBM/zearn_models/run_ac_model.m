@@ -36,7 +36,7 @@ end
 % Loop through each of the 75 wrapper functions
 parfor wrapper_num = 1:75
     % Specify the file-address for saving the output
-    fname = sprintf('lap_ac_%d.mat', wrapper_num);  % Laplace results for actor-critic model
+    fname = sprintf('ac_subj_results/lap_ac_%d.mat', wrapper_num);  % Laplace results for actor-critic model
     
     % Get the function handle for the current wrapper function
     wrapper_func = str2func(sprintf('wrapper_function_%d', wrapper_num));
@@ -46,11 +46,17 @@ parfor wrapper_num = 1:75
 
     % Store the function handle and file name for later
     models{wrapper_num} = wrapper_func;
-    fcbm_maps{wrapper_num} = sprintf('lap_ac_%d.mat', wrapper_num);
+    fcbm_maps{wrapper_num} = fname;
 end
+
+%% 
+
+% Add path to the codes directory
+addpath(fullfile('ac_subj_results'));
 
 % Initialize an array to store the log evidence for each model
 log_evidence = zeros(1, 75);
+valid_subj_cell = cell(1,75);
 
 % Loop through each of the 75 saved files to extract log evidence
 for wrapper_num = 1:75
@@ -58,13 +64,27 @@ for wrapper_num = 1:75
     fname = sprintf('lap_ac_%d.mat', wrapper_num);
     loaded_data = load(fname);
     
-    % Extract and store the log evidence for this model
-    log_evidence(wrapper_num) = sum(loaded_data.cbm.output.log_evidence);
+    % Initialize a logical index for valid subjects
+    valid_subjects = ~isnan(loaded_data.cbm.math.logdetA) ...
+        & ~isinf(loaded_data.cbm.math.logdetA) ...
+        & (loaded_data.cbm.math.logdetA ~= 0);
+    % Calculate the mean and standard deviation of logdetA for valid subjects
+    mean_logdetA = mean(loaded_data.cbm.math.logdetA(valid_subjects));
+    std_logdetA = std(loaded_data.cbm.math.logdetA(valid_subjects));
+    
+    % Add the condition for logdetA values within 3 standard deviations of the mean
+    valid_subjects = valid_subjects & ...
+        (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= 3 * std_logdetA);
+
+    % Filter out invalid subjects from the log-likelihood array
+    log_evidence(wrapper_num) = ...
+        sum(loaded_data.cbm.output.log_evidence(valid_subjects));
+    valid_subj_cell{wrapper_num} = valid_subjects;
 end
 
 % Create a histogram of the log evidences
 figure;
-histogram(log_evidence, 20); % 20 bins for illustration, you can adjust this
+histogram(log_evidence);
 title('Histogram of Log Evidences');
 xlabel('Log Evidence');
 ylabel('Frequency');
@@ -73,41 +93,7 @@ ylabel('Frequency');
 [~, top5_indices] = sort(log_evidence, 'descend');
 top5_indices = top5_indices(1:5);
 
-% Initialize models and fcbm_maps arrays for the top 5 models
-top5_models = cell(1, 5);
-top5_fcbm_maps = cell(1, 5);
-
-% Populate the top 5 models and their corresponding fcbm_maps
-for i = 1:5
-    top5_models{i} = str2func(sprintf('wrapper_function_%d', top5_indices(i)));
-    top5_fcbm_maps{i} = sprintf('lap_ac_%d.mat', top5_indices(i));
-end
-
-% Load the common data for all datasets
-fdata = load('../data/all_data.mat');
-data  = fdata.data;
-
-% Run cbm_hbi for the top 5 models
-fname_hbi = 'hbi_AC_top5.mat';
-cbm_hbi(data, top5_models, top5_fcbm_maps, fname_hbi);
-
-% Load the HBI results and store them
-fname_hbi_loaded = load(fname_hbi);
-hbi_results = fname_hbi_loaded.cbm;
-
-% Save the HBI results for the top 5 models
-save('AC_hbi_top5_results.mat', 'hbi_results');
+% Save the new data file
+save('top5_indeces.mat', 'top5_indices');
 
 
-
-
-% Run cbm_hbi for all models
-fname_hbi = 'hbi_AC.mat';
-cbm_hbi(data, models, fcbm_maps, fname_hbi);
-
-% Load the HBI results and store them
-fname_hbi_loaded = load(fname_hbi);
-hbi_results = fname_hbi_loaded.cbm;
-
-% Save the HBI results for all datasets
-save('hbi_AC_results.mat', 'hbi_results');

@@ -1,15 +1,10 @@
-% Add path to the codes directory
+% Add paths
 addpath(fullfile('..','codes'));
-
-% Add path to the wrappers directory
 addpath(fullfile('..','zearn_models','wrappers'));
-
-% Create the prior structure for your new model
-v = 6.25;
-num_parameters = 7;
-prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
+addpath(fullfile('ac_subj_results'));
 
 % Load the common data for all datasets
+load("top5_indeces.mat");
 fdata = load('../data/all_data.mat');
 data  = fdata.data;
 
@@ -18,23 +13,61 @@ if isempty(gcp('nocreate'))
     parpool;
 end
 
-models = {@wrapper_function_9,@wrapper_function_12, ...
-    @wrapper_function_13,@wrapper_function_14};
+models = cell(1,5);
+fname = cell(1,5);
 
-fcbm_maps = {'lap_ac_9.mat','lap_ac_12.mat', ...
-    'lap_ac_13.mat','lap_ac_14.mat'};
+% Create the prior structure for your new model
+v = 6.25;
+num_parameters = 9;
+% Create the prior structure for your new model
+prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
+for i = 1:5
+    models{i} = str2func(sprintf('wrapper_function_%d', top5_indices(i)));
+    fname{i} = sprintf('ac_refine/refine_ac_%d.mat', top5_indices(i));
 
-parfor i = 1:4
-    % Specify the file-address for saving the output
-    fname = fcbm_maps{i};
-    
+    loaded_data = load(fname{i});
+    prior_ac.mean = prior_ac.mean + ...
+        mean(loaded_data.cbm.output.parameters,1)';
+end
+
+prior_ac.mean = prior_ac.mean/5;
+
+% Populate the top 5 models and their corresponding fcbm_maps
+parfor i = 1:5
     % Run the cbm_lap function for your new model
-    cbm_lap(data, models{i}, prior_ac, fname);
+    cbm_lap(data, models{i}, prior_ac, fname{i});
+end
+
+valid_subj_all = ones(1,210);
+for i = 1:5
+    % Load the saved output for this model
+    loaded_data = load(fname{i});
+    
+    % Initialize a logical index for valid subjects
+    valid_subjects = ~isnan(loaded_data.cbm.math.logdetA) ...
+        & ~isinf(loaded_data.cbm.math.logdetA) ...
+        & (loaded_data.cbm.math.logdetA ~= 0);
+    % Calculate the mean and standard deviation of logdetA for valid subjects
+    mean_logdetA = mean(loaded_data.cbm.math.logdetA(valid_subjects));
+    std_logdetA = std(loaded_data.cbm.math.logdetA(valid_subjects));
+    
+    % Add the condition for logdetA values within 3 standard deviations of the mean
+    valid_subjects = valid_subjects & ...
+        (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= 3 * std_logdetA);
+
+    valid_subj_all = valid_subj_all & valid_subjects;
+end
+
+% Filter out invalid subjects from the original data
+filtered_data = data(valid_subj_all);
+parfor i = 1:5
+    % Run the cbm_lap function for your new model
+    cbm_lap(filtered_data, models{i}, prior_ac, fname{i});
 end
 
 % Run cbm_hbi for all models
 fname_hbi = 'hbi_AC_refined.mat';
-cbm_hbi(data, models, fcbm_maps, fname_hbi);
+cbm_hbi(data, models, fname, fname_hbi);
 
 % Load the HBI results and store them
 fname_hbi_loaded = load(fname_hbi);
