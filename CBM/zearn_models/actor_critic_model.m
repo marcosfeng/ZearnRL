@@ -1,14 +1,16 @@
 function [loglik] = actor_critic_model(parameters, subj)
     % Extract parameters
     nd_alpha_w = parameters(1);  % Learning rate for w (critic)
-    alpha_w = exp(nd_alpha_w);
+    alpha_w = 1/(1+exp(-nd_alpha_w));
     nd_alpha_theta = parameters(2);  % Learning rate for theta (actor)
-    alpha_theta = exp(nd_alpha_theta);
+    alpha_theta = 1/(1+exp(-nd_alpha_theta));
     nd_gamma = parameters(3);  % Discount factor
     gamma = 1/(1+exp(-nd_gamma));
     nd_tau = parameters(4);  % Inverse temperature for softmax action selection
     tau = exp(nd_tau);
-    nd_cost = parameters(5:end);  % Cost for each action
+    theta_init = parameters(5);
+    w_init = parameters(6);
+    nd_cost = parameters(7:end);  % Cost for each action
     cost = exp(nd_cost);
 
     % Unpack data
@@ -21,8 +23,8 @@ function [loglik] = actor_critic_model(parameters, subj)
     % Initialize
     C = size(choice, 2);  % Number of choices
     D = size(state, 2);  % Dimensionality of state space
-    w = zeros(D, C);  % Critic's state-action value estimates
-    theta = zeros(D, C);  % Actor's policy parameters
+    w = w_init * ones(D, C);  % Critic's state-action value estimates
+    theta = theta_init * ones(D, C);  % Actor's policy parameters
     p = zeros(size(subj.actions, 1), 1);  % Log probabilities of choices
 
     % Loop through trials
@@ -36,14 +38,20 @@ function [loglik] = actor_critic_model(parameters, subj)
         a = choice(t, :);  % Action on this trial (vector of 0s and 1s)
         o = outcome(t);  % Outcome on this trial
 
-        % Actor: Compute policy (probability of taking each action)
-        % Clipping to avoid numerical overflow
-        policy = max(1 ./ (1 + exp(-s * theta * tau)), 1e-100);
+        % Actor: Compute policy (log probability of taking each action)
+        % Calculate the product s * theta * tau
+        product = s * theta * tau;
+        % Define a threshold for 'large' theta
+        if abs(product) > 10
+            log_policy = -product;
+            log_policy_complement = product;
+        else
+            log_policy = -log1p(exp(-product));
+            log_policy_complement = -log1p(exp(product));
+        end
 
         % Compute log probability of the chosen actions
-        p(t) = sum(log(policy(a == 1)));
-        % Add a == 0
-        p(t) = p(t) + sum(log(max(1 - policy(a == 0), 1e-100)));
+        p(t) = sum(log_policy(a == 1)) + sum(log_policy_complement(a == 0));
 
         % Critic: Compute TD error (delta)
         if t < Tsubj

@@ -65,6 +65,11 @@ df <- read.csv(file = "Bayesian/df_subset.csv") %>%
 # List of all potential state and reward variables
 all_vars <- c("Active.Users...Total", "Minutes.per.Active.User", "Badges.per.Active.User",
               "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
+
+# Normalize the variables in 'all_vars'
+df <- df %>%
+  mutate(across(all_of(all_vars), scale))
+
 # List of all potential action variables
 choices <- list(
   KL = grep("KullbackLeibler(.)bin", names(df), value = TRUE)
