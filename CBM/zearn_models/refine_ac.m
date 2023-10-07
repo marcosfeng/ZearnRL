@@ -17,11 +17,12 @@ num_parameters = 9;
 prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
 for i = 1:5
     models{i} = str2func(sprintf('wrapper_function_%d', top5_indices(i)));
-    fname{i} = sprintf('ac_refine/refine_ac_%d.mat', top5_indices(i));
+    fname{i} = sprintf('ac_subj_results/lap_ac_%d.mat', top5_indices(i));
 
     loaded_data = load(fname{i});
     prior_ac.mean = prior_ac.mean + ...
         mean(loaded_data.cbm.output.parameters,1)';
+    fname{i} = sprintf('ac_refine/refine_ac_%d.mat', top5_indices(i));
 end
 prior_ac.mean = prior_ac.mean/5;
 
@@ -96,9 +97,40 @@ for i = 1:5
     save(filtered_name{i}, '-struct', 'loaded_data');
 end
 
+log_evidence = zeros(1, 5);
+for i = 1:5
+    loaded_data = load(fname{i});
+    log_evidence(i) = ...
+        sum(loaded_data.cbm.output.log_evidence(valid_subj_all));
+end
+% Rank the models by log evidence and get the indices of the top 2
+[~, top2_indices] = sort(log_evidence, 'descend');
+top2_indices = top2_indices(1:2);
+% Create the prior structure for your new model
+v = 2;
+num_parameters = 9;
+% Create the prior structure from previous estimation
+prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
+for i = 1:2
+    models{i} = str2func(sprintf('wrapper_function_%d', top5_indices(top2_indices(i))));
+    fname{i} = sprintf('ac_refine/refine_ac_%d.mat', top5_indices(top2_indices(i)));
+
+    loaded_data = load(fname{top5_indices(top2_indices(i))});
+    prior_ac.mean = prior_ac.mean + ...
+        mean(loaded_data.cbm.output.parameters,1)';
+    fname{i} = sprintf('ac_refine/top2_ac_%d.mat', top5_indices(top2_indices(i)));
+end
+prior_ac.mean = prior_ac.mean/2;
+
+% Populate the top 2 models and their corresponding fcbm_maps
+parfor i = 1:2
+    % Run the cbm_lap function for your new model
+    cbm_lap(data, models{i}, prior_ac, fname{top5_indices(top2_indices(i))});
+end
+
 % Run cbm_hbi for all models
 fname_hbi = 'hbi_AC_refined.mat';
-cbm_hbi(filtered_data, models, filtered_name, fname_hbi);
+cbm_hbi(data, models(1:2), filtered_name, fname_hbi);
 
 % Load the HBI results and store them
 fname_hbi_loaded = load(fname_hbi);
