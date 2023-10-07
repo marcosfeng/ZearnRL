@@ -93,7 +93,7 @@ while( (k<numrep) || (k>=numrep && k<numrep_med && flag==.5) || (k>=numrep && k<
         [~,ishesspos] = chol(H_tmp);
         ishesspos = ~logical(ishesspos);
         
-        sumG = mean(abs(G_tmp));
+        sumG = mean(abs(G_tmp),"omitmissing");
         
         if (flag~=1 || (F_tmp<F)) && ishesspos && (sumG<tolG)
                 flag = 1;

@@ -37,18 +37,22 @@ p.addParameter('initialize','all_r_1',@(arg)any(strcmp(arg,{'all_r_1','cluster_r
 p.addParameter('maxiter',50);
 p.addParameter('tolx',0.01,@(arg)isscalar(arg)); %increase to have faster fitting
 p.addParameter('tolL',-log(.5),@(arg)isscalar(arg));
-p.addParameter('parallel',false);
+
 
 % if parallel processing
 if isfield(pconfig,'parallel')
     if pconfig.parallel
-        p.addParameter('parallel',false);
+        p.addParameter('parallel',true);
         p.addParameter('loop_runtime',30,@(arg)(isscalar(arg)&& (arg<300)));
         p.addParameter('loop_maxruntime',90,@(arg)(isscalar(arg)&& (arg<600)));
         p.addParameter('loop_pausesec',30,@(arg)(isscalar(arg)&& (arg<60)));
         p.addParameter('loop_maxnumrun',3,@(arg)(floor(arg)==arg));    
         p.addParameter('loop_discard_bad',true,@(arg)(islogical(arg)));
+    else
+        p.addParameter('parallel',false);
     end
+else
+    p.addParameter('parallel',false);
 end
 
 p.parse(pconfig);

@@ -252,10 +252,11 @@ Sdiag    = cell(K,1);
 Nbar     = nan(K,1);
 
 for k=1:K
-    Nk          = sum(r(k,:));    
+    r(isinf(r)) = 0;
+    Nk          = sum(r(k,:),"omitnan");    
     Nbar(k)     = Nk;    
-    thetabar{k} = sum(bsxfun(@times,theta{k},r(k,:)),2)/Nk;
-    Sdiag{k}    = sum(bsxfun(@times,theta{k}.^2+Ainvdiag{k} ,r(k,:)),2)/Nk -thetabar{k}.^2;
+    thetabar{k} = sum(bsxfun(@times,theta{k},r(k,:)),2,"omitnan")/Nk;
+    Sdiag{k}    = sum(bsxfun(@times,theta{k}.^2+Ainvdiag{k} ,r(k,:)),2,"omitnan")/Nk -thetabar{k}.^2;
 end
 end
 
@@ -294,25 +295,25 @@ for k=1:K
     
     Elogtau{k}    = psi(nu{k})-log(sigma{k});
     Etau{k}       = nu{k}./sigma{k};
-    logG{k}       = sum(-gammaln(nu{k}) + nu{k}*log(sigma{k}));
+    logG{k}       = sum(-gammaln(nu{k}) + nu{k}*log(sigma{k}),"omitnan");
     
     
     %--
     % the lower bound
-    logG0         = sum(-gammaln(nu0k) + nu0k.*log(sigma0k));
+    logG0         = sum(-gammaln(nu0k) + nu0k.*log(sigma0k),"omitnan");
     Dk            = length(a0k);
     
-    ElogdetT      = sum(Elogtau{k});    
+    ElogdetT      = sum(Elogtau{k},"omitnan");    
     ET            = diag(Etau{k});    
         
     Elogpmu(k)    = -Dk/2*log(2*pi) +.5*Dk*log(beta0k) + .5*ElogdetT -.5*(a{k}-a0k)'*(beta0k*ET)*(a{k}-a0k) -Dk/2*beta0k/beta{k};
-    Elogptau(k)   = +(nu0k-1)*ElogdetT -sum(sigma0k.*diag(ET)) + logG0;
+    Elogptau(k)   = +(nu0k-1)*ElogdetT -sum(sigma0k.*diag(ET),"omitnan") + logG0;
     
     Elogqmu(k)    = -Dk/2*log(2*pi) +.5*Dk*log(beta{k}) + .5*ElogdetT + -Dk/2;
     Elogqtau(k)   = +(nu{k}-1)*ElogdetT - Dk*nu{k} + logG{k};
     
     ElogpH(k)     = +.5*Nk*ElogdetT -.5*Nk*Dk*log(2*pi) -.5*Nk*Dk/beta{k} +...
-                    -.5*sum(Etau{k}.*( Nk*Sdiag{k}+Nk*(thetabar{k}-a{k}).^2 ) );    
+                    -.5*sum(Etau{k}.*( Nk*Sdiag{k}+Nk*(thetabar{k}-a{k}).^2 ),"omitnan");    
 end
 qmutau   = struct('name','GaussianGamma','a',a,'beta',beta,'sigma',sigma,'nu',nu,'Etau',Etau,'Elogtau',Elogtau,'logG',logG);
 bound   = struct('module','qmutau','ElogpH',ElogpH,'Elogpmu',Elogpmu,'Elogptau',Elogptau,'Elogqmu',Elogqmu,'Elogqtau',Elogqtau);
@@ -327,13 +328,13 @@ logC0      = pm.logC;
 alpha0     = pm.alpha;
 
 alpha      = alpha0 + Nbar;
-alpha_star = sum(alpha);
+alpha_star = sum(alpha,"omitnan");
 Elogm      = psi(alpha) - psi(alpha_star);
 loggamma   = gammaln(alpha);
-logC       = gammaln(alpha_star)-sum(loggamma);
+logC       = gammaln(alpha_star)-sum(loggamma,"omitnan");
 
-Elogpm     = logC0 + sum((alpha0-1).*Elogm);
-Elogqm     = logC  + sum((alpha-1).*Elogm);
+Elogpm     = logC0 + sum((alpha0-1).*Elogm,"omitnan");
+Elogqm     = logC  + sum((alpha-1).*Elogm,"omitnan");
 ElogpZ     = Nbar.*Elogm;
 
 if limInf
@@ -374,8 +375,8 @@ ElogqH   = nan(K,1);
 ElogqZ   = nan(K,1);
 
 D        = arrayfun(@(k)length(qmutau(k).a),(1:K)');
-ElogdetT = arrayfun(@(k)sum(qmutau(k).Elogtau),(1:K)');
-logdetET = arrayfun(@(k)sum(log(qmutau(k).Etau)),(1:K)');
+ElogdetT = arrayfun(@(k)sum(qmutau(k).Elogtau,"omitnan"),(1:K)');
+logdetET = arrayfun(@(k)sum(log(qmutau(k).Etau),"omitnan"),(1:K)');
 beta     = arrayfun(@(k)qmutau(k).beta,(1:K)');
 
 lambda   = .5*ElogdetT -.5*logdetET -.5*D./beta;
@@ -391,23 +392,23 @@ logeps      = exp(log1p(-1+eps));
 for k=1:K
     if ~qmlimInf
     rarg        = bsxfun(@minus,logrho,logrho(k,:));
-    r(k,:)      = 1./sum(exp(rarg),1);    
+    r(k,:)      = 1./sum(exp(rarg),1,"omitnan");    
     end
     
-    Nk          = sum(r(k,:));
+    Nk          = sum(r(k,:),"omitnan");
     Dk          = D(k);
     
     ElogpH(k)   = +.5*Nk*ElogdetT(k) -.5*Nk*Dk*log(2*pi) -.5*Nk*Dk/qmutau(k).beta +...
-                  -.5*Nk*sum(qmutau(k).Etau.*( Sdiag{k}+(thetabar{k}-qmutau(k).a).^2 ) );
+                  -.5*Nk*sum(qmutau(k).Etau.*( Sdiag{k}+(thetabar{k}-qmutau(k).a).^2 ),"omitnan");
     ElogpZ(k)   = Nk*qm.Elogm(k);
     
-    ElogpXH     = sum( r(k,:).*(logf(k,:) -.5*Dk + lambda(k)) );
+    ElogpXH     = sum( r(k,:).*(logf(k,:) -.5*Dk + lambda(k)),"omitnan");
     ElogpX(k)   = ElogpXH - ElogpH(k);
     
     rlogr       = r(k,:).*(log1p(-1+r(k,:))); % =r(k,:).*log(r(k,:))
     rlogr(r(k,:)<logeps) = 0;
-    ElogqH(k)   = sum( r(k,:).*(-Dk/2-Dk/2*log(2*pi)+.5*logdetA(k,:) ) );
-    ElogqZ(k)   = sum( rlogr);  
+    ElogqH(k)   = sum( r(k,:).*(-Dk/2-Dk/2*log(2*pi)+.5*logdetA(k,:) ),"omitnan");
+    ElogqZ(k)   = sum( rlogr,"omitnan");  
 end
 
 bound = struct('module','qHZ','ElogpX',ElogpX,'ElogpH',ElogpH,'ElogpZ',ElogpZ,'ElogqH',ElogqH,'ElogqZ',ElogqZ);
@@ -475,7 +476,7 @@ for n=1:N
             A{k,n}       = priors(k).precision;
             theta{k}(:,n)= theta_n;
         end
-        logdetA_kn       = 2*sum(log(diag(chol(A{k,n})))); % =log(det(A{k,n}))
+        logdetA_kn       = 2*sum(log(diag(chol(A{k,n}))),"omitnan"); % =log(det(A{k,n}))
         Ainvdiag{k}(:,n) = diag(A{k,n}^-1);
         logdetA(k,n)     = logdetA_kn;        
     end
@@ -496,7 +497,7 @@ thetabar = cell2mat(thetabar);
 Sdiag    = cell2mat(Sdiag);
 x        = thetabar./sqrt(Sdiag);
 
-dx            = sqrt(mean((x-xpre).^2));
+dx            = sqrt(mean((x-xpre).^2,"omitmissing"));
 dL            = L-Lpre;
 
 [~,ibest]     = max(alpha);
@@ -523,21 +524,21 @@ Lpre     = + bb.ElogpX  + bb.ElogpH   + bb.ElogpZ + ...
        
 switch lastmodule
     case 'qHZ'
-        bb.ElogpX    = sum(bound.qHZ.ElogpX);
-        bb.ElogpH    = sum(bound.qHZ.ElogpH);
-        bb.ElogpZ    = sum(bound.qHZ.ElogpZ);
-        bb.ElogqH    = sum(bound.qHZ.ElogqH);
-        bb.ElogqZ    = sum(bound.qHZ.ElogqZ);        
+        bb.ElogpX    = sum(bound.qHZ.ElogpX,"omitnan");
+        bb.ElogpH    = sum(bound.qHZ.ElogpH,"omitnan");
+        bb.ElogpZ    = sum(bound.qHZ.ElogpZ,"omitnan");
+        bb.ElogqH    = sum(bound.qHZ.ElogqH,"omitnan");
+        bb.ElogqZ    = sum(bound.qHZ.ElogqZ,"omitnan");        
         
     case 'qmutau'
-        bb.ElogpH    = sum(bound.qmutau.ElogpH);
-        bb.Elogpmu   = sum(bound.qmutau.Elogpmu);
-        bb.Elogptau  = sum(bound.qmutau.Elogptau);
-        bb.Elogqmu   = sum(bound.qmutau.Elogqmu);
-        bb.Elogqtau  = sum(bound.qmutau.Elogqtau);
+        bb.ElogpH    = sum(bound.qmutau.ElogpH,"omitnan");
+        bb.Elogpmu   = sum(bound.qmutau.Elogpmu,"omitnan");
+        bb.Elogptau  = sum(bound.qmutau.Elogptau,"omitnan");
+        bb.Elogqmu   = sum(bound.qmutau.Elogqmu,"omitnan");
+        bb.Elogqtau  = sum(bound.qmutau.Elogqtau,"omitnan");
         
     case 'qm'
-        bb.ElogpZ    = sum(bound.qm.ElogpZ);
+        bb.ElogpZ    = sum(bound.qm.ElogpZ,"omitnan");
         bb.Elogpm    = bound.qm.Elogpm;
         bb.Elogqm    = bound.qm.Elogqm;
 end

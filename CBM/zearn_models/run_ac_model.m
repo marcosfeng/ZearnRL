@@ -95,5 +95,3 @@ top5_indices = top5_indices(1:5);
 
 % Save the new data file
 save('top5_indeces.mat', 'top5_indices');
-
-
