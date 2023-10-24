@@ -57,6 +57,9 @@ model {
           w[, j] += alpha[1] * delta * to_vector(current_state);
           // Update theta:
           theta[, j] += alpha[2] * delta * to_vector(current_state);
+          // Update theta:
+          theta[, j] += alpha[2] * delta * to_vector(current_state) * -tau
+                        ./ (1 + exp(dot_product(theta[, j], current_state) * tau)) ;
         }
       }
     }
