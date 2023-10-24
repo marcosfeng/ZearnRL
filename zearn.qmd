@@ -97,6 +97,11 @@ In the context of predicting repeated behavior, we can use RL algorithms to mode
 
 With RL, it then becomes possible to identify how teachers differ in their learning and behavior and how these characteristics relate to student outcomes. For example, teacher flexibility may be optimal in a learning environment, but without the estimation of individual parameters, differentiating teachers would not be possible. Further, if a policy-maker can shift these individual-level parameters, they can affect student outcomes. These so-called "counterfactual analyses" can be powerful tools for creating innovative interventions or nudges to improve an outcome of interest. Finally, the RL model carries potential beyond the goals of this study. For instance, it can learn the associations between actions and rewards, allowing for the automation of certain instructional inputs; if a teacher often assigns an activity under a certain state, the model could automate this action, freeing some of the teacher's time.
 
+### Previous Applied RL Cases
+
+- Discuss existing models and where they fall short, justifying your approach.
+- Introduce the concept of data-driven exploration in RL models.
+
 ### Q-Learning Model
 
 The first class of models we apply to our data is the so-called Q-learning algorithm. Q-learning is a model-free reinforcement learning algorithm designed to learn a policy, which tells an agent what action to take under what circumstances [@watkins1992]. It does not require a model of the environment (hence the connotation "model-free"), and it can handle problems with stochastic transitions and rewards without requiring adaptations. This model is inspired by the so-called "multi-armed bandit" problem. In this paradigm, an agent has a finite number of choices, each associated with a given reward. The agent must simply learn to choose which action yields the highest reward. Learning in this setting occurs by adjusting expectations and minimizing "surprises" (i.e., prediction errors). Notice that this setting does not require us to define a given state: in our simplest model, Q-learning assumes that the best action in one week is the best action at any other week. Thus, the model only prescribes an action-reward relationship. The teacher here learns the value of logging in regardless of the history of their classroom or students.
@@ -220,6 +225,11 @@ In the Zearn context, we define the decision process as follows:
 5.  The reward is a linear function of the number of badges earned.
 
 Mathematically mapping the agent-environment interaction is flexible, with many models potentially satisfying our initial assumptions. We approach this problem as a competition of models, selecting a set of models applicable to our setting, fitting them to the data, and comparing their performances.
+
+## A Data-Driven Approach to Feature Selection
+
+<!-- - Introduce the data-driven approach, its necessity, and the research question. -->
+<!-- - Briefly mention the RL models and their initial shortcomings. -->
 
 ## State-Free Q-Learning Model
 
@@ -1484,6 +1494,12 @@ We extended the base reinforcement learning models by incorporating a hierarchic
 
 where $\mu$ and $\sigma$ denote the group-level hyperparameters, and the subscript $i$ signifies the individual-level parameters.
 
+## Feature Selection
+
+- Explain how you created different combinations of variables for rewards and state variables.
+- Elaborate on data-driven exploration, model estimation, and HBI.
+- Discuss the code used for actor-critic models and variable combinations.
+
 ## Model Performance
 
 To evaluate the performance of the Bayesian models, we used the Leave-One-Out Information Criterion (LOOIC), a robust measure of model quality. The LOOIC is a variant of the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC). However, unlike AIC and BIC, which use asymptotic approximations, LOOIC is a fully Bayesian criterion that provides a more accurate estimate of out-of-sample prediction error. We used the `loo` package in R to compute the LOOIC [@vehtari2023]. The package uses Pareto smoothed importance sampling (PSIS), a beneficial technique for models where standard cross-validation is computationally expensive or impractical [@vehtari2017].
@@ -1951,6 +1967,11 @@ gt(df_looic)
 
 ```
 
+## Feature Selection
+
+<!-- - Present the 4 models that stood out during the first estimation. -->
+<!-- - Discuss the HBI results and model comparison statistics. -->
+
 ## Model Fit
 
 We compared the hierarchical model's predictions and the original choice data, representing a distinct action. We averaged the model predictions across teachers weekly and overlayed them with the average action from the choice data. We also calculated the standard error around these averages accounting for missing data, which provided a measure of uncertainty around these values.
@@ -2268,6 +2289,10 @@ stargazer(model1, model2, model3, model4, model5, model6,
 
 
 ```
+
+### Feature Selection Model Fit
+
+- Discuss the best-performing model using students online as a reward, and alerts, badges, and minutes as state variables.
 
 ## Heterogeneity
 
