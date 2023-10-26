@@ -52,13 +52,14 @@ df <- df %>%
   .[, row_n := seq_len(.N), by = .(Classroom.ID)]
 
 choices <- list(
-  FR = grep("FrobeniusNNDSVD(.)bin", names(df), value = TRUE),
-  FRa = grep("FrobeniusNNDSVDA(.)bin", names(df), value = TRUE),
-  KL = grep("Kullback.Leibler(.)bin", names(df), value = TRUE)
+  FR = grep("FrobeniusNNDSVD(.)bin", names(df), value = TRUE)
+  # FRa = grep("FrobeniusNNDSVDA(.)bin", names(df), value = TRUE),
+  # KL = grep("Kullback.Leibler(.)bin", names(df), value = TRUE)
 )
 
 # Write to csv
 write.csv(df, "./Bayesian/df_subset.csv")
+# df <- read_csv("Bayesian/df_subset.csv")
 
 # 1. Q-learning -----------------------------------------------------------
 
@@ -122,11 +123,11 @@ for (choice in names(choices)) {
 df <- df %>%
   arrange(Classroom.ID, week) %>%
   group_by(Classroom.ID) %>%
-  mutate(tower_state = (Tower.Alerts.per.Tower.Completion -
-                    lag(Tower.Alerts.per.Tower.Completion))) %>%
+  mutate(tower_state = scale(Tower.Alerts.per.Tower.Completion),
+         actst_state = scale(Active.Users...Total)) %>%
   replace_na(list(tower_state = 0)) %>%
   ungroup() %>% as.data.table()
-num_state_var = 2 # Tower.Alerts.per.Tower.Completion + 1
+num_state_var = 3 # Tower.Alerts.per.Tower.Completion + 1
 
 # Prepare list of models
 models <- c("Bayesian/Stan Files/Actor-Critic.stan")
@@ -152,7 +153,9 @@ for (choice in names(choices)) {
         # Assuming df is ordered by Classroom.ID and row_n
         state_array[i, j, ] <- c(1,
                                  df[df$Classroom.ID == current_id &
-                                      df$row_n == j,]$tower_state)
+                                      df$row_n == j,]$tower_state,
+                                 df[df$Classroom.ID == current_id &
+                                      df$row_n == j,]$actst_state)
       }
     }
 
@@ -337,8 +340,31 @@ fit_model <- function(formula, data) {
                cores = 3, backend = "cmdstanr")
   return(model)
 }
-df$state <- df$state - 1
+# Function to find lag
+get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
+  # Add a column for week_lag
+  datatable[, week_lag := c(0, diff(week)), by = Classroom.ID]
 
+  if (is.null(n_comp)) {
+    # Update the lag column with shift function
+    datatable[, (paste0(col, "_", lag_period)) :=
+                shift(get(col), lag_period, fill = 0, type = "lag"),
+              by = Classroom.ID]
+  } else {
+    for (comp in 1:n_comp) {
+      # Update the lag column with shift function
+      datatable <- datatable[, (paste0(col, comp, "_", lag_period)) :=
+                               shift(get(paste0(col, comp)), lag_period, fill = 0, type = "lag"),
+                             by = Classroom.ID]
+    }
+  }
+
+  return(datatable)
+}
+
+df <- df %>%
+  mutate(state = case_when(is.na(state) ~ 0,
+                           .default = state - 1))
 # Non-hierarchical models
 for (col in paste0("FrobeniusNNDSVD", 1:3, "bin")) {
   df <- get_lag_value(df, col, 1)

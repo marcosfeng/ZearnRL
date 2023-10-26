@@ -1438,14 +1438,6 @@ write.csv(df_components, "./Bayesian/df.csv")
 
 ```
 
-```{r load dimension reduction}
-#| include: false
-df <- read.csv(file = "./Bayesian/df.csv")
-# Clean environment
-rm(list = setdiff(ls(), c("df", "random_py")))
-gc(verbose = FALSE)
-```
-
 # Methods
 
 ## Dynamic Analysis
@@ -1517,6 +1509,14 @@ We extended our analysis to examine the relationship between the estimated param
 ## Action Variable and Lag Selection
 
 We first select the most suitable action variable by comparing the Bayesian Information Criterion (BIC) and Negative Log-Likelihood (NLL) across different combinations of variables and lags. We incorporate lagged variables into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. As depicted in @fig-panel-bic, the model that best fits the data includes four lags of the Non-negative Matrix Factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) method. Including these four lags suggests that the teachers' actions over the past four weeks, encapsulated by this component, significantly influence their choices in the current week.
+
+```{r load dimension reduction}
+#| include: false
+df <- read.csv(file = "./Bayesian/df.csv")
+# Clean environment
+rm(list = setdiff(ls(), c("df", "random_py")))
+gc(verbose = FALSE)
+```
 
 ```{r}
 bic_plm <- function(object) {
@@ -1691,24 +1691,25 @@ results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
 # Convert variables to appropriate data types
 results_df <- results_df %>%
   mutate(Method = as.factor(Method),
-         Component = as.numeric(Component),
+         Component = as.factor(Component),
          Lag = as.numeric(Lag),
          nloglik = as.numeric(nloglik),
          bic = as.numeric(bic)) %>%
-  group_by(Method, Lag) %>%
+  group_by(Method, Component, Lag) %>%
   summarise(avg_bic = mean(bic, na.rm = TRUE),
             avg_nloglik = mean(nloglik, na.rm = TRUE),
             .groups = "drop")
 # Filter methods for the plots
-methods_for_plots <- c("FrobeniusNNDSVD", "KullbackLeibler", "FrobeniusNNDSVDA")
+# methods_for_plots <- c("FrobeniusNNDSVD", "KullbackLeibler", "FrobeniusNNDSVDA")
+methods_for_plots <- c("FrobeniusNNDSVD")
 plot_data <- filter(results_df, Method %in% methods_for_plots)
 # Shared aesthetics for the plots
-aes <- ggplot2::aes(x = Lag, y = value, color = Method)
+aes <- ggplot2::aes(x = Lag, y = value, color = Component)
 
 # Summarize methods not included in the plots and prepare tables
 methods_for_summary <- setdiff(unique(results_df$Method), methods_for_plots)
 summary_data <- filter(results_df, Method %in% methods_for_summary) %>%
-  group_by(Method) %>%
+  group_by(Method, Component) %>%
   summarise(BIC = mean(avg_bic, na.rm = TRUE),
             NLL = mean(avg_nloglik, na.rm = TRUE),
             .groups = "drop")
@@ -1719,12 +1720,12 @@ summary_data$BIC <- format(summary_data$BIC, scientific = TRUE, digits = 2)
 summary_data$NLL <- format(summary_data$NLL, scientific = TRUE, digits = 2)
 
 # Create tables and remove headers
-bic_table <- summary_data %>% select(Method, BIC) %>%
-  tableGrob(theme = ttheme_minimal(base_size = 8, 
-                                   core=list(bg_params = list(fill = "white", col=NA),
-                                             fg_params=list(fontface=3))),
-             rows = NULL)
-bic_table <- bic_table[-1, ]  # Remove header
+# bic_table <- summary_data %>% select(Method, BIC) %>%
+#   tableGrob(theme = ttheme_minimal(base_size = 8, 
+#                                    core=list(bg_params = list(fill = "white", col=NA),
+#                                              fg_params=list(fontface=3))),
+#              rows = NULL)
+# bic_table <- bic_table[-1, ]  # Remove header
 bic_data <- filter(plot_data, !is.na(avg_bic)) %>% 
   mutate(value = avg_bic, metric = "BIC")
 # BIC Plot
@@ -1733,18 +1734,18 @@ bic_plot <- ggplot(bic_data, aes) +
   labs(title = "BIC", x = "Number of Lags") +
   scale_y_continuous(labels = scientific) +
   theme_minimal() +
-  theme(axis.title.y = element_blank(), legend.position = "none") +
-  annotation_custom(bic_table, xmin = max(bic_data$Lag) - 3.5,
-                    xmax = max(bic_data$Lag) - 0.5,
-                    ymin = 1.01*max(bic_data$value),
-                    ymax = Inf)
+  theme(axis.title.y = element_blank(), legend.position = "none")
+  # annotation_custom(bic_table, xmin = max(bic_data$Lag) - 3.5,
+  #                   xmax = max(bic_data$Lag) - 0.5,
+  #                   ymin = 1.01*max(bic_data$value),
+  #                   ymax = Inf)
 
-nll_table <- summary_data %>% select(Method, NLL) %>%
-  tableGrob(theme = ttheme_minimal(base_size = 8, 
-                                   core=list(bg_params = list(fill = "white", col=NA),
-                                             fg_params=list(fontface=3))), 
-             rows = NULL)
-nll_table <- nll_table[-1, ]  # Remove header
+# nll_table <- summary_data %>% select(Method, NLL) %>%
+#   tableGrob(theme = ttheme_minimal(base_size = 8, 
+#                                    core=list(bg_params = list(fill = "white", col=NA),
+#                                              fg_params=list(fontface=3))), 
+#              rows = NULL)
+# nll_table <- nll_table[-1, ]  # Remove header
 nll_data <- filter(plot_data, !is.na(avg_nloglik)) %>% 
   mutate(value = avg_nloglik, metric = "Negative Log-Likelihood")
 nll_plot <- ggplot(nll_data, aes) + 
@@ -1752,11 +1753,11 @@ nll_plot <- ggplot(nll_data, aes) +
   labs(title = "Out-of-sample NLL", x = "Number of Lags") +
   scale_y_continuous(labels = scientific) +
   theme_minimal() +
-  theme(axis.title.y = element_blank(), legend.position = "none") +
-  annotation_custom(nll_table, xmin = max(nll_data$Lag) - 3.5,
-                    xmax = max(nll_data$Lag) - 0.5,
-                    ymin = 1.01*max(nll_data$value),
-                    ymax = Inf)
+  theme(axis.title.y = element_blank(), legend.position = "none")
+  # annotation_custom(nll_table, xmin = max(nll_data$Lag) - 3.5,
+  #                   xmax = max(nll_data$Lag) - 0.5,
+  #                   ymin = 1.01*max(nll_data$value),
+  #                   ymax = Inf)
 
 # Combine the plots and add a legend
 combined_plot <- ggarrange(bic_plot, nll_plot,
@@ -1937,6 +1938,9 @@ loo_qlearn <- post$loo()$estimates["looic", ]
 ## Logit
 models_nh <- readRDS("Bayesian/Results/logit.RDS")
 loo_nh <- sapply(models_nh, loo)
+nll_nh <- lapply(models_nh, log_lik)
+nll_nh <- lapply(nll_nh, mean)
+  
 looic_nh <- sum(unlist(loo_nh["looic",]))
 
 # Hierarchical models
@@ -2007,8 +2011,18 @@ for (i in 1:nrow(prediction_hierarchical)) {
   prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
 }
 
-prediction_hierarchical_3d[prediction_hierarchical_3d == 0] <- NA
-choice_data[is.na(prediction_hierarchical_3d)] <- NA
+# Loop through each subject
+for (subject in seq_len(dim1)) {
+  # Get the value of Tsubj for this subject
+  Tsubj_value <- stan_data[["Tsubj"]][subject]
+  
+  # Set the values in prediction_hierarchical_3d to NA
+  if (Tsubj_value != max(stan_data[["Tsubj"]])) {
+    prediction_hierarchical_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
+    # Set the values in choice_data to NA
+    choice_data[subject, (Tsubj_value + 1):dim2, ] <- NA
+  }
+}
 
 # Get the number of layers
 num_layers <- dim(prediction_hierarchical_3d)[3]
@@ -2020,24 +2034,25 @@ df_compare <- data.frame()
 # Generate a plot for each layer
 for (k in 1:num_layers) {
   y_pred_avg <- apply(prediction_hierarchical_3d[, , k], 2, mean, na.rm = TRUE)
-  y_pred_se <- apply(prediction_hierarchical_3d[, , k], 2, calc_se)
+  y_pred_se  <- apply(prediction_hierarchical_3d[, , k], 2, calc_se)
   
   choice_data_avg <- apply(choice_data[, , k], 2, mean, na.rm = TRUE)
-  choice_data_se <- apply(choice_data[, , k], 2, calc_se)
-
-  weeks <- seq_len(length(y_pred_avg))
+  choice_data_se  <- apply(choice_data[, , k], 2, calc_se)
+  
+  # Only consider weeks with valid SEs
+  weeks <- seq_len(sum(!is.na(y_pred_se)))
 
   df_pred <- data.frame(weeks = weeks,
-                        probability = y_pred_avg,
-                        type = rep("Model Fit", length(y_pred_avg)),
-                        se = y_pred_se,
-                        action = rep(paste("Action", k), length(y_pred_avg)))
+                        probability = y_pred_avg[weeks],
+                        type = rep("Model Fit", max(weeks)),
+                        se = y_pred_se[weeks],
+                        action = rep(paste("Action", k), max(weeks)))
 
   df_real <- data.frame(weeks = weeks,
-                        probability = choice_data_avg,
-                        type = rep("Real Data", length(choice_data_avg)),
-                        se = choice_data_se,
-                        action = rep(paste("Action", k), length(choice_data_avg)))
+                        probability = choice_data_avg[weeks],
+                        type = rep("Real Data", max(weeks)),
+                        se = choice_data_se[weeks],
+                        action = rep(paste("Action", k), max(weeks)))
 
   df_compare <- rbind(df_compare, df_pred, df_real)
 }
@@ -2058,61 +2073,75 @@ print(p)
 ```{r}
 #| eval: false
 
-stan_data <- read_rds("./Bayesian/stan_data.RDS")
-choice_data <- stan_data$choice
+logit_model <- readRDS("./Bayesian/Results/logit-hierarchical.RDS")
+pred_logit_model <- lapply(logit_model, function(model) {
+  fitted(model)
+})
+data_logit_model <- lapply(logit_model, function(model) {
+  model$data[,1]
+})
+logit_pred_3d <- array(NA, dim = dim(prediction_hierarchical_3d))
+choice_data_3d <- array(NA, dim = dim(prediction_hierarchical_3d))
 
-# prediction_hierarchical <- post_hierarchical$summary()
-prediction_hierarchical <- read.csv("./Bayesian/Results/prediction_hierarchical.csv") %>%
-  filter(grepl("y_pred", variable)) %>%
-  dplyr::select(variable, mean)
-prediction_hierarchical <- prediction_hierarchical %>%
-  mutate(variable = str_extract(variable, "\\[.*\\]"),
-         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
-  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
-# Create an empty 3D array
-prediction_hierarchical_3d <- array(dim = c(max(prediction_hierarchical$dim1),
-                                            max(prediction_hierarchical$dim2),
-                                            max(prediction_hierarchical$dim3)))
-# Fill the 3D array with the 'mean' values
-for (i in 1:nrow(prediction_hierarchical)) {
-  dim1 <- prediction_hierarchical$dim1[i]
-  dim2 <- prediction_hierarchical$dim2[i]
-  dim3 <- prediction_hierarchical$dim3[i]
-  prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
+# Loop through each subject
+for (subject in seq_len(dim1)) {
+  Tsubj_value <- stan_data[["Tsubj"]][subject]
+  
+  # Calculate the starting and ending indices for the current subject
+  start_idx <- ifelse(subject == 1, 1,
+                      sum(stan_data[["Tsubj"]][1:(subject-1)]) - subject + 2)
+  end_idx <- sum(stan_data[["Tsubj"]][1:subject]) - subject
+  
+  # Loop through each model in pred_logit_model
+  for (model_idx in seq_along(pred_logit_model)) {
+    # Extract the estimated probabilities for the current model
+    model_predictions <- pred_logit_model[[model_idx]][start_idx:end_idx,"Estimate"]
+    real_data <- data_logit_model[[model_idx]][start_idx:end_idx]
+
+    # Populate logit_pred_3d with the predicted values
+    logit_pred_3d[subject, 2:(Tsubj_value), model_idx] <- model_predictions
+    choice_data_3d[subject, 2:(Tsubj_value), model_idx] <- real_data
+  }
 }
-# Now prediction_hierarchical_3d is a 3D array like choice_data.
 
-prediction_hierarchical_3d[prediction_hierarchical_3d == 0] <- NA
-choice_data[is.na(prediction_hierarchical_3d)] <- NA
+# Generate a plot for each layer
+df_compare <- data.frame()
+for (k in 1:dim3) {
+  y_pred_avg <- apply(logit_pred_3d[, , k], 2, mean, na.rm = TRUE)
+  y_pred_se <- apply(logit_pred_3d[, , k], 2, calc_se)
+  
+  choice_data_avg <- apply(choice_data_3d[, , k], 2, mean, na.rm = TRUE)
+  choice_data_se  <- apply(choice_data_3d[, , k], 2, calc_se)
 
-y_pred_avg <- apply(prediction_hierarchical_3d, c(2, 3), mean, na.rm = TRUE)
-y_pred_se <- apply(prediction_hierarchical_3d, c(2, 3), sd, na.rm = TRUE) / sqrt(dim(prediction_hierarchical_3d)[1])
+  # Only consider weeks with valid SEs
+  weeks <- seq_len(length(y_pred_se))[!is.na(y_pred_se)]
+  idx_shift <- weeks[1] - 1
 
-choice_data_avg <- apply(choice_data, c(2, 3), mean, na.rm = TRUE)
+  df_pred <- data.frame(weeks = weeks,
+                        probability = y_pred_avg[weeks],
+                        type = rep("Model Fit", length(weeks)),
+                        se = y_pred_se[weeks],
+                        action = rep(paste("Action", k), length(weeks)))
 
-weeks <- seq_len(dim(y_pred_avg)[1])
+  df_real <- data.frame(weeks = weeks,
+                        probability = choice_data_avg[weeks],
+                        type = rep("Real Data", length(weeks)),
+                        se = choice_data_se[weeks],
+                        action = rep(paste("Action", k), length(weeks)))
 
-# Create data frames
-df_pred <- data.frame(weeks = rep(weeks, dim(y_pred_avg)[2]),
-                      probability = c(y_pred_avg),
-                      type = rep("Model Fit", length(y_pred_avg)),
-                      se = c(y_pred_se))
+  df_compare <- rbind(df_compare, df_pred, df_real)
+}
 
-df_real <- data.frame(weeks = rep(weeks, dim(choice_data_avg)[2]),
-                      probability = c(choice_data_avg),
-                      type = rep("Real Data", length(choice_data_avg)),
-                      se = rep(NA, length(choice_data_avg)))
-# Combine data frames
-df_compare <- rbind(df_pred, df_real)
-
-# Plot
-ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
+p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
   geom_line() +
-  geom_ribbon(data = df_pred, aes(ymin = probability - se, ymax = probability + se), alpha = 0.1) +
-  labs(x = "Number of Weeks", y = "Probability of Y=1") +
+  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
+  labs(x = "Week", y = "Probability of a=1") +
+  facet_wrap(~action, ncol = 1) +
   scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
   theme_bw()
 
+print(p)
 
 ```
 

@@ -1,6 +1,5 @@
 //
-// This Stan model defines a reinforcement learning model
-// using eligibility traces and applies it to the data.
+// This Stan model defines an Actor-Critic RL model
 //
 data {
   int<lower=1> N;  // Number of subjects
@@ -14,32 +13,40 @@ data {
   array[N,T] int<lower=0> week; // Number of the week
 }
 parameters {
-  array[C] real<lower=0, upper=1> cost;  // cost in badge-units for each component
+  array[C] real<lower=0> cost;  // cost in badge-units for each component
   real<lower=0, upper=1> gamma;  // discount rate
+  real<lower=0> tau;  // temperature
   vector<lower=0, upper=1>[2] alpha;  // step-sizes
+  array[C] vector[S] w_0;  // initial Ws
+  array[C] vector[S] theta_0;  // initial Thetas
 }
 model {
   // Flat-ish priors
-  cost    ~ normal(0.5, C);
-  gamma   ~ uniform(0, 1);
-  alpha   ~ uniform(0, 1);
+  cost     ~ exponential(3);
+  gamma    ~ uniform(0, 1);
+  tau      ~ exponential(1.0/17);
+  alpha    ~ uniform(0, 1);
+  for (c in 1:C) {
+    w_0[c]      ~ normal(-1, 2);
+    theta_0[c]  ~ normal(0, 2);
+  }
 
   // subject loop and trial loop
   for (i in 1:N) {
     // Save histories of w's and theta's
-    matrix[S,C] w;      // State-Value weights
-    matrix[S,C] theta;  // Policy weights
+    array[C] vector[S] w;      // State-Value weights
+    array[C] vector[S] theta;  // Policy weights
     real delta;
     real PE; // prediction error for each of the four components
-    w = rep_matrix(0.0, S, C);
-    theta = rep_matrix(0.0, S, C);
+    w = w_0;
+    theta = theta_0;
 
     for (t in 1:Tsubj[i]) {
       //Assign current state to a temporary variable
       row_vector[S] current_state = to_row_vector(state[i, t]);
       //Find choice probability
       for (j in 1:C) {
-        choice[i, t, j] ~ bernoulli_logit( dot_product(theta[, j], current_state) );
+        choice[i, t, j] ~ bernoulli_logit( -tau * dot_product(theta[j], current_state) );
       }
       if (t == Tsubj[i])
         continue; // Terminal State
@@ -50,16 +57,14 @@ model {
       for (j in 1:C) {
         if (choice[i, t, j] == 1) {
           PE = gamma^(week[i, t + 1] - week[i, t])
-               * dot_product(w[, j], new_state)
-               - dot_product(w[, j], current_state);
+               * dot_product(w[j], new_state)
+               - dot_product(w[j], current_state);
           delta = (outcome[i, t] - cost[j]) - PE;
           // Update w:
-          w[, j] += alpha[1] * delta * to_vector(current_state);
+          w[j] += alpha[1] * delta * to_vector(current_state);
           // Update theta:
-          theta[, j] += alpha[2] * delta * to_vector(current_state);
-          // Update theta:
-          theta[, j] += alpha[2] * delta * to_vector(current_state) * -tau
-                        ./ (1 + exp(dot_product(theta[, j], current_state) * tau)) ;
+          theta[j] += alpha[2] * delta * to_vector(current_state) * -tau
+                        ./ (1 + exp(dot_product(theta[j], current_state) * tau)) ;
         }
       }
     }

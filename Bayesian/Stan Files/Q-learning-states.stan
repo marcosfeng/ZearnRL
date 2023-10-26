@@ -1,5 +1,5 @@
 //
-// This Stan model defines a Q-learning model
+// This Stan model defines a state-based Q-learning model
 // and applies it to the data.
 //
 data {
@@ -13,18 +13,13 @@ data {
   array[N, T] int<lower=1, upper=2> state;  // state for each time step
   array[N, T] real outcome;  // log badges
 }
-transformed data {
-  matrix[C, S] initV;  // initial values for EV
-  for (j in 1:S) {
-    initV[:, j] = rep_vector(0, C);
-  }
-}
 parameters {
   // Declare all parameters as vectors for vectorizing
   array[C] real<lower=0, upper=1> cost;  // cost in badge-units for each component
   real<lower=0, upper=1> gamma;      // discount rate
   real<lower=0, upper=1> alpha;    // step-sizes for each component
   real<lower=0.001, upper=10> tau;    // inverse temperature
+  matrix[C, S] initV;
 }
 model {
   // pooled parameters
@@ -34,6 +29,9 @@ model {
   alpha         ~ uniform(0,1);
   tau           ~ gamma(5,5);
   gamma         ~ uniform(0,1);
+  for (j in 1:S) {
+    initV[:, j] ~ normal(0, 2);
+  }
 
   // subject loop and trial loop
   for (i in 1:N) {
