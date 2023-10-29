@@ -46,6 +46,10 @@ parfor i = 1:5
     cbm_lap(data, models{i}, prior_ac, fname{i},pconfig);
 end
 
+%% 
+
+
+
 %% Find top 2 models by valid log evidence and re-estimate with new priors
 
 valid_subj_all = ones(1,210);
@@ -74,6 +78,14 @@ for i = 1:5
     log_evidence(i) = ...
         sum(loaded_data.cbm.output.log_evidence(valid_subj_all));
 end
+
+% Create a histogram of the log evidences
+figure;
+histogram(log_evidence,100);
+title('Histogram for Top 5 Models');
+xlabel('Log Evidence');
+ylabel('Frequency');
+
 
 [~, top2_indices] = sort(log_evidence, 'descend');
 top2_indices = top2_indices(1:2);

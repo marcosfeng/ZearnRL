@@ -72,7 +72,7 @@ function [loglik] = actor_critic_model(parameters, subj)
 
         % Update weights
         % Derivative of the logistic function: a/(1 + e^(a x))
-        theta = theta + alpha_theta * (-tau * s') * (1 + exp(s * theta * tau)).^(-1) .* delta;
+        theta = theta + alpha_theta * (tau * s') * (1 + exp(s * theta * tau)).^(-1) .* delta;
         w = w + alpha_w * s' * delta;
     end
 

@@ -1,6 +1,5 @@
 rng(37909890)
 % © 1998-2023 RANDOM.ORG
-% 37909890	
 % Timestamp: 2023-10-04 18:38:28 UTC
 
 % Add path to the codes directory
