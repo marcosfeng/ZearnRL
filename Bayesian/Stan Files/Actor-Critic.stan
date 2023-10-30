@@ -34,19 +34,22 @@ model {
   // subject loop and trial loop
   for (i in 1:N) {
     // Save histories of w's and theta's
-    array[C] vector[S] w;      // State-Value weights
-    array[C] vector[S] theta;  // Policy weights
+    array[C] vector[S] w = w_0;      // State-Value weights
+    array[C] vector[S] theta = theta_0;  // Policy weights
     real delta;
     real PE; // prediction error for each of the four components
-    w = w_0;
-    theta = theta_0;
 
     for (t in 1:Tsubj[i]) {
       //Assign current state to a temporary variable
       row_vector[S] current_state = to_row_vector(state[i, t]);
+      // if  (t == 10) {
+      //   print("theta[j]: ", theta);
+      //   print("current_state: ", current_state);
+      //   print("tau: ", tau);
+      // }
       //Find choice probability
       for (j in 1:C) {
-        choice[i, t, j] ~ bernoulli_logit( -tau * dot_product(theta[j], current_state) );
+        choice[i, t, j] ~ bernoulli_logit(tau * dot_product(theta[j], current_state));
       }
       if (t == Tsubj[i])
         continue; // Terminal State
@@ -63,8 +66,50 @@ model {
           // Update w:
           w[j] += alpha[1] * delta * to_vector(current_state);
           // Update theta:
-          theta[j] += alpha[2] * delta * to_vector(current_state) * -tau
-                        ./ (1 + exp(dot_product(theta[j], current_state) * tau)) ;
+          theta[j] += alpha[2] * delta * to_vector(current_state) * tau
+                        ./ (1 + exp(dot_product(theta[j], current_state) * tau));
+        }
+      }
+    }
+  }
+}
+generated quantities {
+  array[N, T, C] real choice_prob;  // Probability of choosing each component
+  // For log likelihood calculation
+  vector[N] log_lik;
+
+  for (i in 1:N) {
+    array[C] vector[S] w = w_0;  // Initialize at w_0
+    array[C] vector[S] theta = theta_0;  // Initialize at theta_0
+    real delta;
+    real PE;  // Prediction error
+    log_lik[i] = 0; // initialize log likelihood for each subject
+
+    for (t in 1:Tsubj[i]) {
+      row_vector[S] current_state = to_row_vector(state[i, t]);
+
+      for (j in 1:C) {
+        // Compute the choice probability
+        choice_prob[i, t, j] = inv_logit( tau * dot_product(theta[j], current_state) );
+        log_lik[i] += bernoulli_lpmf(choice[i, t, j] | choice_prob[i, t, j]);
+      }
+
+      if (t == Tsubj[i])
+        continue;  // Skip the terminal state as there are no updates or choices
+
+      row_vector[S] new_state = to_row_vector(state[i, t + 1]);
+
+      for (j in 1:C) {
+        if (choice[i, t, j] == 1) {
+          PE = gamma^(week[i, t + 1] - week[i, t])
+               * dot_product(w[j], new_state)
+               - dot_product(w[j], current_state);
+          delta = (outcome[i, t] - cost[j]) - PE;
+
+          // Update w and theta for next round
+          w[j] += alpha[1] * delta * to_vector(current_state);
+          theta[j] += alpha[2] * delta * to_vector(current_state) * tau
+                        ./ (1 + exp(dot_product(theta[j], current_state) * tau));
         }
       }
     }

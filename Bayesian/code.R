@@ -81,6 +81,8 @@ for (choice in names(choices)) {
       T = max(df[, row_n]), # Maximum Tsubj across all teachers
       Tsubj = df[, .N, by = .(Classroom.ID)][,N], # Number of rows by Teacher
       choice = choice_array,
+      C = dim(choice_array)[3], # Number of choices
+      S = sum(!is.na(unique(df$state))), # Number of states
       outcome = replace(as.matrix(dcast(df,
                                         Classroom.ID ~ row_n,
                                         value.var = "Badges.per.Active.User")), # Outcome matrix
@@ -107,8 +109,8 @@ for (choice in names(choices)) {
       data = stan_data,
       chains = 3,
       parallel_chains = 3,
-      iter_warmup = 500,
-      iter_sampling = 500
+      iter_warmup = 2500,
+      iter_sampling = 2500
     )
 
     # Save the fit object
@@ -201,9 +203,8 @@ for (choice in names(choices)) {
 
 # 3. Kernelized Q-learning ------------------------------------------------
 
-
 # Prepare list of models
-models <- c("Bayesian/Stan Files/Q-learning-kernel.stan", "Bayesian/Stan Files/Q-learning.stan", "Bayesian/Stan Files/Q-learning-states.stan")
+models <- c("Bayesian/Stan Files/Q-learning-kernel.stan")
 
 # Generate Stan data, fit model, and save for each choice array
 for (choice in names(choices)) {
@@ -249,8 +250,8 @@ for (choice in names(choices)) {
       data = stan_data,
       chains = 3,
       parallel_chains = 3,
-      iter_warmup = 1000,
-      iter_sampling = 1000
+      iter_warmup = 2500,
+      iter_sampling = 2500
     )
 
     # Save the fit object
@@ -316,8 +317,8 @@ for (choice in names(choices)) {
       data = stan_data,
       chains = 3,
       parallel_chains = 3,
-      iter_warmup = 1000,
-      iter_sampling = 1000
+      iter_warmup = 2500,
+      iter_sampling = 2500
     )
 
     # Save the fit object
@@ -328,34 +329,30 @@ for (choice in names(choices)) {
 }
 
 
-# 5. BRM models -----------------------------------------------------------
+# 5. Logit models -----------------------------------------------------------
 
-library(lme4)
-library(brms)
-library(loo)
-
-# Function to fit model
-fit_model <- function(formula, data) {
-  model <- brm(formula, data = data, family = bernoulli(),
-               cores = 3, backend = "cmdstanr")
-  return(model)
-}
 # Function to find lag
 get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
+  # Convert to data.table if it's a data.frame
+  if (is.data.frame(datatable)) {
+    datatable <- as.data.table(datatable)
+  }
+
   # Add a column for week_lag
-  datatable[, week_lag := c(0, diff(week)), by = Classroom.ID]
+  week_lag <- c(0, diff(datatable$week))
+  set(datatable, j = "week_lag", value = week_lag)
 
   if (is.null(n_comp)) {
     # Update the lag column with shift function
-    datatable[, (paste0(col, "_", lag_period)) :=
-                shift(get(col), lag_period, fill = 0, type = "lag"),
-              by = Classroom.ID]
+    new_col_name <- paste0(col, "_", lag_period)
+    new_col_value <- shift(datatable[[col]], lag_period, fill = 0, type = "lag")
+    set(datatable, j = new_col_name, value = new_col_value)
   } else {
     for (comp in 1:n_comp) {
       # Update the lag column with shift function
-      datatable <- datatable[, (paste0(col, comp, "_", lag_period)) :=
-                               shift(get(paste0(col, comp)), lag_period, fill = 0, type = "lag"),
-                             by = Classroom.ID]
+      new_col_name <- paste0(col, comp, "_", lag_period)
+      new_col_value <- shift(datatable[[paste0(col, comp)]], lag_period, fill = 0, type = "lag")
+      set(datatable, j = new_col_name, value = new_col_value)
     }
   }
 
@@ -365,24 +362,40 @@ get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
 df <- df %>%
   mutate(state = case_when(is.na(state) ~ 0,
                            .default = state - 1))
+
 # Non-hierarchical models
 for (col in paste0("FrobeniusNNDSVD", 1:3, "bin")) {
   df <- get_lag_value(df, col, 1)
 }
-formulas_nh <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state,
-                    FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state,
-                    FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state)
-models_nh <- lapply(formulas_nh, fit_model, data = df)
+# Prepare data for Stan
+stan_data <- list(
+  C = length(unique(df$Classroom.ID)), # Number of classrooms
+  N = nrow(df),
+  X = df %>% select(FrobeniusNNDSVD1bin_1, Badges.per.Active.User, state) %>% as.matrix(),
+  y = df %>% select(FrobeniusNNDSVD1bin, FrobeniusNNDSVD2bin, FrobeniusNNDSVD3bin) %>% as.matrix(),
+  classroom = df %>%
+    mutate(classroom = as.integer(factor(Classroom.ID))) %>%
+    select(classroom) %>% unlist() %>% as.integer()
+)
+
+# Compile the Stan model
+logistic_model <- cmdstan_model("Bayesian/Stan Files/Logit.stan")
+
+# Fit the model
+fit <- logistic_model$sample(
+  data = stan_data,
+  chains = 3,
+  parallel_chains = 3,
+  iter_warmup = 2500,
+  iter_sampling = 2500
+)
+
+# Save the fit object
+fit$save_object(file = "Bayesian/Results/Logit.RDS")
 
 # Hierarchical models
-formulas_h <- list(FrobeniusNNDSVD1bin ~ FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD1bin_1 + Badges.per.Active.User + state | Classroom.ID),
-                   FrobeniusNNDSVD2bin ~ FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD2bin_1 + Badges.per.Active.User + state | Classroom.ID),
-                   FrobeniusNNDSVD3bin ~ FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state + (FrobeniusNNDSVD3bin_1 + Badges.per.Active.User + state | Classroom.ID))
-models_h <- lapply(formulas_h, fit_model, data = df)
 
-# Save the LOOIC values
-saveRDS(models_nh, "Bayesian/Results/logit.RDS")
-saveRDS(models_h, "Bayesian/Results/logit-hierarchical.RDS")
+
 
 
 

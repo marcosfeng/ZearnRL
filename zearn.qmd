@@ -2319,6 +2319,33 @@ stargazer(model1, model2, model3, model4, model5, model6,
 
 ```
 
+```{r}
+#| cache: true
+#| label: fig-parameters-corr
+#| fig-cap: "Correlations between the estimated parameters (Cost 1, Cost 2, Cost 3, Gamma, Alpha, Tau) and the outcome variables (average weekly Badges and average weekly Tower Alerts) across the six different linear regression models. Each circle represents a correlation coefficient; the size and shading of the circles indicate the magnitude and direction of the correlation, respectively. The first correlogram (top) relates to the outcome variable of average weekly Badges, while the second correlogram (bottom) relates to the outcome variable of average weekly Tower Alerts."
+
+# Selecting relevant variables for the first model concerning badges
+relevant_data_badges <- classroom_data %>%
+  dplyr::select(mean_C1, mean_C2, mean_C3, gamma, alpha, tau, badges)
+
+# Similarly, for the fourth model concerning tower alerts
+relevant_data_tower <- classroom_data %>%
+  dplyr::select(mean_C1, mean_C2, mean_C3, gamma, alpha, tau, tower_alers)
+
+cor_matrix_badges <- cor(relevant_data_badges, use = "complete.obs")
+cor_matrix_tower <- cor(relevant_data_tower, use = "complete.obs")
+
+cor_matrix_badges <- cor(relevant_data_badges, use = "complete.obs")
+cor_matrix_tower <- cor(relevant_data_tower, use = "complete.obs")
+
+# For badges
+corrplot(cor_matrix_badges, method = "circle")
+
+# For tower alerts
+corrplot(cor_matrix_tower, method = "circle")
+
+```
+
 ### Feature Selection Model Fit
 
 - Discuss the best-performing model using students online as a reward, and alerts, badges, and minutes as state variables.

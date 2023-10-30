@@ -76,11 +76,13 @@ model {
 }
 generated quantities {
   // For posterior predictive check
-  array[N, T] real y_pred;
+  array[N, T, C] real y_pred;
   // Set all posterior predictions to 0 (avoids NULL values)
   for (i in 1:N) {
     for (t in 1:T) {
-      y_pred[i, t] = -1;
+      for (j in 1:C) {  // Added loop over choices
+        y_pred[i, t, j] = -1;
+      }
     }
   }
   // For log likelihood calculation
@@ -94,9 +96,10 @@ generated quantities {
       // compute action probabilities
       for (j in 1:C) {
         log_lik[i] += bernoulli_logit_lpmf(choice[i, t, j] | tau * ev[j, state[i, t]]);
-        y_pred[i, t] = inv_logit(tau * ev[j, state[i, t]]);
+        y_pred[i, t, j] = inv_logit(tau * ev[j, state[i, t]]);
         if (t == Tsubj[i])  // Last week
           continue;
+
         // kernel reward
         real ker_reward = 0;
         real ker_norm   = 0;
@@ -127,4 +130,3 @@ generated quantities {
     }
   }
 }
-

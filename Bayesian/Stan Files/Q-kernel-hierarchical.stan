@@ -16,12 +16,6 @@ data {
   array[N, T] int<lower=1, upper=2> state;  // state for each time step
   array[N, T] real outcome;  // log badges
 }
-transformed data {
-  matrix[C, S] initV;  // initial values for EV
-  for (j in 1:S) {
-    initV[:, j] = rep_vector(0, C);
-  }
-}
 parameters {
   vector<lower=0, upper=1>[C] mu_cost; // mean of the group-level cost
   vector<lower=0>[C] sigma_cost; // standard deviation of the group-level cost
@@ -38,6 +32,8 @@ parameters {
   real<lower=0, upper=10> mu_tau; // mean of the group-level inverse temperature
   real<lower=0> sigma_tau; // standard deviation of the group-level inverse temperature
   array[number_teachers] real<lower=0.001, upper=10> tau; // inverse temperature
+
+  matrix[C, S] initV;  // initial values for EV
 }
 model {
   mu_cost ~ normal(0.5, 1);
@@ -48,6 +44,9 @@ model {
   sigma_tau ~ cauchy(0, 2.5);
   mu_gamma ~ normal(0.7, 1);
   sigma_gamma ~ cauchy(0, 2.5);
+  for (j in 1:S) {
+    initV[:, j] ~ normal(0, 2);
+  }
 
   // pooled parameters
   for (j in 1:C) {
