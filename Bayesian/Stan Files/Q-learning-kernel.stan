@@ -95,8 +95,8 @@ generated quantities {
     for (t in 1:Tsubj[i]) {
       // compute action probabilities
       for (j in 1:C) {
-        log_lik[i] += bernoulli_logit_lpmf(choice[i, t, j] | tau * ev[j, state[i, t]]);
         y_pred[i, t, j] = inv_logit(tau * ev[j, state[i, t]]);
+        log_lik[i] += bernoulli_lpmf(choice[i, t, j] | y_pred[i, t, j]);
         if (t == Tsubj[i])  // Last week
           continue;
 
