@@ -1,3 +1,6 @@
+
+# LOOIC -------------------------------------------------------------------
+# https://www.statology.org/negative-aic/
 library(loo)
 options(mc.cores = 4)
 log_lik_rl <- loo::loo(test)
@@ -85,8 +88,93 @@ ggplot(looic_data, aes(x = Model, y = LOOIC, color = Model)) +
 
 
 
+# Time series -------------------------------------------------------------
 
 
+fit <- readRDS("~/zearn/Bayesian/Results/Q-learning-FR.RDS")
+
+
+
+prediction_hierarchical <- fit$summary() %>%
+  filter(grepl("y_pred", variable)) %>%
+  dplyr::select(variable, mean)
+
+test <- prediction_hierarchical %>%
+  mutate(variable = str_extract(variable, "\\[.*\\]"),
+         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
+  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
+
+prediction_hierarchical_3d <- array(dim = c(max(prediction_hierarchical$dim1),
+                                            max(prediction_hierarchical$dim2),
+                                            max(prediction_hierarchical$dim3)))
+
+for (i in 1:nrow(prediction_hierarchical)) {
+  dim1 <- prediction_hierarchical$dim1[i]
+  dim2 <- prediction_hierarchical$dim2[i]
+  dim3 <- prediction_hierarchical$dim3[i]
+  prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
+}
+
+# Loop through each subject
+for (subject in seq_len(dim1)) {
+  # Get the value of Tsubj for this subject
+  Tsubj_value <- stan_data[["Tsubj"]][subject]
+
+  # Set the values in prediction_hierarchical_3d to NA
+  if (Tsubj_value != max(stan_data[["Tsubj"]])) {
+    prediction_hierarchical_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
+    # Set the values in choice_data to NA
+    choice_data[subject, (Tsubj_value + 1):dim2, ] <- NA
+  }
+}
+
+# Get the number of layers
+num_layers <- dim(prediction_hierarchical_3d)[3]
+# Custom function to calculate standard error based on the number of non-NA elements
+calc_se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
+
+df_compare <- data.frame()
+
+# Generate a plot for each layer
+for (k in 1:num_layers) {
+  y_pred_avg <- apply(prediction_hierarchical_3d[, , k], 2, mean, na.rm = TRUE)
+  y_pred_se  <- apply(prediction_hierarchical_3d[, , k], 2, calc_se)
+
+  choice_data_avg <- apply(choice_data[, , k], 2, mean, na.rm = TRUE)
+  choice_data_se  <- apply(choice_data[, , k], 2, calc_se)
+
+  # Only consider weeks with valid SEs
+  weeks <- seq_len(sum(!is.na(y_pred_se)))
+
+  df_pred <- data.frame(weeks = weeks,
+                        probability = y_pred_avg[weeks],
+                        type = rep("Model Fit", max(weeks)),
+                        se = y_pred_se[weeks],
+                        action = rep(paste("Action", k), max(weeks)))
+
+  df_real <- data.frame(weeks = weeks,
+                        probability = choice_data_avg[weeks],
+                        type = rep("Real Data", max(weeks)),
+                        se = choice_data_se[weeks],
+                        action = rep(paste("Action", k), max(weeks)))
+
+  df_compare <- rbind(df_compare, df_pred, df_real)
+}
+
+p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
+  geom_line() +
+  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
+  labs(x = "Week", y = "Probability of a=1") +
+  facet_wrap(~action, ncol = 1) +
+  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  theme_bw()
+
+print(p)
+
+
+
+# Examples ----------------------------------------------------------------
 
 # Top best fit: 202, 159, 153
 df <- df %>%
@@ -101,14 +189,53 @@ tidy_data <- participant_data %>%
 
 # Convert state to a factor for shading
 tidy_data$state <- as.factor(tidy_data$state)
-# Assuming pr_a_s is the probability Pr(a | s)
-tidy_data$pr_a_s <- runif(nrow(tidy_data))  # Replace this line with your actual data
-
 
 base_plot <- ggplot(tidy_data, aes(x = week)) +
   geom_rect(aes(xmin = week - 0.5, xmax = week + 0.5, ymin = 0, ymax = 1, fill = state)) +
   scale_fill_manual(values = c("white", "grey70")) +
   theme_minimal()
+
+# Extract parameter values from qstate_sum
+params <- qstate_sum[2:13,1:2]
+# Initialize Q-values
+Q <- matrix(unlist(params[7:12,2]), nrow = 3, ncol = 2, byrow = TRUE)
+
+# Initialize a dataframe to store Pr(a|s) values
+pr_data <- data.frame()
+tau <- as.numeric(params[params$variable == "tau","mean"])
+alpha <- as.numeric(params[params$variable == "alpha","mean"])
+gamma <- as.numeric(params[params$variable == "gamma","mean"])
+cost1 <- as.numeric(params[params$variable == "cost[1]","mean"])
+cost2 <- as.numeric(params[params$variable == "cost[2]","mean"])
+cost3 <- as.numeric(params[params$variable == "cost[3]","mean"])
+# Loop through the participant data
+for (i in 2:nrow(participant_data)) {
+  # Get current state, action, and reward
+  s <- participant_data$state[i]
+  a <- participant_data$KullbackLeibler1bin[i] + 1
+  r <- participant_data$Badges.per.Active.User[i]
+
+  # Calculate Pr(a|s) using softmax function
+  expQ <- exp(Q / tau)
+  pr <- expQ[s, a]
+
+  # Store Pr(a|s) value
+  pr_data <- rbind(pr_data, data.frame(week = participant_data$week[i],
+                                       state = s,
+                                       action = a,
+                                       pr_a_s = pr))
+
+  # Get next state (assuming states transition in a deterministic manner)
+  s_next <- participant_data$state[i+1]
+
+  # Update Q-value using Q-learning update rule
+  Q[s, a] <- Q[s, a] + alpha * (gamma * (r - cost1) - Q[s, a])
+}
+
+
+
+
+
 
 # Now add the time series and dots to the base plot
 plot <- base_plot +
@@ -116,6 +243,9 @@ plot <- base_plot +
   geom_point(data = tidy_data, aes(y = ifelse(value == 1, 1, 0)), size = 1) +
   labs(y = "", color = "Variable") +
   theme(legend.position = "bottom")
+
+
+
 
 Q_values <- matrix(runif(2 * 4), nrow = 2, ncol = 4)  # Placeholder, replace with actual Q-values
 

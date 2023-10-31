@@ -59,7 +59,7 @@ choices <- list(
 
 # Write to csv
 write.csv(df, "./Bayesian/df_subset.csv")
-# df <- read_csv("Bayesian/df_subset.csv")
+# df <- read.csv("Bayesian/df_subset.csv") %>% as.data.table()
 
 # 1. Q-learning -----------------------------------------------------------
 
