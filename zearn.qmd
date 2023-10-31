@@ -418,7 +418,6 @@ library(PerformanceAnalytics)
 library(doParallel)
 library(foreach)
 library(reticulate)
-use_condaenv(condaenv = "./py-zearn")
 
 set.seed(832399554)
 random_py <- import("random")

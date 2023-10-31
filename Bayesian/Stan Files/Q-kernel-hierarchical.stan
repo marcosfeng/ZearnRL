@@ -97,7 +97,7 @@ model {
 }
 generated quantities {
   // For posterior predictive check
-  array[N, T, C] real y_pred = rep_array(0, N, T, C);
+  array[N, T, C] real y_pred = rep_array(-1, N, T, C);
   vector[N] log_lik;
 
   // subject loop and trial loop

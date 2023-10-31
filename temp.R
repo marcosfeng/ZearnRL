@@ -6,6 +6,11 @@ options(mc.cores = 4)
 log_lik_rl <- loo::loo(test)
 loo_rl <- loo(log_lik_rl)
 
+`Q-learning-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Q-learning-FR.RDS")
+`Q-learning-states-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Q-learning-states-FR.RDS")
+`Actor-Critic-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Actor-Critic-FR.RDS")
+logit <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/logit.RDS")
+
 qlearn_sum <- `Q-learning-FR`$summary()
 qstate_sum <- `Q-learning-states-FR`$summary()
 logit_sum <- Logit$summary()
@@ -287,6 +292,3 @@ print(combined_plot)
 
 print(plot)
 
-
-
-qkernel_sum <-
