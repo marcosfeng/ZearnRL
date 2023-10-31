@@ -50,9 +50,7 @@ model {
 }
 generated quantities {
   // For posterior predictive check
-  array[N, T, C] real y_pred;
-  // Set all posterior predictions to 0 (avoids NULL values)
-  y_pred = -1;
+  array[N, T, C] real y_pred = rep_array(-1, N, T, C);
   // For log likelihood calculation
   vector[N] log_lik;
 
