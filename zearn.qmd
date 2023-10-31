@@ -1593,19 +1593,18 @@ get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
 }
 
 create_formula <- function(method, lag, comp) {
-  if (lag == 1) {
-    return(as.formula(
-    paste0(method, comp, " ~ ",
-           paste0(method, comp, "_", 1), " + ",
-           "Badges.per.Active.User",
-           " + ", "week_lag")))
+  terms <- c()
+  
+  for (i in 1:lag) {
+    for (j in i:lag) {
+      term <- paste0(method, comp, "_", i, "*", "Badges.per.Active.User", "_", j)
+      terms <- c(terms, term)
+    }
   }
-  return(as.formula(
-    paste0(method, comp, " ~ ",
-           paste0(method, comp, "_", 1:lag, collapse = " + "), " + ",
-           "Badges.per.Active.User + ",
-           paste0("Badges.per.Active.User", "_", 1:(lag - 1), collapse = " + "),
-           " + ", "week_lag")))
+  
+  formula_string <- paste0(method, comp, " ~ ", paste(terms, collapse = " + "), " + ", "week_lag")
+  
+  return(as.formula(formula_string))
 }
 
 model_selection <- function(wi, re) {
@@ -1623,12 +1622,14 @@ create_model <- function(formula, data) {
 # Data and Variables
 df <- setDT(df)
 results_df_list <- list()
-lags <- c(1:8)
+lags <- c(1:7)
 n_comp = 3
 n_lags = max(lags)
 # Use map to iterate over methods, paste0 to concatenate strings
-methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
-columns <- c("tch_min", "Badges.per.Active.User", methods)
+# methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
+# columns <- c("tch_min", "Badges.per.Active.User", methods)
+methods <- c("FrobeniusNNDSVD")
+columns <- c("Badges.per.Active.User", "FrobeniusNNDSVD")
 
 # Create lags
 for (col in columns) {
@@ -1648,7 +1649,7 @@ test_data <- pdata.frame(df[set == "test"], index = c("Classroom.ID", "week", "T
 # Estimation
 cl <- makeCluster(detectCores())
 registerDoParallel(cl)
-params <- expand.grid(col = c("tch_min", methods),
+params <- expand.grid(col = c(methods),
                       lag = lags,
                       comp = 1:n_comp) %>%
   mutate(comp = as.character(comp),
@@ -1803,7 +1804,11 @@ df_estimates <- do.call(rbind, lapply(model_coeffs, extract_coeffs)) %>%
            grepl("FrobeniusNNDSVD1", Coefficient_Name) ~ "Frobenius 1",
            grepl("FrobeniusNNDSVD2", Coefficient_Name) ~ "Frobenius 2",
            grepl("FrobeniusNNDSVD3", Coefficient_Name) ~ "Frobenius 3",
+           grepl("FrobeniusNNDSVD1", Coefficient_Name) ~ "Frobenius 1",
+           grepl("FrobeniusNNDSVD2", Coefficient_Name) ~ "Frobenius 2",
+           grepl("FrobeniusNNDSVD3", Coefficient_Name) ~ "Frobenius 3",
            grepl("Badges.per.Active.User", Coefficient_Name) ~ "Badges",
+           
            TRUE ~ "Other"),
          Lag = case_when(is.na(Lag) ~ 1,
                          Coefficient_Name == "Badges" ~ Lag + 1,
