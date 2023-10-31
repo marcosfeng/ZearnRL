@@ -1596,9 +1596,14 @@ create_formula <- function(method, lag, comp) {
   terms <- c()
   
   for (i in 1:lag) {
-    for (j in i:lag) {
-      term <- paste0(method, comp, "_", i, "*", "Badges.per.Active.User", "_", j)
-      terms <- c(terms, term)
+    # Add the interaction term for Badges.per.Active.User_i * method_i
+    terms <- c(terms, paste0("Badges.per.Active.User_", i, "*", method, comp, "_", i))
+    if (i != lag) {
+      for (j in (i + 1):lag) {
+        # Add the interaction for Badges_i * method_j when i < lag
+        terms <- c(terms, paste0("Badges.per.Active.User_", i, "*",
+                                 method, comp, "_", j))
+      }
     }
   }
   
@@ -1606,6 +1611,7 @@ create_formula <- function(method, lag, comp) {
   
   return(as.formula(formula_string))
 }
+
 
 model_selection <- function(wi, re) {
   if (phtest(wi, re)$p.value < 0.05) return(wi) else return(re)
@@ -1780,7 +1786,7 @@ Taking the Frobenius 1 component as an example, the coefficient for the first la
 #| fig-cap: "The estimated coefficients of the lagged variables in the random effects models. The lines represent different variables, and the shaded areas indicate the standard errors of the coefficients. The grey line and shaded area represent the coefficients for the lagged Badges per Student."
 
 # Extract coefficients from models
-lag_period = 4
+lag_period = 3
 col = "FrobeniusNNDSVD"
 select_model <- function(model) {
   model[["Method"]] == col & model[["Lag"]] == lag_period
@@ -1801,9 +1807,6 @@ df_estimates <- do.call(rbind, lapply(model_coeffs, extract_coeffs)) %>%
            Coefficient_Name != "week_lag") %>%
   mutate(Lag = as.numeric(str_extract(Coefficient_Name, "\\d+$")),
          Coefficient_Name = case_when(
-           grepl("FrobeniusNNDSVD1", Coefficient_Name) ~ "Frobenius 1",
-           grepl("FrobeniusNNDSVD2", Coefficient_Name) ~ "Frobenius 2",
-           grepl("FrobeniusNNDSVD3", Coefficient_Name) ~ "Frobenius 3",
            grepl("FrobeniusNNDSVD1", Coefficient_Name) ~ "Frobenius 1",
            grepl("FrobeniusNNDSVD2", Coefficient_Name) ~ "Frobenius 2",
            grepl("FrobeniusNNDSVD3", Coefficient_Name) ~ "Frobenius 3",
