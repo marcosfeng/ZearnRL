@@ -1935,20 +1935,18 @@ gc(verbose = FALSE)
 #| cache: true
 #| label: tbl-RL-logit-comp
 #| tbl-cap: "Model comparison using Leave-One-Out Information Criterion (LOOIC). LOOIC values, a measure of model quality, were calculated for each model type. Lower values indicate better model performance. Q-learning models were built using a kernel-based approach. Hierarchical models incorporate a hierarchical structure to account for classroom-level variations."
-library(brms)
-library(loo)
+library(cmdstanr)
 
 # Non-hierarchical models
 ## Q-learning model
-post <- read_rds("Bayesian/Results/Q-learning-kernel-FR.RDS")
+# post <- read_rds("Bayesian/Results/Q-learning-kernel-FR.RDS")
+post <- read_rds("Bayesian/Results/Q-learning-FR.RDS")
 loo_qlearn <- post$loo()$estimates["looic", ]
 ## Logit
 models_nh <- readRDS("Bayesian/Results/logit.RDS")
-loo_nh <- sapply(models_nh, loo)
-nll_nh <- lapply(models_nh, log_lik)
-nll_nh <- lapply(nll_nh, mean)
-  
-looic_nh <- sum(unlist(loo_nh["looic",]))
+loo_nh <- models_nh$loo()$estimates["looic", ]
+# nll_nh <- lapply(models_nh, log_lik)
+# nll_nh <- lapply(nll_nh, mean)
 
 # Hierarchical models
 ## Q-learning
@@ -1956,12 +1954,11 @@ post_hierarchical <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
 loo_qhierarchical <- post_hierarchical$loo()$estimates["looic", ]
 ## Logit
 models_h <- readRDS("Bayesian/Results/logit-hierarchical.RDS")
-loo_h <- sapply(models_h, loo)
-looic_h <- sum(unlist(loo_h["looic",]))
+loo_h <- models_h$loo()$estimates["looic", ]
 
 # Collect LOOIC values
-looic_values <- c(loo_qlearn[1],looic_nh, 
-                  loo_qhierarchical[1], looic_h)
+looic_values <- c(loo_qlearn[1],loo_nh[1],
+                  loo_qhierarchical[1], loo_h[1])
 df_looic <- data.frame(Model = c("Q-learning", "Logistic regression", "Hierarchical Q-learning", "Hierarchical logistic regression"),
                        LOOIC = looic_values)
 
@@ -1995,8 +1992,9 @@ In the case of 'Action 2' and 'Action 3,' the model prediction started at the me
 #| cache: true
 #| label: fig-model-fit
 #| fig-cap: "Model predictions for teacher actions compared with choice data over time. The y-axis denotes the probability of a particular action being taken (a=1), while the x-axis indicates time in weeks. The figure showcases three distinct actions (NMF components). The solid lines represent the weekly averaged model predictions for each action, while the shaded ribbons denote the respective standard errors."
-stan_data <- read_rds("./Bayesian/stan_data.RDS")
-choice_data <- stan_data$choice
+stan_data <- read_rds("./Bayesian/Q-learn-data.RDS")
+choice_data <- read_rds("./Bayesian/Results/Q-learning-FR.RDS")
+choice_data <- choice_data$summary()
 
 prediction_hierarchical <- read.csv("./Bayesian/Results/prediction_hierarchical.csv") %>%
   filter(grepl("y_pred", variable)) %>%

@@ -2,7 +2,7 @@
 # LOOIC -------------------------------------------------------------------
 # https://www.statology.org/negative-aic/
 library(loo)
-options(mc.cores = 4)
+options(mc.cores = 12)
 log_lik_rl <- loo::loo(test)
 loo_rl <- loo(log_lik_rl)
 
@@ -13,13 +13,15 @@ logit <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/logit.RDS")
 
 qlearn_sum <- `Q-learning-FR`$summary()
 qstate_sum <- `Q-learning-states-FR`$summary()
+ac_sum <- `Actor-Critic-FR`$summary()
 logit_sum <- Logit$summary()
 
 # Assume data1, data2, and data3 are your data frames
 # Let's bind them into one data frame with an additional column to indicate the model
 all_data <- bind_rows(
   mutate(qlearn_sum, model = "Q-learning"),
-  mutate(qstate_sum, model = "State Q-learning"),
+  mutate(qstate_sum, model = "State Q"),
+  mutate(ac_sum, model = "Actor Critic"),
   mutate(logit_sum, model = "Logit")
 )
 
@@ -45,29 +47,27 @@ ggplot(all_data, aes(x = mean, color = model)) +
   scale_color_brewer(palette = "Set1") # Changed color palette to something more visually appealing
 
 
-looic <- list(`Q-learning-FR`$loo(), `Q-learning-states-FR`$loo(), Logit$loo())
+looic <- list(`Q-learning-FR`$loo(),
+              `Q-learning-states-FR`$loo(),
+              `Actor-Critic-FR`$loo(),
+              Logit$loo())
 
-# Extracting the LOOIC and SE values
-looic_values <- c(
-  looic[[1]][["estimates"]]["looic",],
-  looic[[2]][["estimates"]]["looic",],
-  looic[[3]][["estimates"]]["looic",]
-)
-
-models <- c("Q-learning", "State Q-learning", "Logit")
+models <- c("Q-learning", "State Q-learning", "Actor-Critic", "Logit")
 
 # Combining the extracted values into a data frame
 looic_data <- data.frame(
-  Model = factor(c("Q-learning", "State Q-learning", "Logit")),
+  Model = factor(c("Q-learning", "State Q-learning", "Actor-Critic", "Logit")),
   LOOIC = c(
     looic[[1]][["estimates"]]["looic","Estimate"],
     looic[[2]][["estimates"]]["looic","Estimate"],
-    looic[[3]][["estimates"]]["looic","Estimate"]
+    looic[[3]][["estimates"]]["looic","Estimate"],
+    looic[[4]][["estimates"]]["looic","Estimate"]
   ),
   SE = c(
     looic[[1]][["estimates"]]["looic","SE"],
     looic[[2]][["estimates"]]["looic","SE"],
-    looic[[3]][["estimates"]]["looic","SE"]
+    looic[[3]][["estimates"]]["looic","SE"],
+    looic[[4]][["estimates"]]["looic","SE"]
   )
 )
 
@@ -91,28 +91,27 @@ ggplot(looic_data, aes(x = Model, y = LOOIC, color = Model)) +
 # Time series -------------------------------------------------------------
 
 
-fit <- readRDS("~/zearn/Bayesian/Results/Q-learning-FR.RDS")
-
-
-
-prediction_hierarchical <- fit$summary() %>%
+fit <- readRDS("./Bayesian/Results/logit.RDS")
+stan_data <- read_rds("./Bayesian/Logit-data.RDS")
+prediction <- fit$summary() %>%
   filter(grepl("y_pred", variable)) %>%
   dplyr::select(variable, mean)
 
-test <- prediction_hierarchical %>%
+prediction <- prediction %>%
   mutate(variable = str_extract(variable, "\\[.*\\]"),
          variable = str_replace_all(variable, "\\[|\\]", "")) %>%
   separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
 
-prediction_hierarchical_3d <- array(dim = c(max(prediction_hierarchical$dim1),
-                                            max(prediction_hierarchical$dim2),
-                                            max(prediction_hierarchical$dim3)))
+prediction_3d <- array(dim = c(max(prediction$dim1),
+                               max(prediction$dim2),
+                               max(prediction$dim3)))
+choice_array <- stan_data$choice
 
-for (i in 1:nrow(prediction_hierarchical)) {
-  dim1 <- prediction_hierarchical$dim1[i]
-  dim2 <- prediction_hierarchical$dim2[i]
-  dim3 <- prediction_hierarchical$dim3[i]
-  prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
+for (i in 1:nrow(prediction)) {
+  dim1 <- prediction$dim1[i]
+  dim2 <- prediction$dim2[i]
+  dim3 <- prediction$dim3[i]
+  prediction_3d[dim1, dim2, dim3] <- prediction$mean[i]
 }
 
 # Loop through each subject
@@ -120,16 +119,16 @@ for (subject in seq_len(dim1)) {
   # Get the value of Tsubj for this subject
   Tsubj_value <- stan_data[["Tsubj"]][subject]
 
-  # Set the values in prediction_hierarchical_3d to NA
+  # Set the values in prediction_3d to NA
   if (Tsubj_value != max(stan_data[["Tsubj"]])) {
-    prediction_hierarchical_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
+    prediction_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
     # Set the values in choice_data to NA
-    choice_data[subject, (Tsubj_value + 1):dim2, ] <- NA
+    choice_array[subject, (Tsubj_value + 1):dim2, ] <- NA
   }
 }
 
 # Get the number of layers
-num_layers <- dim(prediction_hierarchical_3d)[3]
+num_layers <- dim(prediction_3d)[3]
 # Custom function to calculate standard error based on the number of non-NA elements
 calc_se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
 
@@ -137,11 +136,11 @@ df_compare <- data.frame()
 
 # Generate a plot for each layer
 for (k in 1:num_layers) {
-  y_pred_avg <- apply(prediction_hierarchical_3d[, , k], 2, mean, na.rm = TRUE)
-  y_pred_se  <- apply(prediction_hierarchical_3d[, , k], 2, calc_se)
+  y_pred_avg <- apply(prediction_3d[, , k], 2, mean, na.rm = TRUE)
+  y_pred_se  <- apply(prediction_3d[, , k], 2, calc_se)
 
-  choice_data_avg <- apply(choice_data[, , k], 2, mean, na.rm = TRUE)
-  choice_data_se  <- apply(choice_data[, , k], 2, calc_se)
+  choice_data_avg <- apply(choice_array[, , k], 2, mean, na.rm = TRUE)
+  choice_data_se  <- apply(choice_array[, , k], 2, calc_se)
 
   # Only consider weeks with valid SEs
   weeks <- seq_len(sum(!is.na(y_pred_se)))

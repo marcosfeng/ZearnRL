@@ -364,14 +364,14 @@ df <- df %>%
                            .default = state - 1))
 
 # Non-hierarchical models
-for (col in paste0("FrobeniusNNDSVD", 1:3, "bin")) {
+for (col in c(paste0("FrobeniusNNDSVD", 1:3, "bin"),"Badges.per.Active.User")) {
   df <- get_lag_value(df, col, 1)
 }
 # Prepare data for Stan
 stan_data <- list(
   C = length(unique(df$Classroom.ID)), # Number of classrooms
   N = nrow(df),
-  X = df %>% select(FrobeniusNNDSVD1bin_1, Badges.per.Active.User, state) %>% as.matrix(),
+  X = df %>% select(FrobeniusNNDSVD1bin_1, Badges.per.Active.User_1, state) %>% as.matrix(),
   y = df %>% select(FrobeniusNNDSVD1bin, FrobeniusNNDSVD2bin, FrobeniusNNDSVD3bin) %>% as.matrix(),
   classroom = df %>%
     mutate(classroom = as.integer(factor(Classroom.ID))) %>%
@@ -391,7 +391,7 @@ fit <- logistic_model$sample(
 )
 
 # Save the fit object
-fit$save_object(file = "Bayesian/Results/Logit.RDS")
+fit$save_object(file = "Bayesian/Results/logit.RDS")
 
 # Hierarchical models
 
