@@ -1,10 +1,7 @@
 
 # LOOIC -------------------------------------------------------------------
 # https://www.statology.org/negative-aic/
-library(loo)
 options(mc.cores = 12)
-log_lik_rl <- loo::loo(test)
-loo_rl <- loo(log_lik_rl)
 
 `Q-learning-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Q-learning-FR.RDS")
 `Q-learning-states-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Q-learning-states-FR.RDS")
@@ -14,7 +11,7 @@ logit <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/logit.RDS")
 qlearn_sum <- `Q-learning-FR`$summary()
 qstate_sum <- `Q-learning-states-FR`$summary()
 ac_sum <- `Actor-Critic-FR`$summary()
-logit_sum <- Logit$summary()
+logit_sum <- logit$summary()
 
 # Assume data1, data2, and data3 are your data frames
 # Let's bind them into one data frame with an additional column to indicate the model
@@ -50,7 +47,7 @@ ggplot(all_data, aes(x = mean, color = model)) +
 looic <- list(`Q-learning-FR`$loo(),
               `Q-learning-states-FR`$loo(),
               `Actor-Critic-FR`$loo(),
-              Logit$loo())
+              logit$loo())
 
 models <- c("Q-learning", "State Q-learning", "Actor-Critic", "Logit")
 
@@ -90,88 +87,117 @@ ggplot(looic_data, aes(x = Model, y = LOOIC, color = Model)) +
 
 # Time series -------------------------------------------------------------
 
+process_and_plot_model <- function(model_sum, model_name, stan_data) {
+  prediction <- model_sum %>%
+    filter(grepl("y_pred|choice_prob", variable)) %>%
+    dplyr::select(variable, mean)
 
-fit <- readRDS("./Bayesian/Results/logit.RDS")
-stan_data <- read_rds("./Bayesian/Logit-data.RDS")
-prediction <- fit$summary() %>%
-  filter(grepl("y_pred", variable)) %>%
-  dplyr::select(variable, mean)
+  prediction <- prediction %>%
+    mutate(variable = str_extract(variable, "\\[.*\\]"),
+           variable = str_replace_all(variable, "\\[|\\]", "")) %>%
+    separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
 
-prediction <- prediction %>%
-  mutate(variable = str_extract(variable, "\\[.*\\]"),
-         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
-  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
+  prediction_3d <- array(dim = c(max(prediction$dim1),
+                                 max(prediction$dim2),
+                                 max(prediction$dim3)))
 
-prediction_3d <- array(dim = c(max(prediction$dim1),
-                               max(prediction$dim2),
-                               max(prediction$dim3)))
-choice_array <- stan_data$choice
-
-for (i in 1:nrow(prediction)) {
-  dim1 <- prediction$dim1[i]
-  dim2 <- prediction$dim2[i]
-  dim3 <- prediction$dim3[i]
-  prediction_3d[dim1, dim2, dim3] <- prediction$mean[i]
-}
-
-# Loop through each subject
-for (subject in seq_len(dim1)) {
-  # Get the value of Tsubj for this subject
-  Tsubj_value <- stan_data[["Tsubj"]][subject]
-
-  # Set the values in prediction_3d to NA
-  if (Tsubj_value != max(stan_data[["Tsubj"]])) {
-    prediction_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
-    # Set the values in choice_data to NA
-    choice_array[subject, (Tsubj_value + 1):dim2, ] <- NA
+  for (i in 1:nrow(prediction)) {
+    dim1 <- prediction$dim1[i]
+    dim2 <- prediction$dim2[i]
+    dim3 <- prediction$dim3[i]
+    prediction_3d[dim1, dim2, dim3] <- prediction$mean[i]
   }
+
+  if (grepl("logit", model_name, ignore.case = TRUE)) {
+    # Initialize counts
+    counts <- rep(0, stan_data[["C"]])
+
+    choice_array <- array(dim = c(max(prediction$dim1),
+                                  max(prediction$dim2),
+                                  max(prediction$dim3)))
+    for (n in 1:stan_data[["N"]]) {
+      # Increment counts based on classroom occurrences
+      counts[stan_data[["classroom"]][n]] <- counts[stan_data[["classroom"]][n]] + 1
+      choice_array[stan_data[["classroom"]][n],
+                   counts[stan_data[["classroom"]][n]], ] <-
+        stan_data$y[n,]
+    }
+
+    # Create Tsubj array
+    stan_data[["Tsubj"]] <- counts
+
+  } else {
+    choice_array <- stan_data$choice
+  }
+
+  # Loop through each subject
+  for (subject in seq_len(dim1)) {
+    # Get the value of Tsubj for this subject
+    Tsubj_value <- stan_data[["Tsubj"]][subject]
+
+    # Set the values in prediction_3d to NA
+    if (Tsubj_value != max(stan_data[["Tsubj"]])) {
+      prediction_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
+      # Set the values in choice_data to NA
+      choice_array[subject, (Tsubj_value + 1):dim2, ] <- NA
+    }
+  }
+
+  # Get the number of layers
+  num_layers <- dim(prediction_3d)[3]
+  # Custom function to calculate standard error based on the number of non-NA elements
+  calc_se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
+
+  df_compare <- data.frame()
+
+  # Generate a plot for each layer
+  for (k in 1:num_layers) {
+    y_pred_avg <- apply(prediction_3d[, , k], 2, mean, na.rm = TRUE)
+    y_pred_se  <- apply(prediction_3d[, , k], 2, calc_se)
+
+    choice_data_avg <- apply(choice_array[, , k], 2, mean, na.rm = TRUE)
+    choice_data_se  <- apply(choice_array[, , k], 2, calc_se)
+
+    # Only consider weeks with valid SEs
+    weeks <- seq_len(sum(!is.na(y_pred_se)))
+
+    df_pred <- data.frame(weeks = weeks,
+                          probability = y_pred_avg[weeks],
+                          type = rep("Model Fit", max(weeks)),
+                          se = y_pred_se[weeks],
+                          action = rep(paste("Action", k), max(weeks)))
+
+    df_real <- data.frame(weeks = weeks,
+                          probability = choice_data_avg[weeks],
+                          type = rep("Real Data", max(weeks)),
+                          se = choice_data_se[weeks],
+                          action = rep(paste("Action", k), max(weeks)))
+
+    df_compare <- rbind(df_compare, df_pred, df_real)
+  }
+
+  p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
+    geom_line() +
+    geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
+    labs(x = "Week", y = "Probability of a=1") +
+    facet_wrap(~action, ncol = 1) +
+    scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+    scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+    theme_minimal() +
+    theme(legend.position = "none")
+
+  print(p)
 }
 
-# Get the number of layers
-num_layers <- dim(prediction_3d)[3]
-# Custom function to calculate standard error based on the number of non-NA elements
-calc_se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
+q_data <- readRDS("~/GitHub/ZearnRL/Bayesian/Q-learn-data.RDS")
+process_and_plot_model(qlearn_sum, "Q-learning", q_data)
+process_and_plot_model(qstate_sum, "Q-state", q_data)
 
-df_compare <- data.frame()
+ac_data <- readRDS("~/GitHub/ZearnRL/Bayesian/Actor-Critic-data.RDS")
+process_and_plot_model(ac_sum, "Actor-Critic", ac_data)
 
-# Generate a plot for each layer
-for (k in 1:num_layers) {
-  y_pred_avg <- apply(prediction_3d[, , k], 2, mean, na.rm = TRUE)
-  y_pred_se  <- apply(prediction_3d[, , k], 2, calc_se)
-
-  choice_data_avg <- apply(choice_array[, , k], 2, mean, na.rm = TRUE)
-  choice_data_se  <- apply(choice_array[, , k], 2, calc_se)
-
-  # Only consider weeks with valid SEs
-  weeks <- seq_len(sum(!is.na(y_pred_se)))
-
-  df_pred <- data.frame(weeks = weeks,
-                        probability = y_pred_avg[weeks],
-                        type = rep("Model Fit", max(weeks)),
-                        se = y_pred_se[weeks],
-                        action = rep(paste("Action", k), max(weeks)))
-
-  df_real <- data.frame(weeks = weeks,
-                        probability = choice_data_avg[weeks],
-                        type = rep("Real Data", max(weeks)),
-                        se = choice_data_se[weeks],
-                        action = rep(paste("Action", k), max(weeks)))
-
-  df_compare <- rbind(df_compare, df_pred, df_real)
-}
-
-p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
-  geom_line() +
-  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
-  labs(x = "Week", y = "Probability of a=1") +
-  facet_wrap(~action, ncol = 1) +
-  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
-  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
-  theme_bw()
-
-print(p)
-
-
+logit_data <- readRDS("~/GitHub/ZearnRL/Bayesian/Logit-data.RDS")
+process_and_plot_model(logit_sum, "Logit", logit_data)
 
 # Examples ----------------------------------------------------------------
 
