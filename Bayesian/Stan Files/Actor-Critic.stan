@@ -62,7 +62,7 @@ model {
           PE = gamma^(week[i, t + 1] - week[i, t])
                * dot_product(w[j], new_state)
                - dot_product(w[j], current_state);
-          delta = (outcome[i, t] - cost[j]) - PE;
+          delta = (outcome[i, t] - cost[j]) + PE;
           // Update w:
           w[j] += alpha[1] * delta * to_vector(current_state);
           // Update theta:
@@ -104,7 +104,7 @@ generated quantities {
           PE = gamma^(week[i, t + 1] - week[i, t])
                * dot_product(w[j], new_state)
                - dot_product(w[j], current_state);
-          delta = (outcome[i, t] - cost[j]) - PE;
+          delta = (outcome[i, t] - cost[j]) + PE;
 
           // Update w and theta for next round
           w[j] += alpha[1] * delta * to_vector(current_state);
