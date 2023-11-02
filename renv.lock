@@ -1715,9 +1715,9 @@
     },
     "knitr": {
       "Package": "knitr",
-      "Version": "1.44",
+      "Version": "1.45",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "evaluate",
@@ -1727,7 +1727,7 @@
         "xfun",
         "yaml"
       ],
-      "Hash": "60885b9f746c9dfaef110d070b5f7dc0"
+      "Hash": "1ec462871063897135c1bcbe0fc8f07d"
     },
     "labeling": {
       "Package": "labeling",
@@ -2324,9 +2324,9 @@
     },
     "posterior": {
       "Package": "posterior",
-      "Version": "1.4.1",
+      "Version": "1.5.0",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "abind",
@@ -2342,7 +2342,7 @@
         "tibble",
         "vctrs"
       ],
-      "Hash": "7be6f62ae6281e965f09ca8657a066b2"
+      "Hash": "8dac526a34b9eb62305d16c04cb57837"
     },
     "ppcor": {
       "Package": "ppcor",
@@ -3413,7 +3413,7 @@
     },
     "withr": {
       "Package": "withr",
-      "Version": "2.5.1",
+      "Version": "2.5.2",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -3422,7 +3422,7 @@
         "graphics",
         "stats"
       ],
-      "Hash": "d77c6f74be05c33164e33fbc85540cae"
+      "Hash": "4b25e70111b7d644322e9513f403a272"
     },
     "wk": {
       "Package": "wk",
