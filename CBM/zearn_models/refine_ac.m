@@ -1,3 +1,7 @@
+rng(37909890)
+% © 1998-2023 RANDOM.ORG
+% Timestamp: 2023-10-04 18:38:28 UTC
+
 %% Re-estimate top 5 models with more precision
 
 % Add paths
@@ -46,11 +50,7 @@ parfor i = 1:5
     cbm_lap(data, models{i}, prior_ac, fname{i},pconfig);
 end
 
-%% 
-
-
-
-%% Find top 2 models by valid log evidence and re-estimate with new priors
+%% Histograms by valid log evidence
 
 valid_subj_all = ones(1,210);
 for i = 1:5
@@ -86,40 +86,13 @@ title('Histogram for Top 5 Models');
 xlabel('Log Evidence');
 ylabel('Frequency');
 
-
-[~, top2_indices] = sort(log_evidence, 'descend');
-top2_indices = top2_indices(1:2);
-% Create the prior structure for your new model
-v = 6.25;
-num_parameters = 9;
-% Create the prior structure from previous estimation
-prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
-top_models = cell(1,2);
-top_fname = cell(1,2);
-for i = 1:2
-    top_models{i} = str2func(sprintf('wrapper_function_%d', top5_indices(top2_indices(i))));
-    top_fname{i} = sprintf('ac_refine/refine_ac_%d.mat', top5_indices(top2_indices(i)));
-
-    loaded_data = load(top_fname{i});
-    prior_ac.mean = prior_ac.mean + ...
-        mean(loaded_data.cbm.output.parameters,1)';
-    top_fname{i} = sprintf('ac_refine/top2_ac_%d.mat', top5_indices(top2_indices(i)));
-end
-prior_ac.mean = prior_ac.mean/2;
-
-% Populate the top 2 models and their corresponding fcbm_maps
-parfor i = 1:2
-    % Run the cbm_lap function for your new model
-    cbm_lap(data, top_models{i}, prior_ac, top_fname{i},pconfig);
-end
-
 %% Run cbm_hbi for top models
 
 % Filter out invalid subjects from the original data
 valid_subj_all = ones(1,210);
-for i = 1:2
+for i = 1:5
     % Load the saved output for this model
-    loaded_data = load(top_fname{i});
+    loaded_data = load(fname{i});
     
     % Initialize a logical index for valid subjects
     valid_subjects = ~isnan(loaded_data.cbm.math.logdetA) ...
@@ -136,10 +109,10 @@ for i = 1:2
     valid_subj_all = valid_subj_all & valid_subjects;
 end
 filtered_data = data(valid_subj_all);
-filtered_name = cell(1,2);
-for i = 1:2
+filtered_name = cell(1,5);
+for i = 1:5
     % Load the saved output for this model
-    loaded_data = load(top_fname{i});
+    loaded_data = load(fname{i});
 
     loaded_data.cbm.profile.optim.flag = ...
         loaded_data.cbm.profile.optim.flag(valid_subj_all);
@@ -163,18 +136,22 @@ for i = 1:2
         loaded_data.cbm.output.parameters(valid_subj_all, :);
 
     % Save the modified loaded_data back to the same file
-    filtered_name{i} = sprintf('ac_refine/filtered_ac_%d.mat', top5_indices(top2_indices(i)));
+    filtered_name{i} = sprintf('ac_refine/filtered_ac_%d.mat', top5_indices(i));
     save(filtered_name{i}, '-struct', 'loaded_data');
 end
-fname_hbi = 'hbi_AC_refined.mat';
-cbm_hbi(filtered_data, top_models, filtered_name, fname_hbi);
+fname_hbi = 'hbi_AC5_refined.mat';
+cbm_hbi(filtered_data, models, filtered_name, fname_hbi);
 
 % Load the HBI results and store them
 fname_hbi_loaded = load(fname_hbi);
 hbi_results = fname_hbi_loaded.cbm;
 hbi_results.output
 
-model_names = {'ASt ~ Ba, Bo, M', 'Ba ~ ASt, A, M'};
+model_names = {'Ba ~ M', ...
+    'Ba ~ A', ...
+    'M ~ A, Bo', ...
+    'Bo ~ ASt, A, Ba', ...
+    'Bo ~ A'};
 param_names = {'\alpha_W','\alpha_\theta','\gamma', ...
     '\tau', '\theta_0', 'W_0', ...
     'c_1', 'c_2', 'c_3'};
