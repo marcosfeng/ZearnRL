@@ -3,10 +3,10 @@
 # https://www.statology.org/negative-aic/
 options(mc.cores = 12)
 
-`Q-learning-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Q-learning-FR.RDS")
-`Q-learning-states-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Q-learning-states-FR.RDS")
-`Actor-Critic-FR` <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/Actor-Critic-FR.RDS")
-logit <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/logit.RDS")
+`Q-learning-FR` <- readRDS("./Bayesian/Results/Q-learning-FR.RDS")
+`Q-learning-states-FR` <- readRDS("./Bayesian/Results/Q-learning-states-FR.RDS")
+`Actor-Critic-FR` <- readRDS("./Bayesian/Results/Actor-Critic-FR.RDS")
+logit <- readRDS("./Bayesian/Results/logit.RDS")
 
 qlearn_sum <- `Q-learning-FR`$summary()
 qstate_sum <- `Q-learning-states-FR`$summary()
@@ -189,17 +189,24 @@ process_and_plot_model <- function(model_sum, model_name, stan_data) {
   print(p)
 }
 
-q_data <- readRDS("~/GitHub/ZearnRL/Bayesian/Q-learn-data.RDS")
+q_data <- readRDS("./Bayesian/Q-learn-data.RDS")
 process_and_plot_model(qlearn_sum, "Q-learning", q_data)
 process_and_plot_model(qstate_sum, "Q-state", q_data)
 
-ac_data <- readRDS("~/GitHub/ZearnRL/Bayesian/Actor-Critic-data.RDS")
+ac_data <- readRDS("./Bayesian/Actor-Critic-data.RDS")
 process_and_plot_model(ac_sum, "Actor-Critic", ac_data)
 
-logit_data <- readRDS("~/GitHub/ZearnRL/Bayesian/Logit-data.RDS")
+logit_data <- readRDS("./Bayesian/Logit-data.RDS")
 process_and_plot_model(logit_sum, "Logit", logit_data)
 
 # Examples ----------------------------------------------------------------
+
+best_fit <- function(user, data, prediction_3d, choice = 1, range = c(1:8)) {
+  success <- data$choice[user,range,choice] * prediction_3d[user,range,choice]
+  failures <- (1 - data$choice[user,range,choice]) * (1 - prediction_3d[user,range,choice])
+  return(sum(success+failures))
+}
+lapply(list(101, 202, 205, 86, 7),FUN = best_fit, data = ac_data, prediction_3d = prediction_3d)
 
 # Top best fit: 202, 159, 153
 df <- df %>%
