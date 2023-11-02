@@ -1,3 +1,7 @@
+rng(37909890)
+% © 1998-2023 RANDOM.ORG
+% Timestamp: 2023-10-04 18:38:28 UTC
+
 %% Re-estimate top 5 models with more precision
 
 % Add paths
@@ -143,7 +147,11 @@ fname_hbi_loaded = load(fname_hbi);
 hbi_results = fname_hbi_loaded.cbm;
 hbi_results.output
 
-model_names = {'ASt ~ Ba, Bo, M', 'Ba ~ ASt, A, M'};
+model_names = {'Ba ~ M', ...
+    'Ba ~ A', ...
+    'M ~ A, Bo', ...
+    'Bo ~ ASt, A, Ba', ...
+    'Bo ~ A'};
 param_names = {'\alpha_W','\alpha_\theta','\gamma', ...
     '\tau', '\theta_0', 'W_0', ...
     'c_1', 'c_2', 'c_3'};
