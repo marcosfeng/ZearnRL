@@ -263,10 +263,27 @@ for i = 1:3
         loaded_data.cbm.output.parameters(valid_subj_all, :);
 
     % Save the modified loaded_data back to the same file
-    filtered_name{i} = sprintf('ac_refine/filtered_ac_%d.mat', top5_indices(i));
+    filtered_name{i} = sprintf('ac_refine/filtered_ac_%d.mat', top5_indices(top3_indices(i)));
     save(filtered_name{i}, '-struct', 'loaded_data');
 end
 fname_hbi = 'hbi_AC3_refined.mat';
-cbm_hbi(filtered_data, models, filtered_name, fname_hbi);
+cbm_hbi(filtered_data, top_models, filtered_name, fname_hbi);
 
+% Load the HBI results and store them
+fname_hbi_loaded = load(fname_hbi);
+hbi_results = fname_hbi_loaded.cbm;
+hbi_results.output
 
+model_names = {'Ba ~ A', ...
+    'Bo ~ A', ...
+    'Ba ~ M'};
+param_names = {'\alpha_W','\alpha_\theta','\gamma', ...
+    '\tau', '\theta_0', 'W_0', ...
+    'c_1', 'c_2', 'c_3'};
+% note the latex format
+% transformation functions associated with each parameter
+transform = {'sigmoid','sigmoid','sigmoid', ...
+    'exp', 'none', 'none', ...
+    'exp','exp','exp'};
+
+cbm_hbi_plot(fname_hbi, model_names, param_names, transform);
