@@ -53,6 +53,7 @@ generated quantities {
   array[C, T, 3] real y_pred = rep_array(-1, C, T, 3);
   // For log likelihood calculation
   vector[C] log_lik;  // log likelihood per classroom
+  array[N, T, C] int y_sim;
   int k;
   array[C] int week = rep_array(0, C);
 
@@ -68,6 +69,8 @@ generated quantities {
       y_pred[k, week[k], j] = inv_logit(alpha[j, teacher]
                               + dot_product(X[n,], to_vector(beta[j, , teacher])));
       log_lik[k] += bernoulli_lpmf(y[n, j] | y_pred[k, week[k], j]);
+      y_sim[k, week[k], j] = bernoulli_logit_rng(alpha[j, teacher]
+                              + dot_product(X[n,], to_vector(beta[j, , teacher])));
     }
   }
 }

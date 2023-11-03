@@ -95,6 +95,7 @@ generated quantities {
   // For posterior predictive check
   array[N, T, C] real y_pred = rep_array(-1, N, T, C);
   vector[N] log_lik;
+  array[N, T, C] int y_sim;
 
   // subject loop and trial loop
   for (i in 1:N) {
@@ -110,6 +111,7 @@ generated quantities {
       for (j in 1:C) {
         y_pred[i, t, j] = inv_logit(tau[group[i]] * dot_product(theta[j], current_state));
         log_lik[i] += bernoulli_lpmf(choice[i, t, j] | y_pred[i, t, j]);
+        y_sim[i, t, j] = bernoulli_logit_rng(tau[group[i]] * dot_product(theta[j], current_state));
       }
 
       if (t == Tsubj[i])  // Last week
