@@ -28,6 +28,14 @@ prepare_choice_array <- function(df, col1, col2, col3) {
   return(choice_array)
 }
 
+df <- read.csv("Bayesian/df_subset.csv") %>% as.data.table()
+
+choices <- list(
+  FR = grep("FrobeniusNNDSVD(.)bin", names(df), value = TRUE)
+  # FRa = grep("FrobeniusNNDSVDA(.)bin", names(df), value = TRUE),
+  # KL = grep("Kullback.Leibler(.)bin", names(df), value = TRUE)
+)
+
 # Import Data -------------------------------------------------------------
 
 df <- read.csv(file = "Bayesian/df.csv")
@@ -51,15 +59,14 @@ df <- df %>%
   setorder(Classroom.ID, week) %>%
   .[, row_n := seq_len(.N), by = .(Classroom.ID)]
 
-choices <- list(
-  FR = grep("FrobeniusNNDSVD(.)bin", names(df), value = TRUE)
-  # FRa = grep("FrobeniusNNDSVDA(.)bin", names(df), value = TRUE),
-  # KL = grep("Kullback.Leibler(.)bin", names(df), value = TRUE)
-)
-
 # Write to csv
 write.csv(df, "./Bayesian/df_subset.csv")
-# df <- read.csv("Bayesian/df_subset.csv") %>% as.data.table()
+
+# choices <- list(
+#   FR = grep("FrobeniusNNDSVD(.)bin", names(df), value = TRUE),
+#   FRa = grep("FrobeniusNNDSVDA(.)bin", names(df), value = TRUE),
+#   KL = grep("Kullback.Leibler(.)bin", names(df), value = TRUE)
+# )
 
 # 1. Q-learning -----------------------------------------------------------
 
@@ -330,7 +337,6 @@ fit$save_object(file = "Bayesian/Results/logit.RDS")
 # 5. Hierarchical Models --------------------------------------------------
 
 df[, Teacher.Rank := .GRP, by = .(Teacher.User.ID)]
-
 
 ## Q-learning
 
