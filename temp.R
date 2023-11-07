@@ -1,20 +1,21 @@
-
-# LOOIC -------------------------------------------------------------------
-# https://www.statology.org/negative-aic/
 options(mc.cores = 12)
 
 `Q-learning-FR` <- readRDS("./Bayesian/Results/Q-learning-FR.RDS")
 `Q-learning-states-FR` <- readRDS("./Bayesian/Results/Q-learning-states-FR.RDS")
 `Actor-Critic-FR` <- readRDS("./Bayesian/Results/Actor-Critic-FR.RDS")
 logit <- readRDS("./Bayesian/Results/logit.RDS")
+kernel <- readRDS("./Bayesian/Results/Q-learning-kernel-FR.RDS")
 
 qlearn_sum <- `Q-learning-FR`$summary()
 qstate_sum <- `Q-learning-states-FR`$summary()
 ac_sum <- `Actor-Critic-FR`$summary()
 logit_sum <- logit$summary()
+kernel_sum <- kernel$summary()
 
-# Assume data1, data2, and data3 are your data frames
-# Let's bind them into one data frame with an additional column to indicate the model
+# LOOIC -------------------------------------------------------------------
+# https://www.statology.org/negative-aic/
+
+# Let's bind one data frame with an additional column to indicate the model
 all_data <- bind_rows(
   mutate(qlearn_sum, model = "Q-learning"),
   mutate(qstate_sum, model = "State Q"),
@@ -198,6 +199,84 @@ process_and_plot_model(ac_sum, "Actor-Critic", ac_data)
 
 logit_data <- readRDS("./Bayesian/Logit-data.RDS")
 process_and_plot_model(logit_sum, "Logit", logit_data)
+
+
+
+# Kernel ------------------------------------------------------------------
+
+# Let's bind one data frame with an additional column to indicate the model
+all_data <- bind_rows(
+  mutate(ac_sum, model = "Actor Critic"),
+  mutate(logit_sum, model = "Logit"),
+  mutate(kernel_sum, model = "Kernel Q")
+)
+
+# Filter out only the rows of interest (log_lik[1] to log_lik[210])
+all_data <- filter(all_data, grepl("log_lik", variable))
+
+# Assuming 'all_data' dataframe and 'mean' column are available
+ggplot(all_data, aes(x = mean, color = model)) +
+  geom_density(adjust = 1, alpha = 0.7) + # Adjusted size and added alpha for a smoother look
+  labs(
+    title = "Log Likelihood per Classrooms",
+    x = "Log Likelihood",
+    y = "Density",
+    color = "Model" # Legend title
+  ) +
+  theme_minimal() + # Increased base font size
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5), # Centered and bolded title
+    legend.position = "bottom", # Moved legend to top
+    legend.box = "horizontal", # Arranged legend items horizontally
+    legend.title = element_text(face = "bold") # Bolded legend title
+  ) +
+  scale_color_brewer(palette = "Set1") # Changed color palette to something more visually appealing
+
+
+looic <- list(`Actor-Critic-FR`$loo(),
+              logit$loo(),
+              kernel$loo(),
+              `Q-learning-FR`$loo())
+
+models <- c("Actor-Critic", "Logit", "Kernel Q-learning", "State Q-learning")
+
+# Combining the extracted values into a data frame
+looic_data <- data.frame(
+  Model = factor(c("Actor-Critic", "Logit", "Kernel Q-learning", "State Q-learning")),
+  LOOIC = c(
+    looic[[1]][["estimates"]]["looic","Estimate"],
+    looic[[2]][["estimates"]]["looic","Estimate"],
+    looic[[3]][["estimates"]]["looic","Estimate"],
+    looic[[4]][["estimates"]]["looic","Estimate"]
+  ),
+  SE = c(
+    looic[[1]][["estimates"]]["looic","SE"],
+    looic[[2]][["estimates"]]["looic","SE"],
+    looic[[3]][["estimates"]]["looic","SE"],
+    looic[[4]][["estimates"]]["looic","SE"]
+  )
+)
+
+# Plotting
+ggplot(looic_data, aes(x = Model, y = LOOIC, color = Model)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = LOOIC - SE, ymax = LOOIC + SE), width = 0.2) +
+  labs(
+    title = "Model Performance",
+    y = "LOOIC",
+    color = "Model"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "none"
+  )
+
+
+####
+
+process_and_plot_model(kernel_sum, "Kernel Q", q_data)
+
 
 # Examples ----------------------------------------------------------------
 

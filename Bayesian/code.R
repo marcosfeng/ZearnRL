@@ -7,6 +7,7 @@ library(stats)
 library(lubridate)
 library(cmdstanr)
 library(rstan)
+options(mc.cores = parallel::detectCores())
 set.seed(683328979)
 # Random.org
 # Timestamp: 2023-06-06 08:01:33 UTC
@@ -503,11 +504,33 @@ fit <- logistic_model$sample(
 )
 
 # Save the fit object
-fit$save_object(file = "Bayesian/Results/logit.RDS")
+fit$save_object(file = "Bayesian/Results/logit-hierarchical.RDS")
 
 
 # Quick diagnostics -------------------------------------------------------
 
 library("shinystan")
+fit$summary()
 stanfit <- rstan::read_stan_csv(fit$output_files())
 launch_shinystan(stanfit)
+
+
+library(bayesplot)
+yrep <- rstantools::posterior_predict(stanfit, "y_pred")
+ppc_hist(y, yrep)
+
+install.packages("pROC")
+library(pROC)
+
+kernel_h <- readRDS("./Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
+posterior_samples <- kernel_h$summary(variables = "y_pred")
+
+library(DescTools)
+observed <- prepare_choice_array(df,
+                                 choices[[1]][1],
+                                 choices[[1]][2],
+                                 choices[[1]][3])
+observed_vector <- as.vector(observed)
+CalibrationPlot(posterior_samples, observed)
+ppc_hist(observed_vector, posterior_samples)
+

@@ -5,7 +5,7 @@ data {
   array[N, 3] int<lower=0, upper=1> y;  // response variables
   array[N]    int<lower=1, upper=C> classroom;  // classroom identifier
   int<lower=1> number_teachers; // Number of unique teachers
-  array[N] int<lower=1> group; // Teacher ID for each classroom
+  array[C] int<lower=1> group; // Teacher ID for each classroom
 }
 transformed data {
   array[C] int counts = rep_array(0, C);  // initialize counts

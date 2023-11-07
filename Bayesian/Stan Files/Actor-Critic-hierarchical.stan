@@ -32,13 +32,13 @@ parameters {
 }
 model {
   // Priors for group-level parameters
-  mu_cost ~ normal(0.5, 1);
+  mu_cost ~ exponential(3);
   sigma_cost ~ cauchy(0, 2.5);
-  mu_gamma ~ normal(0.5, 1);
+  mu_gamma ~ uniform(0, 1);
   sigma_gamma ~ cauchy(0, 2.5);
-  mu_alpha ~ normal(0.5, 1);
+  mu_alpha ~ uniform(0, 1);
   sigma_alpha ~ cauchy(0, 2.5);
-  mu_tau ~ normal(1, 1);
+  mu_tau ~ exponential(1.0/17);
   sigma_tau ~ cauchy(0, 2.5);
 
   for (c in 1:C) {
