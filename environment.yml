@@ -1,4 +1,4 @@
-name: /Users/alicequan/GitHub/ZearnRL/renv/python/condaenvs/renv-python
+name: /Users/marcosgallo/GitHub/ZearnRL/renv/python/condaenvs/renv-python
 channels:
   - conda-forge
 dependencies:
@@ -18,4 +18,4 @@ dependencies:
   - tzdata=2023c=h71feb2d_0
   - wheel=0.41.3=pyhd8ed1ab_0
   - xz=5.2.6=h57fd34a_0
-prefix: /Users/alicequan/GitHub/ZearnRL/renv/python/condaenvs/renv-python
+prefix: /Users/marcosgallo/GitHub/ZearnRL/renv/python/condaenvs/renv-python
