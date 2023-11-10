@@ -14,7 +14,7 @@ data {
 }
 parameters {
   array[C] real<lower=0> cost;  // cost in badge-units for each component
-  real<lower=0.5, upper=1> gamma;  // discount rate
+  real<lower=0, upper=1> gamma;  // discount rate
   real<lower=0> tau;  // temperature
   vector<lower=0, upper=1>[2] alpha;  // step-sizes
   array[C] vector[S] w_0;  // initial Ws
@@ -23,11 +23,11 @@ parameters {
 model {
   // Flat-ish priors
   cost     ~ exponential(3);
-  gamma    ~ uniform(0.5, 1);
+  gamma    ~ uniform(0, 1);
   tau      ~ exponential(1.0/17);
   alpha    ~ uniform(0, 1);
   for (c in 1:C) {
-    w_0[c]      ~ normal(-1, 2);
+    w_0[c]      ~ normal(0, 2);
     theta_0[c]  ~ normal(0, 2);
   }
 

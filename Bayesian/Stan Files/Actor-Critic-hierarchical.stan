@@ -32,19 +32,23 @@ parameters {
 }
 model {
   // Priors for group-level parameters
-  mu_cost ~ exponential(3);
-  sigma_cost ~ cauchy(0, 2.5);
-  mu_gamma ~ uniform(0, 1);
-  sigma_gamma ~ cauchy(0, 2.5);
-  mu_alpha ~ uniform(0, 1);
-  sigma_alpha ~ cauchy(0, 2.5);
-  mu_tau ~ exponential(1.0/17);
-  sigma_tau ~ cauchy(0, 2.5);
+  // Values from non-hierarchical estimation
+  mu_cost     ~ normal(0.23, 0.23);
+  sigma_cost  ~ normal(0, 1);
+  mu_gamma    ~ normal(0.125, 0.0233);
+  sigma_gamma ~ normal(0, 1);
+  mu_alpha[1] ~ normal(0.0158, 0.00839);
+  mu_alpha[2] ~ normal(0.775, 0.173);
+  sigma_alpha ~ normal(0, 1);
+  mu_tau      ~ normal(0.247, 0.0448);
+  sigma_tau.  ~ normal(0, 1);
 
-  for (c in 1:C) {
-    w_0[c]      ~ normal(-1, 2);
-    theta_0[c]  ~ normal(0, 2);
-  }
+  w_0[:,1]    ~ normal(-3.5, 0.85);
+  w_0[:,2]    ~ normal(0.21, 0.25);
+  w_0[:,3]    ~ normal(-1.7, 0.45);
+  theta_0[:,1]~ normal(-1.9, 0.38);
+  theta_0[:,2]~ normal(-0.08, 0.17);
+  theta_0[:,3]~ normal(0.87, 0.25);
 
   // Distributions for subject-level parameters
   for (g in 1:G) {
