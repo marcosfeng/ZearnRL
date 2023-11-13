@@ -129,7 +129,7 @@ filtered_data = data(valid_subj_all);
 filtered_name = cell(1,5);
 for i = 1:5
     % Load the saved output for this model
-    loaded_data = load(fname{i});
+    loaded_data = load(fname{top5_indices(i)});
 
     loaded_data.cbm.profile.optim.flag = ...
         loaded_data.cbm.profile.optim.flag(valid_subj_all);
@@ -157,7 +157,7 @@ for i = 1:5
     save(filtered_name{i}, '-struct', 'loaded_data');
 end
 fname_hbi = 'hbi_AC5_refined.mat';
-cbm_hbi(filtered_data, models{1:5}, filtered_name, fname_hbi);
+cbm_hbi(filtered_data, models(top5_indices), filtered_name, fname_hbi);
 
 % Load the HBI results and display them
 fname_hbi_loaded = load(fname_hbi);
@@ -168,11 +168,7 @@ for i = 1:numel(T.Model)
     T.Model{i} = strrep(T.Model{i}, 'Outcome:', 'R:');
     T.Model{i} = strrep(T.Model{i}, 'States:', 'S:');
 end
-model_names = {T.Model{1}, ...
-    T.Model{2}, ...
-    T.Model{3}, ...
-    T.Model{4}, ...
-    T.Model{5}};
+model_names = T.Model(top5_indices);
 param_names = {'\alpha_W','\alpha_\theta','\gamma', ...
     '\tau', '\theta_0', 'W_0', ...
     'c_1', 'c_2', 'c_3'};

@@ -11,10 +11,9 @@ addpath(fullfile('..','zearn_models','wrappers'));
 % Define the prior variance
 v = 6.25;
 % Determine the number of parameters in your model.
-num_parameters = 9;
-
+num_parameters = 3*5;
 % Create the prior structure for your new model
-prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
+prior_logit = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
 % Load the common data for all datasets
 fdata = load('../data/all_data.mat');
@@ -24,32 +23,10 @@ data  = fdata.data;
 models = cell(1, 75);
 fcbm_maps = cell(1, 75);
 
-% Create the PCONFIG struct
-pconfig = struct();
-pconfig.numinit = min(70*num_parameters, 1000);
-pconfig.numinit_med = 1000;
-pconfig.numinit_up = 10000;
-pconfig.tolgrad = 1e-4;
-pconfig.tolgrad_liberal = 0.01;
-% Initialize a parallel pool if it doesn't already exist
-if isempty(gcp('nocreate'))
-    parpool;
-end
-% Loop through each of the 75 wrapper functions
-parfor wrapper_num = 1:75
-    % Specify the file-address for saving the output
-    fname = sprintf('ac_subj_results/lap_ac_%d.mat', wrapper_num);  % Laplace results for actor-critic model
-    
-    % Get the function handle for the current wrapper function
-    wrapper_func = str2func(sprintf('wrapper_function_%d', wrapper_num));
-    
-    % Run the cbm_lap function for your new model
-    cbm_lap(data, wrapper_func, prior_ac, fname, pconfig);
-
-    % Store the function handle and file name for later
-    models{wrapper_num} = wrapper_func;
-    fcbm_maps{wrapper_num} = fname;
-end
+% Specify the file-address for saving the output
+fname = 'logit_subj_results/lap_logit.mat';
+% Run the cbm_lap function for your new model
+cbm_lap(data, @logit_model, prior_logit, fname);
 
 %% 
 
@@ -86,7 +63,7 @@ end
 
 % Create a histogram of the log evidences
 figure;
-histogram(log_evidence, 50);
+histogram(log_evidence);
 title('Histogram of Log Evidences');
 xlabel('Log Evidence');
 ylabel('Frequency');

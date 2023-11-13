@@ -1,0 +1,14 @@
+cbm_hbi_hbi                                       13-Nov-2023 12:30:04
+Running hierarchical bayesian inference (HBI)...
+
+HBI has been initialized according to
+	ac_refine/filtered_ac_24.mat [for model 1]
+	ac_refine/filtered_ac_74.mat [for model 2]
+	ac_refine/filtered_ac_60.mat [for model 3]
+	ac_refine/filtered_ac_15.mat [for model 4]
+	ac_refine/filtered_ac_9.mat [for model 5]
+ 
+Number of samples: 181
+Number of models: 5
+======================================================================
+Iteration 01
