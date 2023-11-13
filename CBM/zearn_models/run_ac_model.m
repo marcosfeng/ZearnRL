@@ -9,15 +9,12 @@ addpath(fullfile('..','codes'));
 addpath(fullfile('..','zearn_models','wrappers'));
 
 % Define the prior variance
-v = 2;
-
+v = 6.25;
 % Determine the number of parameters in your model.
 num_parameters = 9;
 
 % Create the prior structure for your new model
-prior_ac = struct('mean', zeros(num_parameters, 1) - 0.7, 'variance', v);
-prior_ac.mean(3) = prior_ac.mean(3) + 3;
-prior_ac.mean(5:end) = 0;
+prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
 % Load the common data for all datasets
 fdata = load('../data/all_data.mat');
@@ -27,11 +24,17 @@ data  = fdata.data;
 models = cell(1, 75);
 fcbm_maps = cell(1, 75);
 
+% Create the PCONFIG struct
+pconfig = struct();
+pconfig.numinit = min(70*num_parameters, 1000);
+pconfig.numinit_med = 1000;
+pconfig.numinit_up = 10000;
+pconfig.tolgrad = 1e-4;
+pconfig.tolgrad_liberal = 0.01;
 % Initialize a parallel pool if it doesn't already exist
 if isempty(gcp('nocreate'))
     parpool;
 end
-
 % Loop through each of the 75 wrapper functions
 parfor wrapper_num = 1:75
     % Specify the file-address for saving the output
@@ -41,7 +44,7 @@ parfor wrapper_num = 1:75
     wrapper_func = str2func(sprintf('wrapper_function_%d', wrapper_num));
     
     % Run the cbm_lap function for your new model
-    cbm_lap(data, wrapper_func, prior_ac, fname);
+    cbm_lap(data, wrapper_func, prior_ac, fname, pconfig);
 
     % Store the function handle and file name for later
     models{wrapper_num} = wrapper_func;
@@ -73,7 +76,7 @@ for wrapper_num = 1:75
     
     % Add the condition for logdetA values within 3 standard deviations of the mean
     valid_subjects = valid_subjects & ...
-        (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= 3 * std_logdetA);
+        (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= 2 * std_logdetA);
 
     % Filter out invalid subjects from the log-likelihood array
     log_evidence(wrapper_num) = ...
@@ -89,8 +92,8 @@ xlabel('Log Evidence');
 ylabel('Frequency');
 
 % Rank the models by log evidence and get the indices of the top 5
-[~, top5_indices] = sort(log_evidence, 'descend');
-top5_indices = top5_indices(1:5);
+[~, top10_indices] = sort(log_evidence, 'descend');
+top10_indices = top10_indices(1:10);
 
 % Save the new data file
-save('top5_indeces.mat', 'top5_indices');
+save('top10_indeces.mat', 'top10_indices');
