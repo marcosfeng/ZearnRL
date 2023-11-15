@@ -86,7 +86,7 @@ end
 
 % Create a histogram of the log evidences
 figure;
-histogram(log_evidence, 50);
+histogram(log_evidence, 15);
 title('Histogram of Log Evidences');
 xlabel('Log Evidence');
 ylabel('Frequency');

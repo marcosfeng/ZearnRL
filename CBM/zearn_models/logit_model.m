@@ -20,7 +20,7 @@ function [loglik] = logit_model(parameters, subj)
     beta = reshape(parameters, (size(X,2)+1), C);
 
     loglik = 0;
-    for c = C
+    for c = 1:C
         % Compute the linear combination of X and beta
         linear_comb = [X, lag_choice(:,c)] * beta(:, c);
         % Compute the logistic function for each observation

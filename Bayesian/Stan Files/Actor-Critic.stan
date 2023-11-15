@@ -14,7 +14,7 @@ data {
 }
 parameters {
   array[C] real<lower=0> cost;  // cost in badge-units for each component
-  real<lower=0.6, upper=1> gamma;  // discount rate
+  real<lower=0, upper=1> gamma;  // discount rate
   real<lower=0> tau;  // temperature
   vector<lower=0, upper=1>[2] alpha;  // step-sizes
   array[C] vector[S] w_0;  // initial Ws
@@ -23,7 +23,7 @@ parameters {
 model {
   // Flat-ish priors
   cost     ~ normal(0, 2);
-  gamma    ~ normal(0.8, 0.1);
+  gamma    ~ normal(0, 2);
   tau      ~ normal(0, 5);
   alpha    ~ uniform(0, 1);
   for (c in 1:C) {
@@ -66,7 +66,7 @@ model {
           // Update w:
           w[j] += alpha[1] * delta * to_vector(current_state);
           // Update theta:
-          theta[j] += alpha[2] * delta * to_vector(current_state) * tau
+          theta[j] += alpha[2] * delta * to_vector(current_state) * tau * gamma^(week[i, t])
                         ./ (1 + exp(dot_product(theta[j], current_state) * tau));
         }
       }
@@ -108,7 +108,7 @@ generated quantities {
 
           // Update w and theta for next round
           w[j] += alpha[1] * delta * to_vector(current_state);
-          theta[j] += alpha[2] * delta * to_vector(current_state) * tau
+          theta[j] += alpha[2] * delta * to_vector(current_state) * tau * gamma^(week[i, t])
                         ./ (1 + exp(dot_product(theta[j], current_state) * tau));
         }
       }

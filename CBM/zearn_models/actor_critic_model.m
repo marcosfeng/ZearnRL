@@ -43,22 +43,14 @@ function [loglik] = actor_critic_model(parameters, subj)
         product = s * theta * tau;
         % Define a threshold for 'large' theta
         if product < -8
-            log_policy = -product;
-            log_policy_complement = zeros(1,C);
+            p(t) = p(t) - product*a';
         elseif product > 8
-            log_policy = zeros(1,C);
-            log_policy_complement = product;
+            p(t) = p(t) + (1-product)*(1-a)';
         else
-            log_policy = -log1p(exp(-product));
-            log_policy_complement = -log1p(exp(product));
+            p(t) = p(t) - ...
+                log1p(exp(-product))*a' - ...
+                log1p(exp(product))*(1-a)';
         end
-
-        % Precompute logical indices
-        idx_a1 = a == 1;
-        idx_a0 = a == 0;
-    
-        % Compute log probability of the chosen actions
-        p(t) = log_policy*idx_a1' + log_policy_complement*idx_a0';
 
         % Critic: Compute TD error (delta)
         if t < Tsubj
@@ -68,11 +60,12 @@ function [loglik] = actor_critic_model(parameters, subj)
         else
             PE = 0;  % Terminal state
         end
-        delta = (o - cost) - PE;
+        delta = (o - cost) + PE;
 
         % Update weights
         % Derivative of the logistic function: a/(1 + e^(a x))
-        theta = theta + alpha_theta * (tau * s') * (1 + exp(s * theta * tau)).^(-1) .* delta;
+        theta = theta + alpha_theta * gamma^(double(w_t)) * ...
+            (tau * s') * (1 + exp(product)).^(-1) .* delta;
         w = w + alpha_w * s' * delta;
     end
 
