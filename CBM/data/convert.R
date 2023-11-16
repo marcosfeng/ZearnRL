@@ -59,8 +59,18 @@ convert_to_subj_struct <- function(i, stan_data) {
 
 # Import Data -------------------------------------------------------------
 
-df <- read.csv(file = "Bayesian/df_subset.csv") %>%
-  as.data.table()
+df <- read.csv(file = "Bayesian/df.csv")
+
+FR_cols <- grep("FrobeniusNNDSVD", names(df), value = TRUE)
+
+df <- df %>%
+  arrange(Classroom.ID, week) %>%
+  group_by(MDR.School.ID) %>%
+  mutate(across(all_of(FR_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
+  as.data.table() %>%
+  .[Classroom.ID %in% sample(unique(Classroom.ID), size = length(unique(Classroom.ID)) * 0.10)] %>%
+  setorder(Classroom.ID, week) %>%
+  .[, row_n := seq_len(.N), by = .(Classroom.ID)]
 
 # List of all potential state and reward variables
 all_vars <- c("Active.Users...Total", "Minutes.per.Active.User", "Badges.per.Active.User",
@@ -72,7 +82,7 @@ df <- df %>%
 
 # List of all potential action variables
 choices <- list(
-  KL = grep("KullbackLeibler(.)bin", names(df), value = TRUE)
+  FR = grep("FrobeniusNNDSVD(.)bin", names(df), value = TRUE)
 )
 
 for (choice in names(choices)) {
