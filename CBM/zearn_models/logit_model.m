@@ -2,19 +2,15 @@ function [loglik] = logit_model(parameters, subj)
     
     % Unpack data
     choice = subj.actions(1:end, :);
-    outcome = subj.minutes(1:end);
-    alerts = subj.alerts(2:end, :);
-    boosts = subj.boosts(2:end, :);
+    outcome = subj.badges(1:end);
+    alerts = [0; subj.alerts(2:end, :)];
     C = size(choice, 2);
 
-    lag_choice  = [choice(1:end-1, :)];  % Lag by 1 step
-    lag_outcome = [outcome(1:end-1)];  % Lag by 1 step
-
-    choice = subj.actions(2:end, :);
+    lag_choice  = [zeros(1,C); choice(1:end-1, :)];  % Lag by 1 step
+    lag_outcome = [0; outcome(1:end-1)];  % Lag by 1 step
 
     % Concatenate the variables to form X
-    X = [ones(size(choice, 1), 1), lag_outcome, ...
-        alerts, boosts];
+    X = [ones(size(choice, 1), 1), lag_outcome, alerts];
 
     % Extract parameters
     beta = reshape(parameters, (size(X,2)+1), C);

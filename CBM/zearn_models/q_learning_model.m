@@ -12,7 +12,7 @@ function [loglik] = q_learning_model(parameters, subj)
     % Unpack data
     Tsubj = length(subj.actions);
     choice = subj.actions;  % 1 for action=1 and 2 for action=2, etc.
-    outcome = subj.minutes;  % 1 for outcome=1 and 0 for outcome=0
+    outcome = subj.badges;  % 1 for outcome=1 and 0 for outcome=0
     state = (subj.alerts >= -0.1402) + 1; % Global median (change accordingly)
 
     % Initialize Q-value for each action

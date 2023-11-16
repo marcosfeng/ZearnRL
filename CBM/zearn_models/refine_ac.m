@@ -69,8 +69,9 @@ for i = 1:length(fname)
     valid_subjects = valid_subjects & ...
         (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= 3 * std_logdetA);
     valid_subj_all = valid_subj_all & valid_subjects;
+end
 
-
+for i = 1:length(fname)
     % 2) Create a cell array for the model descriptions
     % Extract the number from the filename
     num = regexp(fname{i}, '\d+', 'match');
@@ -164,11 +165,12 @@ fname_hbi_loaded = load(fname_hbi);
 hbi_results = fname_hbi_loaded.cbm;
 hbi_results.output
 
-for i = 1:numel(T.Model)
-    T.Model{i} = strrep(T.Model{i}, 'Outcome:', 'R:');
-    T.Model{i} = strrep(T.Model{i}, 'States:', 'S:');
-end
-model_names = T.Model(top5_indices);
+hbi_results.input.models
+model_names = {'R: A, S: ASt', ...
+    'R: Bo, S: A, Ba, M', ...
+    'R: Ba, S: A, M', ...
+    'R: Bo, S: Ba', ...
+    'R: Ba, S: ASt'};
 param_names = {'\alpha_W','\alpha_\theta','\gamma', ...
     '\tau', '\theta_0', 'W_0', ...
     'c_1', 'c_2', 'c_3'};
@@ -197,7 +199,7 @@ loaded_data = load('hbi_AC5_refined.mat');
 [~, top3_indices] = sort(loaded_data.cbm.output.model_frequency, 'descend');
 top3_indices = top3_indices(1:3);
 % Create the prior structure for your new model
-v = 2;
+v = 0;
 num_parameters = 9;
 % Create the prior structure from previous estimation
 prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
@@ -206,26 +208,27 @@ top_fname = cell(1,3);
 for i = 1:3
     top_models{i} = str2func(sprintf('wrapper_function_%d', top10_indices(top5_indices(top3_indices(i)))));
     top_fname{i} = sprintf('ac_refine/refine_ac_%d.mat', top10_indices(top5_indices(top3_indices(i))));
-    loaded_data = load(top_fname{i});
     prior_ac.mean = prior_ac.mean + ...
-        mean(loaded_data.cbm.output.parameters,1)';
+        loaded_data.cbm.output.group_mean{top3_indices(i)}';
+    prior_ac.variance = max(prior_ac.variance, ...
+        max(loaded_data.cbm.output.group_hierarchical_errorbar{top3_indices(1)}));
     top_fname{i} = sprintf('ac_refine/top3_ac_%d.mat', top10_indices(top5_indices(top3_indices(i))));
 end
 prior_ac.mean = prior_ac.mean/3;
+prior_ac.variance = min(6.25, ...
+    (prior_ac.variance)^2 * length(filtered_data));
 
-% Create the PCONFIG struct
-pconfig = struct();
-pconfig.numinit = min(50*num_parameters, 500);
-pconfig.numinit_med = 500;
-pconfig.numinit_up = 5000;
-pconfig.tolgrad = 2e-4;
-pconfig.tolgrad_liberal = 0.02;
-pconfig.range = [-10*ones(1,num_parameters); 10*ones(1,num_parameters)];
 % Initialize a parallel pool if it doesn't already exist
 if isempty(gcp('nocreate'))
     parpool;
 end
 % Populate the top 3 models and their corresponding fcbm_maps
+pconfig = struct();
+pconfig.numinit = min(70*num_parameters, 1000);
+pconfig.numinit_med = 1000;
+pconfig.numinit_up = 10000;
+pconfig.tolgrad = 1e-4;
+pconfig.tolgrad_liberal = 0.01;
 parfor i = 1:3
     % Run the cbm_lap function for your new model
     cbm_lap(data, top_models{i}, prior_ac, top_fname{i},pconfig);
@@ -290,12 +293,10 @@ fname_hbi_loaded = load(fname_hbi);
 hbi_results = fname_hbi_loaded.cbm;
 hbi_results.output
 
-model_names = {'Ba ~ A', ...
-    'Bo ~ A', ...
-    'Ba ~ M'};
+model_names = T.Model(top5_indices(top3_indices));
 param_names = {'\alpha_W','\alpha_\theta','\gamma', ...
     '\tau', '\theta_0', 'W_0', ...
-    'c_1', 'c_2', 'c_3'};
+    'c_1', 'c_2', 'c_3'};   
 % note the latex format
 % transformation functions associated with each parameter
 transform = {'sigmoid','sigmoid','sigmoid', ...
