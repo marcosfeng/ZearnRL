@@ -13,14 +13,14 @@ data {
 }
 parameters {
   // Group-level parameters
-  vector<lower=0, upper=1>[C] mu_cost;  // Mean cost in badge-units for each component
-  vector<lower=0>[C] sigma_cost;  // Standard deviation of cost for each component
-  real<lower=0, upper=1> mu_gamma;      // Mean discount rate
-  real<lower=0> sigma_gamma;            // Standard deviation of discount rate
+  vector<lower=0>[C] mu_cost;  // Mean cost in badge-units for each component
+  // vector<lower=0>[C] sigma_cost;  // Standard deviation of cost for each component
+  real<lower=0.6, upper=1> mu_gamma;      // Mean discount rate
+  // real<lower=0> sigma_gamma;            // Standard deviation of discount rate
   vector<lower=0, upper=1>[2] mu_alpha;      // Mean step-size
-  vector<lower=0>[2] sigma_alpha;            // Standard deviation of step-size
-  real<lower=0.001> mu_tau;             // Mean inverse temperature
-  real<lower=0> sigma_tau;              // Standard deviation of inverse temperature
+  // vector<lower=0>[2] sigma_alpha;            // Standard deviation of step-size
+  real<lower=0> mu_tau;             // Mean inverse temperature
+  // real<lower=0> sigma_tau;              // Standard deviation of inverse temperature
   array[C] vector[S] w_0;  // initial Ws
   array[C] vector[S] theta_0;  // initial Thetas
 
@@ -33,29 +33,34 @@ parameters {
 model {
   // Priors for group-level parameters
   // Values from non-hierarchical estimation
-  mu_cost     ~ normal(0.23, 0.23);
-  sigma_cost  ~ normal(0, 1);
-  mu_gamma    ~ normal(0.125, 0.0233);
-  sigma_gamma ~ normal(0, 1);
-  mu_alpha[1] ~ normal(0.0158, 0.00839);
-  mu_alpha[2] ~ normal(0.775, 0.173);
-  sigma_alpha ~ normal(0, 1);
-  mu_tau      ~ normal(0.247, 0.0448);
-  sigma_tau.  ~ normal(0, 1);
+  mu_cost     ~ normal(0, 2);
+  // sigma_cost  ~ normal(0, 1);
+  mu_gamma    ~ normal(0.8, 0.1);
+  // sigma_gamma ~ normal(0, 1);
+  mu_alpha    ~ uniform(0, 0.5);
+  // mu_alpha[2] ~ normal(0.775, 0.173);
+  // sigma_alpha ~ normal(0, 1);
+  mu_tau      ~ normal(0, 5);
+  // sigma_tau   ~ normal(0, 1);
 
-  w_0[:,1]    ~ normal(-3.5, 0.85);
-  w_0[:,2]    ~ normal(0.21, 0.25);
-  w_0[:,3]    ~ normal(-1.7, 0.45);
-  theta_0[:,1]~ normal(-1.9, 0.38);
-  theta_0[:,2]~ normal(-0.08, 0.17);
-  theta_0[:,3]~ normal(0.87, 0.25);
+  for (c in 1:C) {
+    w_0[c]      ~ normal(0, 2);
+    theta_0[c]  ~ normal(0, 2);
+  }
+
+  // w_0[:,1]    ~ normal(-3.5, 0.85);
+  // w_0[:,2]    ~ normal(0.21, 0.25);
+  // w_0[:,3]    ~ normal(-1.7, 0.45);
+  // theta_0[:,1]~ normal(-1.9, 0.38);
+  // theta_0[:,2]~ normal(-0.08, 0.17);
+  // theta_0[:,3]~ normal(0.87, 0.25);
 
   // Distributions for subject-level parameters
   for (g in 1:G) {
-    cost[:,g] ~ normal(mu_cost, sigma_cost);
-    gamma[g] ~ normal(mu_gamma, sigma_gamma);
-    alpha[:,g] ~ normal(mu_alpha, sigma_alpha);
-    tau[g] ~ normal(mu_tau, sigma_tau);
+    cost[:,g] ~ normal(mu_cost, 0.5);
+    gamma[g] ~ normal(mu_gamma, 0.05);
+    alpha[:,g] ~ normal(mu_alpha, 0.25);
+    tau[g] ~ normal(mu_tau, 2.5);
   }
 
   // Subject loop and trial loop
@@ -88,7 +93,8 @@ model {
           // Update w:
           w[j] += alpha[1, group[i]] * delta * to_vector(current_state);
           // Update theta:
-          theta[j] += alpha[2, group[i]] * delta * to_vector(current_state) * tau[group[i]]
+          theta[j] += alpha[2, group[i]] * delta * to_vector(current_state)
+                        * tau[group[i]] * gamma[group[i]]^(week[i, t] - (week[i, 1]))
                         ./ (1 + exp(dot_product(theta[j], current_state) * tau[group[i]]));
         }
       }
@@ -115,7 +121,6 @@ generated quantities {
       for (j in 1:C) {
         y_pred[i, t, j] = inv_logit(tau[group[i]] * dot_product(theta[j], current_state));
         log_lik[i] += bernoulli_lpmf(choice[i, t, j] | y_pred[i, t, j]);
-        y_sim[i, t, j] = bernoulli_logit_rng(tau[group[i]] * dot_product(theta[j], current_state));
       }
 
       if (t == Tsubj[i])  // Last week
@@ -131,7 +136,8 @@ generated quantities {
           // Update w:
           w[j] += alpha[1, group[i]] * delta * to_vector(current_state);
           // Update theta:
-          theta[j] += alpha[2, group[i]] * delta * to_vector(current_state) * tau[group[i]]
+          theta[j] += alpha[2, group[i]] * delta * to_vector(current_state)
+                        * tau[group[i]] * gamma[group[i]]^(week[i, t] - (week[i, 1]))
                         ./ (1 + exp(dot_product(theta[j], current_state) * tau[group[i]]));
         }
       }

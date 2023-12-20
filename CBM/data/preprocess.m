@@ -1,8 +1,10 @@
+% Combine individual data into one struct
+Nsubj = 420;
 % Initialize an empty cell array to hold the individual subject data
-data = cell(210, 1);  % Assuming you have 210 subjects
+data = cell(Nsubj, 1);  % Assuming you have 210 subjects
     
 % Loop through each subject's .mat file
-for i = 1:210  % Replace 210 with the actual number of subjects if different
+for i = 1:Nsubj  % Replace 210 with the actual number of subjects if different
     % Create the full path to the individual .mat file
     filename = sprintf('individual/subj_%d.mat', i);
     

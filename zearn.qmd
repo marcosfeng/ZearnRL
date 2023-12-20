@@ -420,6 +420,7 @@ library(foreach)
 library(reticulate)
 
 set.seed(832399554)
+use_condaenv("renv-python")
 random_py <- import("random")
 random_py$seed(832399554)
 # https://www.random.org/integers/
@@ -444,10 +445,14 @@ dt[, `:=`(
   school.account = ifelse(school.account == "Yes",
                           1, ifelse(school.account == "No",
                                     0, NA)),
+  #Scale
+  Badges.per.Active.User = scale(Badges.per.Active.User),
+  Tower.Alerts.per.Tower.Completion = scale(Tower.Alerts.per.Tower.Completion),
+  tch_min = scale(tch_min)
   # Log Transform
-  Badges.per.Active.User = log(Badges.per.Active.User + 1),
-  Tower.Alerts.per.Tower.Completion = log(Tower.Alerts.per.Tower.Completion + 1),
-  tch_min = log(tch_min + 1)
+  # Badges.per.Active.User = log(Badges.per.Active.User + 1),
+  # Tower.Alerts.per.Tower.Completion = log(Tower.Alerts.per.Tower.Completion + 1),
+  # tch_min = log(tch_min + 1)
 )]
 
 # Create new variables using data.table syntax
@@ -972,8 +977,6 @@ gc(verbose = FALSE)
 #| include: false
 import numpy as np
 import pandas as pd
-from sklearnex import patch_sklearn
-patch_sklearn()
 from sklearn.decomposition import PCA, NMF
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import silhouette_score

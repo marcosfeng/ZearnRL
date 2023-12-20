@@ -1,4 +1,4 @@
-options(mc.cores = 12)
+options(mc.cores = parallel::detectCores())
 
 `Q-learning-FR` <- readRDS("./Bayesian/Results/Q-learning-FR.RDS")
 `Q-learning-states-FR` <- readRDS("./Bayesian/Results/Q-learning-states-FR.RDS")
@@ -11,82 +11,6 @@ qstate_sum <- `Q-learning-states-FR`$summary()
 ac_sum <- `Actor-Critic-FR`$summary()
 logit_sum <- logit$summary()
 kernel_sum <- kernel$summary()
-
-# LOOIC -------------------------------------------------------------------
-# https://www.statology.org/negative-aic/
-
-# Let's bind one data frame with an additional column to indicate the model
-all_data <- bind_rows(
-  mutate(qlearn_sum, model = "Q-learning"),
-  mutate(qstate_sum, model = "State Q"),
-  mutate(ac_sum, model = "Actor Critic"),
-  mutate(logit_sum, model = "Logit")
-)
-
-# Filter out only the rows of interest (log_lik[1] to log_lik[210])
-all_data <- filter(all_data, grepl("log_lik", variable))
-
-# Assuming 'all_data' dataframe and 'mean' column are available
-ggplot(all_data, aes(x = mean, color = model)) +
-  geom_density(adjust = 1, alpha = 0.7) + # Adjusted size and added alpha for a smoother look
-  labs(
-    title = "Log Likelihood per Classrooms",
-    x = "Log Likelihood",
-    y = "Density",
-    color = "Model" # Legend title
-  ) +
-  theme_minimal() + # Increased base font size
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5), # Centered and bolded title
-    legend.position = "bottom", # Moved legend to top
-    legend.box = "horizontal", # Arranged legend items horizontally
-    legend.title = element_text(face = "bold") # Bolded legend title
-  ) +
-  scale_color_brewer(palette = "Set1") # Changed color palette to something more visually appealing
-
-
-looic <- list(`Q-learning-FR`$loo(),
-              `Q-learning-states-FR`$loo(),
-              `Actor-Critic-FR`$loo(),
-              logit$loo())
-
-models <- c("Q-learning", "State Q-learning", "Actor-Critic", "Logit")
-
-# Combining the extracted values into a data frame
-looic_data <- data.frame(
-  Model = factor(c("Q-learning", "State Q-learning", "Actor-Critic", "Logit")),
-  LOOIC = c(
-    looic[[1]][["estimates"]]["looic","Estimate"],
-    looic[[2]][["estimates"]]["looic","Estimate"],
-    looic[[3]][["estimates"]]["looic","Estimate"],
-    looic[[4]][["estimates"]]["looic","Estimate"]
-  ),
-  SE = c(
-    looic[[1]][["estimates"]]["looic","SE"],
-    looic[[2]][["estimates"]]["looic","SE"],
-    looic[[3]][["estimates"]]["looic","SE"],
-    looic[[4]][["estimates"]]["looic","SE"]
-  )
-)
-
-# Plotting
-ggplot(looic_data, aes(x = Model, y = LOOIC, color = Model)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = LOOIC - SE, ymax = LOOIC + SE), width = 0.2) +
-  labs(
-    title = "Model Performance",
-    y = "LOOIC",
-    color = "Model"
-  ) +
-  theme_minimal(base_size = 13) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    legend.position = "none"
-  )
-
-
-
-# Time series -------------------------------------------------------------
 
 process_and_plot_model <- function(model_sum, model_name, stan_data) {
   prediction <- model_sum %>%
@@ -190,6 +114,82 @@ process_and_plot_model <- function(model_sum, model_name, stan_data) {
   print(p)
 }
 
+# LOOIC -------------------------------------------------------------------
+# https://www.statology.org/negative-aic/
+
+# Let's bind one data frame with an additional column to indicate the model
+all_data <- bind_rows(
+  mutate(qlearn_sum, model = "Q-learning"),
+  mutate(qstate_sum, model = "State Q"),
+  mutate(ac_sum, model = "Actor Critic"),
+  mutate(logit_sum, model = "Logit")
+)
+
+# Filter out only the rows of interest (log_lik[1] to log_lik[210])
+all_data <- filter(all_data, grepl("log_lik", variable))
+
+# Assuming 'all_data' dataframe and 'mean' column are available
+ggplot(all_data, aes(x = mean, color = model)) +
+  geom_density(adjust = 1, alpha = 0.7) + # Adjusted size and added alpha for a smoother look
+  labs(
+    title = "Log Likelihood per Classrooms",
+    x = "Log Likelihood",
+    y = "Density",
+    color = "Model" # Legend title
+  ) +
+  theme_minimal() + # Increased base font size
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5), # Centered and bolded title
+    legend.position = "bottom", # Moved legend to top
+    legend.box = "horizontal", # Arranged legend items horizontally
+    legend.title = element_text(face = "bold") # Bolded legend title
+  ) +
+  scale_color_brewer(palette = "Set1") # Changed color palette to something more visually appealing
+
+
+looic <- list(`Q-learning-FR`$loo(),
+              `Q-learning-states-FR`$loo(),
+              `Actor-Critic-FR`$loo(),
+              logit$loo())
+
+models <- c("Q-learning", "State Q-learning", "Actor-Critic", "Logit")
+
+# Combining the extracted values into a data frame
+looic_data <- data.frame(
+  Model = factor(c("Q-learning", "State Q-learning", "Actor-Critic", "Logit")),
+  LOOIC = c(
+    looic[[1]][["estimates"]]["looic","Estimate"],
+    looic[[2]][["estimates"]]["looic","Estimate"],
+    looic[[3]][["estimates"]]["looic","Estimate"],
+    looic[[4]][["estimates"]]["looic","Estimate"]
+  ),
+  SE = c(
+    looic[[1]][["estimates"]]["looic","SE"],
+    looic[[2]][["estimates"]]["looic","SE"],
+    looic[[3]][["estimates"]]["looic","SE"],
+    looic[[4]][["estimates"]]["looic","SE"]
+  )
+)
+
+# Plotting
+ggplot(looic_data, aes(x = Model, y = LOOIC, color = Model)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = LOOIC - SE, ymax = LOOIC + SE), width = 0.2) +
+  labs(
+    title = "Model Performance",
+    y = "LOOIC",
+    color = "Model"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "none"
+  )
+
+
+
+# Time series -------------------------------------------------------------
+
 q_data <- readRDS("./Bayesian/Q-learn-data.RDS")
 process_and_plot_model(qlearn_sum, "Q-learning", q_data)
 process_and_plot_model(qstate_sum, "Q-state", q_data)
@@ -286,7 +286,23 @@ best_fit <- function(user, data, prediction_3d, choice = 1, range = c(1:8)) {
   failures <- (1 - data$choice[user,range,choice]) * (1 - prediction_3d[user,range,choice])
   return(sum(success+failures))
 }
-lapply(list(101, 202, 205, 86, 7),FUN = best_fit, data = ac_data, prediction_3d = prediction_3d)
+prediction <- ac_sum %>%
+  filter(grepl("y_pred|choice_prob", variable)) %>%
+  dplyr::select(variable, mean) %>%
+  mutate(variable = str_extract(variable, "\\[.*\\]"),
+         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
+  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
+prediction_3d <- array(dim = c(max(prediction$dim1),
+                               max(prediction$dim2),
+                               max(prediction$dim3)))
+for (i in 1:nrow(prediction)) {
+  dim1 <- prediction$dim1[i]
+  dim2 <- prediction$dim2[i]
+  dim3 <- prediction$dim3[i]
+  prediction_3d[dim1, dim2, dim3] <- prediction$mean[i]
+}
+lapply(list(101, 202, 205, 174, 136, 7),FUN = best_fit,
+       data = ac_data, prediction_3d = prediction_3d)
 
 # Top best fit: 202, 159, 153
 df <- df %>%
@@ -419,7 +435,7 @@ mlab_data <- readMat("CBM/data/filtered_data.mat")
 
 # Accessing the data
 # cbm.output.responsibility
-responsibility <- round(mlab_models[["cbm"]][[5]][[2]][,2:3], 2)
+responsibility <- round(mlab_models[["cbm"]][[5]][[2]], 2)
 responsibility[is.infinite(responsibility)] <- 0
 
 # cbm.output.parameters for the kernel model
@@ -428,30 +444,33 @@ kernel_params <- mlab_models[["cbm"]][[5]][[1]][[2]][[1]]
 ac_params     <- mlab_models[["cbm"]][[5]][[1]][[3]][[1]]
 
 ## Correlations: Fit, parameter estimate, outcome.
-mean_minutes <- sapply(mlab_data[["filtered.data"]], function(subj) mean(subj[[1]][[3]]))
+mean_badges <- sapply(mlab_data[["data"]], function(subj) mean(subj[[1]][[4]]))
 # Indices of subjects for which kernel model has higher responsibility
-kernel_indices <- which(responsibility[,1] > responsibility[,2])
+kernel_indices <- which(responsibility[,2] > responsibility[,1] &
+                          responsibility[,2] > responsibility[,3])
 
 # Indices of subjects for which actor-critic model has higher responsibility
-ac_indices <- which(responsibility[,2] > responsibility[,1])
+ac_indices <- which(responsibility[,3] > responsibility[,1] &
+                      responsibility[,3] > responsibility[,2])
 
 # Extract parameters and mean minutes for these subjects
 kernel_params_selected <- kernel_params[kernel_indices, ]
 ac_params_selected <- ac_params[ac_indices, ]
 
-kernel_mean_minutes <- mean_minutes[kernel_indices]
-ac_mean_minutes <- mean_minutes[ac_indices]
+kernel_mean_badges <- mean_badges[kernel_indices]
+ac_mean_badges <- mean_badges[ac_indices]
 
 # Correlogram for Kernel Model
 colnames(kernel_params_selected) <- c("alpha", "gamma", "tau", "c1", "c2", "c3")
-data_kernel <- data.frame(kernel_params_selected, Minutes = kernel_mean_minutes)
+data_kernel <- data.frame(kernel_params_selected, Badges = kernel_mean_badges)
 colnames(ac_params_selected) <- c("alpha_w", "alpha_theta", "gamma", "tau",
                                   "w_0", "theta_0",
                                   "c1", "c2", "c3")
-corr_data <- data.frame(ac_params_selected, Minutes = ac_mean_minutes)
+corr_data <- data.frame(kernel_params_selected, Badges = kernel_mean_badges)
 # Apply the logistic function to alpha and gamma
-corr_data$alpha_w <- 1 / (1 + exp(-corr_data$alpha_w))
-corr_data$alpha_theta <- 1 / (1 + exp(-corr_data$alpha_theta))
+# corr_data$alpha_w <- 1 / (1 + exp(-corr_data$alpha_w))
+# corr_data$alpha_theta <- 1 / (1 + exp(-corr_data$alpha_theta))
+corr_data$alpha <- 1 / (1 + exp(-corr_data$alpha))
 corr_data$gamma <- 1 / (1 + exp(-corr_data$gamma))
 # Apply the exponential function to tau, c1, c2, and c3
 corr_data$tau <- exp(corr_data$tau)
@@ -474,7 +493,7 @@ simulate_actor_critic <- function(parameters, subj_data) {
   # Initialize variables
   Tsubj <- nrow(subj_data)
   choice <- subj_data[,1:3]
-  outcome <- subj_data$minutes
+  outcome <- subj_data$badges
   state <- cbind(rep(1, Tsubj),
                  subj_data$state.alerts,
                  subj_data$state.boosts)  # Adding column of ones for intercept
@@ -533,14 +552,15 @@ simulate_kernel_q_learning <- function(parameters, subj_data) {
   cost <- exp(parameters[4:length(parameters)])  # Cost for each action
 
   Tsubj <- nrow(subj_data)
-  choice <- subj_data$choice
-  outcome <- subj_data$outcome
-  state <- (subj_data$alerts >= -0.1402) + 1  # Binarize state based on median
+  choice <- subj_data[,1:3]
+  outcome <- subj_data$badges
+  state <- (subj_data$state.alert >= -0.1402) + 1  # Binarize state based on median
   K <- 4
 
   C <- length(cost)  # Number of choices
   S <- max(state)  # Number of states
   ev <- matrix(0, nrow = C, ncol = S)  # Expected value (Q-value)
+  qtable <- matrix(rep(NA, Tsubj*C), nrow = Tsubj, ncol = C)
   p <- matrix(rep(NA, Tsubj*C), nrow = Tsubj, ncol = C) # Probabilities of choices
 
   # Loop through trials
@@ -552,6 +572,7 @@ simulate_kernel_q_learning <- function(parameters, subj_data) {
     # Kernel reward calculation
     for (j in 1:C) {
       # Compute log probability of the chosen action
+      qtable[t, j] = ev[j, s]
       logit_val <- tau * ev[j, s]
       p[t, j] = 1 / (1 + exp(-logit_val))
 
@@ -559,9 +580,10 @@ simulate_kernel_q_learning <- function(parameters, subj_data) {
         ker_reward <- 0
         ker_norm <- 0
         for (t_past in 1:min(t - 1, K)) {
+          if (t - 1 == 0) break
           jaccard_sim <- 0
           # Check if the action and state are the same in the past
-          if (choice[t - t_past, j] == a[j]) {
+          if (choice[(t - t_past) + 1, j] == a[j]) {
             jaccard_sim <- 0.5
             if (state[t - t_past] == s) {
               jaccard_sim <- jaccard_sim + 0.5
@@ -587,7 +609,7 @@ simulate_kernel_q_learning <- function(parameters, subj_data) {
   }
 
   return(list(probabilities = p,
-              ev = ev,
+              ev = qtable,
               state = state))
 }
 
@@ -595,28 +617,34 @@ simulate_kernel_q_learning <- function(parameters, subj_data) {
 model_predictions <- list()
 ac_estimates <- list()
 kernel_estimates <- list()
-for (subj in 1:length(mlab_data[["filtered.data"]])) {
-  subj_data <- data.frame(actions = mlab_data[["filtered.data"]][[subj]][[1]][[1]],
-                          minutes = mlab_data[["filtered.data"]][[subj]][[1]][[3]],
-                          state = data.frame(alerts = mlab_data[["filtered.data"]][[subj]][[1]][[6]],
-                                             boosts = mlab_data[["filtered.data"]][[subj]][[1]][[5]]),
-                          week = mlab_data[["filtered.data"]][[subj]][[1]][[7]][[1]])
+model_index <- list()
+for (subj in 1:length(mlab_data[["data"]])) {
+  subj_data <- data.frame(actions = mlab_data[["data"]][[subj]][[1]][[1]],
+                          badges = mlab_data[["data"]][[subj]][[1]][[4]],
+                          state = data.frame(alerts = mlab_data[["data"]][[subj]][[1]][[6]],
+                                             boosts = mlab_data[["data"]][[subj]][[1]][[3]]),
+                          week = mlab_data[["data"]][[subj]][[1]][[7]][[1]])
 
   ac_estimates[[subj]] <- NA
   kernel_estimates[[subj]] <- NA
-  if (responsibility[subj, 1] > responsibility[subj, 2]) {
+  model_index[[subj]] <- 1
+  if (responsibility[subj,2] > responsibility[subj,1] &
+      responsibility[subj,2] > responsibility[subj,3]) {
     # Use kernel model
     params <- kernel_params_selected[which(kernel_indices == subj), ]
     sim_result <- simulate_kernel_q_learning(params, subj_data)
     kernel_estimates[[subj]] <- list(ev = sim_result$ev,
                                      state = sim_result$state)
-  } else if (responsibility[subj, 1] < responsibility[subj, 2]) {
+    model_index[[subj]] <- 2
+  } else if (responsibility[subj,3] > responsibility[subj,1] &
+             responsibility[subj,3] > responsibility[subj,2]) {
     # Use actor-critic model
     params <- ac_params_selected[which(ac_indices == subj), ]
     sim_result <- simulate_actor_critic(params, subj_data)
     ac_estimates[[subj]] <- list(theta = sim_result$theta,
                                  w = sim_result$w,
                                  state = sim_result$state)
+    model_index[[subj]] <- 3
   } else {
     model_predictions[[subj]] <- NA
     next
@@ -624,9 +652,18 @@ for (subj in 1:length(mlab_data[["filtered.data"]])) {
   model_predictions[[subj]] <- sim_result$probabilities
 }
 
+
 # Creating df of model predictions
-filtered_data <- model_predictions[!sapply(model_predictions, anyNA)]
+chosen_model = 3
+
+filtered_data <- model_predictions[model_index == chosen_model]
 unlisted_data <- do.call(rbind, filtered_data)
+# Preparing data for process_and_plot_model
+stan_data <- lapply(mlab_data[["data"]],
+                    function(subj) subj[[1]][[1]])
+stan_data <- stan_data[model_index == chosen_model]
+
+
 # Create a data frame with the values and their indices
 df <- as.data.frame(unlisted_data)
 df$Subj <- rep(seq_along(filtered_data), sapply(filtered_data, nrow))
@@ -644,11 +681,6 @@ df$variable <- apply(df[, c("Subj", "t", "c")], 1,
 final_df <- df %>%
   select(variable, mean)
 
-
-# Preparing data for process_and_plot_model
-stan_data <- lapply(mlab_data[["filtered.data"]],
-                    function(subj) subj[[1]][[1]])
-stan_data <- stan_data[!sapply(model_predictions, anyNA)]
 # 1. Create the Tsubj Vector
 Tsubj <- sapply(stan_data, nrow)
 # 2. Create the choice 3D Array
@@ -688,10 +720,10 @@ for (subj in 1:length(model_predictions)) {
   Theta2 <- as.vector(ac_estimates[[subj]]$theta[2,,])
   Theta3 <- as.vector(ac_estimates[[subj]]$theta[3,,])
   State <- as.vector(t(ac_estimates[[subj]]$state))
-  Minutes <- as.vector(t(cbind(
-    mlab_data[["filtered.data"]][[subj]][[1]][[3]],
-    mlab_data[["filtered.data"]][[subj]][[1]][[3]],
-    mlab_data[["filtered.data"]][[subj]][[1]][[3]])))
+  Badges <- as.vector(t(cbind(
+    mlab_data[["data"]][[subj]][[1]][[4]],
+    mlab_data[["data"]][[subj]][[1]][[4]],
+    mlab_data[["data"]][[subj]][[1]][[4]])))
 
   # Calculate State Value for each time point t
   State_Value <- as.vector(
@@ -701,41 +733,62 @@ for (subj in 1:length(model_predictions)) {
 
   # Combine into a data frame
   subj_data <- data.frame(Prob, W1, W2, W3, Theta1, Theta2, Theta3,
-                          State, State_Value, Minutes)
+                          State, State_Value, Badges)
 
   # Append to the master data frame
   all_subjects_data <- rbind(all_subjects_data, subj_data)
 }
+correlations_prob_badges <- cor(all_subjects_data, method = "spearman")
+correlations_prob_badges_long <- as.data.frame(correlations_prob_badges) %>%
+  rownames_to_column(var = "Variable") %>%
+  pivot_longer(cols = -Variable, names_to = "Correlated_With", values_to = "Correlation")
+correlations_prob_badges_long <- correlations_prob_badges_long %>%
+  filter(Variable == "Prob" | Variable == "Badges")
+get_p_value <- function(x, y) {
+  cor.test(x, y, method = "spearman")$p.value
+}
+p_values <- outer(
+  X = names(all_subjects_data),
+  Y = names(all_subjects_data),
+  Vectorize(function(x, y) get_p_value(all_subjects_data[[x]], all_subjects_data[[y]]))
+)
+p_values_df <- as.data.frame(p_values)
+colnames(p_values_df) <- colnames(correlations_prob_badges)
+rownames(p_values_df) <- colnames(correlations_prob_badges)
+p_values_df <- p_values_df %>%
+  rownames_to_column(var = "Variable") %>%
+  pivot_longer(cols = -Variable, names_to = "Correlated_With", values_to = "P_Value")
+correlations_prob_badges_long <- merge(correlations_prob_badges_long, p_values_df, by = c("Variable", "Correlated_With"))
+correlations_prob_badges_long$Significance <- ifelse(correlations_prob_badges_long$P_Value < 0.001, "***",
+                                                     ifelse(correlations_prob_badges_long$P_Value < 0.01, "**",
+                                                            ifelse(correlations_prob_badges_long$P_Value < 0.05, "*", "")))
+ggplot(correlations_prob_badges_long, aes(x = Variable, y = Correlated_With, fill = Correlation)) +
+  geom_tile() +
+  geom_text(aes(label = sprintf("%.2f%s", Correlation, Significance)), color = "black") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme_minimal() +
+  labs(title = "Correlation Matrix", x = "Variable", y = "Correlated With", fill = "Correlation")
+
+
+
 
 all_subjects_data <- data.frame()
 # Loop through each subject
 for (subj in 1:length(model_predictions)) {
   # Skip if any NA values are present in estimates for this subject
-  if (anyNA(ac_estimates[[subj]])) next
+  if (anyNA(kernel_estimates[[subj]])) next
 
   # Extract data for this subject
   Prob <- as.vector(t(model_predictions[[subj]]))
-  W1 <- as.vector(ac_estimates[[subj]]$w[1,,])
-  W2 <- as.vector(ac_estimates[[subj]]$w[2,,])
-  W3 <- as.vector(ac_estimates[[subj]]$w[3,,])
-  Theta1 <- as.vector(ac_estimates[[subj]]$theta[1,,])
-  Theta2 <- as.vector(ac_estimates[[subj]]$theta[2,,])
-  Theta3 <- as.vector(ac_estimates[[subj]]$theta[3,,])
-  State <- as.vector(t(ac_estimates[[subj]]$state))
-  Minutes <- as.vector(t(cbind(
-    mlab_data[["filtered.data"]][[subj]][[1]][[3]],
-    mlab_data[["filtered.data"]][[subj]][[1]][[3]],
-    mlab_data[["filtered.data"]][[subj]][[1]][[3]])))
-
-  # Calculate State Value for each time point t
-  State_Value <- as.vector(
-    sapply(1:nrow(ac_estimates[[subj]]$state),
-           function(t) ac_estimates[[subj]]$state[t,] %*%
-             ac_estimates[[subj]]$w[, ,t]))
+  Qvalue <- as.vector(kernel_estimates[[subj]]$ev)
+  State <- as.vector(kernel_estimates[[subj]]$state)
+  Badges <- as.vector(t(cbind(
+    mlab_data[["data"]][[subj]][[1]][[3]],
+    mlab_data[["data"]][[subj]][[1]][[3]],
+    mlab_data[["data"]][[subj]][[1]][[3]])))
 
   # Combine into a data frame
-  subj_data <- data.frame(Prob, W1, W2, W3, Theta1, Theta2, Theta3,
-                          State, State_Value, Minutes)
+  subj_data <- data.frame(Prob, Qvalue, State, Badges)
 
   # Append to the master data frame
   all_subjects_data <- rbind(all_subjects_data, subj_data)
@@ -745,3 +798,29 @@ chart.Correlation(all_subjects_data, histogram=TRUE,
                   method = "spearman", pch=19)
 
 
+
+ac_params_df <- as.data.frame(ac_params_selected)
+ac_params_long <- tidyr::pivot_longer(ac_params_df,
+                                      cols = everything(),
+                                      names_to = "parameter",
+                                      values_to = "value")
+ggplot(ac_params_long, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  facet_wrap(~parameter, scales = "free") +
+  theme_minimal() +
+  labs(x = "Value", y = "Frequency", title = "Histograms of Parameters")
+
+
+nh_ac <- readMat("CBM/zearn_models/subj_results/lap_ac_all.mat")
+nh_ac = nh_ac$cbm[[5]][[1]][model_index == 3,]
+nh_ac <- as.data.frame(nh_ac)
+colnames(nh_ac) <- colnames(ac_params_selected)
+ac_params_long <- tidyr::pivot_longer(nh_ac,
+                                      cols = everything(),
+                                      names_to = "parameter",
+                                      values_to = "value")
+ggplot(ac_params_long, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  facet_wrap(~parameter, scales = "free") +
+  theme_minimal() +
+  labs(x = "Value", y = "Frequency", title = "Histograms of Parameters")

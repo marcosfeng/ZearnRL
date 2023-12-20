@@ -71,7 +71,7 @@ end
 
 fname_hbi = 'hbi_model_compare.mat';
 cbm_hbi(data, models, fname, fname_hbi);
-% save('../data/filtered_data.mat', 'filtered_data');
+% save('../data/filtered_data.mat', 'data');
 cbm_hbi_null(data, fname_hbi);
 
 [p,stats] = cbm_hbi_ttest(fname_hbi,3,0,1);
@@ -86,4 +86,4 @@ transform = {'sigmoid','sigmoid','exp',...
 model_names = {'Logit', 'Kernel', 'Actor-Critic'};
 
 % Load the HBI results and display them
-cbm_hbi_plot(fname_hbi,model_names, param_names, transform);
+cbm_hbi_plot(fname_hbi,model_names, param_names,transform,2);

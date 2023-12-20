@@ -46,12 +46,9 @@ FRa_cols <- grep("FrobeniusNNDSVDA", names(df), value = TRUE)
 KL_cols <- grep("KullbackLeibler", names(df), value = TRUE)
 
 df <- df %>%
-  arrange(Classroom.ID, week) %>%
-  group_by(Classroom.ID) %>%
-  mutate(state = ifelse(Tower.Alerts.per.Tower.Completion > lag(Tower.Alerts.per.Tower.Completion), 1, 2)) %>%
+  mutate(state = ifelse(Tower.Alerts.per.Tower.Completion > median(Tower.Alerts.per.Tower.Completion), 1, 2)) %>%
   ungroup() %>% group_by(MDR.School.ID) %>%
-  mutate(Badges.per.Active.User = (Badges.per.Active.User - min(Badges.per.Active.User)) /
-           (max(Badges.per.Active.User) - min(Badges.per.Active.User))) %>%
+  mutate(Badges.per.Active.User = scale(Badges.per.Active.User)) %>%
   mutate(across(all_of(FR_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
   mutate(across(all_of(FRa_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
   mutate(across(all_of(KL_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
@@ -464,8 +461,17 @@ for (choice in names(choices)) {
       data = stan_data,
       chains = 3,
       parallel_chains = 3,
-      iter_warmup = 2500,
-      iter_sampling = 2500
+      iter_warmup = 50,
+      iter_sampling = 50,
+      init = list(
+        cost = rep(1, C),
+        gamma = 0.8,
+        tau = 1,
+        alpha = rep(0.5, 2),
+        w_0 = array(0, dim = c(C, S)),
+        theta_0 = array(0, dim = c(C, S))
+      ),
+      control = list(adapt_delta = 0.95)
     )
 
     # Save the fit object
