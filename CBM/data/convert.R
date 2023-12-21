@@ -63,22 +63,20 @@ df <- read.csv(file = "Bayesian/df.csv")
 
 FR_cols <- grep("FrobeniusNNDSVD", names(df), value = TRUE)
 
-df <- df %>%
-  arrange(Classroom.ID, week) %>%
-  group_by(MDR.School.ID) %>%
-  mutate(across(all_of(FR_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
-  as.data.table() %>%
-  .[Classroom.ID %in% sample(unique(Classroom.ID), size = length(unique(Classroom.ID)) * 0.10)] %>%
-  setorder(Classroom.ID, week) %>%
-  .[, row_n := seq_len(.N), by = .(Classroom.ID)]
-
 # List of all potential state and reward variables
 all_vars <- c("Active.Users...Total", "Minutes.per.Active.User", "Badges.per.Active.User",
               "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
 
-# Normalize the variables in 'all_vars'
 df <- df %>%
-  mutate(across(all_of(all_vars), scale))
+  arrange(Classroom.ID, week) %>%
+  group_by(MDR.School.ID) %>%
+  mutate(across(all_of(FR_cols), ~ifelse(. > median(.), 1, 0), .names = "{.col}bin")) %>%
+  # Normalize the variables in 'all_vars'
+  mutate(across(all_of(all_vars), scale)) %>%
+  as.data.table() %>%
+  .[Classroom.ID %in% sample(unique(Classroom.ID), size = length(unique(Classroom.ID)) * 0.10)] %>%
+  setorder(Classroom.ID, week) %>%
+  .[, row_n := seq_len(.N), by = .(Classroom.ID)]
 
 # List of all potential action variables
 choices <- list(

@@ -4,6 +4,20 @@ addpath(fullfile('..','codes'));
 fdata = load('../data/all_data.mat');
 data  = fdata.data;
 
+% Initialize an empty array to store alerts values
+allAlerts = [];
+% Loop through each cell in the cell array
+for i = 1:size(data, 1)
+    % Append the alerts values from the current cell to the array
+    allAlerts = [allAlerts; data{i}.alerts];
+end
+% Calculate the median of all alerts values
+medianValue = median(allAlerts);
+for i = 1:size(data, 1)
+    % Append the alerts values from the current cell to the array
+    data{i}.medianAlerts = medianValue;
+end
+
 % Define the prior variance
 v = 2;
 
@@ -14,18 +28,17 @@ num_parameters = 6;
 prior_ql = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
 % Specify the file-address for saving the output
-fname = 'lap_ql.mat';  % Laplace results for Q-learning model
+fname = {'lap_ql.mat','lap_ql_state.mat'};  % Laplace results for Q-learning model
 
-% Assuming `data` is defined and accessible
-% Run the cbm_lap function for your Q-learning model
-cbm_lap(data, @q_learning_model, prior_ql, fname);
+% Run the cbm_lap function for your Q-learning models
+cbm_lap(data, @q_model, prior_ql, fname{1});
+cbm_lap(data, @q_state_model, prior_ql, fname{2});
 
 % Load and display results
-models = {@q_learning_model};
-fcbm_maps = {'lap_ql.mat'};
+models = {@q_model, @q_state_model};
 fname_hbi = 'hbi_lap_ql.mat';
 
-cbm_hbi(data,models,fcbm_maps,fname_hbi);
+cbm_hbi(data,models,fname,fname_hbi);
 
 fname_hbi  = load("hbi_lap_ql.mat");
 cbm = fname_hbi.cbm;

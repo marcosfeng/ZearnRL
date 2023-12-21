@@ -129,7 +129,7 @@ for (choice in names(choices)) {
 # 2. Actor-Critic ---------------------------------------------------------
 df <- df %>%
   arrange(Classroom.ID, week) %>%
-  group_by(Classroom.ID) %>%
+  group_by(MDR.School.ID) %>%
   mutate(tower_state = scale(Tower.Alerts.per.Tower.Completion),
          actst_state = scale(Active.Users...Total)) %>%
   replace_na(list(tower_state = 0)) %>%

@@ -420,7 +420,6 @@ library(foreach)
 library(reticulate)
 
 set.seed(832399554)
-use_condaenv("renv-python")
 random_py <- import("random")
 random_py$seed(832399554)
 # https://www.random.org/integers/
@@ -444,11 +443,7 @@ dt[, `:=`(
                                     0, NA)),
   school.account = ifelse(school.account == "Yes",
                           1, ifelse(school.account == "No",
-                                    0, NA)),
-  #Scale
-  Badges.per.Active.User = scale(Badges.per.Active.User),
-  Tower.Alerts.per.Tower.Completion = scale(Tower.Alerts.per.Tower.Completion),
-  tch_min = scale(tch_min)
+                                    0, NA))
   # Log Transform
   # Badges.per.Active.User = log(Badges.per.Active.User + 1),
   # Tower.Alerts.per.Tower.Completion = log(Tower.Alerts.per.Tower.Completion + 1),
@@ -839,6 +834,10 @@ cols_to_select <- names(dt)[sapply(dt, function(x) !is.numeric(x) ||
 dt <- dt[, ..cols_to_select]
 
 df <- as.data.frame(dt) %>%
+  group_by(MDR.School.ID) %>%
+  #Scale
+  mutate(Badges.per.Active.User = scale(Badges.per.Active.User),
+         Tower.Alerts.per.Tower.Completion = scale(Tower.Alerts.per.Tower.Completion)) %>%
   ungroup() %>%
   arrange(Classroom.ID, week)
 # Clean environment
@@ -892,7 +891,7 @@ We begin to unveil the intricate relationships among the variables under conside
 ```{r}
 #| cache: true
 #| label: fig-corr
-#| fig-cap: "Correlation coefficients between variables after log transformation"
+#| fig-cap: "Correlation coefficients between variables after stardardization"
 #| fig-format: png
 
 df_corr <- df  %>%
@@ -1152,7 +1151,7 @@ tuner = Hyperband(build_model,
                   objective='val_loss',
                   max_epochs=20,
                   directory='autoencoder_tuning',
-                  project_name='autoencoder_2nd_tuning')
+                  project_name='autoencoder_3rd_tuning')
 
 # Perform hyperparameter search
 early_stopping_callback = EarlyStopping(monitor='val_loss', patience=5)
@@ -1357,7 +1356,7 @@ comparison_plot
 library(pheatmap)
 
 components_list <- py$components
-df_heatmap <- components_list[["Kullback-Leibler"]][["3"]] %>%
+df_heatmap <- components_list[["Frobenius NNDSVDA"]][["3"]] %>%
   t() %>% as.data.frame()
 
 # Define a named vector to map old variable names to new ones
