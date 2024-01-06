@@ -99,8 +99,8 @@ With RL, it then becomes possible to identify how teachers differ in their learn
 
 ### Previous Applied RL Cases
 
-- Discuss existing models and where they fall short, justifying your approach.
-- Introduce the concept of data-driven exploration in RL models.
+-   Discuss existing models and where they fall short, justifying your approach.
+-   Introduce the concept of data-driven exploration in RL models.
 
 ### Q-Learning Model
 
@@ -229,6 +229,7 @@ Mathematically mapping the agent-environment interaction is flexible, with many 
 ## A Data-Driven Approach to Feature Selection
 
 <!-- - Introduce the data-driven approach, its necessity, and the research question. -->
+
 <!-- - Briefly mention the RL models and their initial shortcomings. -->
 
 ## State-Free Q-Learning Model
@@ -404,8 +405,9 @@ Geographically, the data encompasses a diverse range of schools in Louisiana. Th
 @fig-teachers-map depicts the geographical distribution of teachers using the Zearn platform across various parishes in Louisiana. This map visually represents the number of teachers per parish, revealing a heterogeneous distribution of Zearn usage across Louisiana, with certain parishes demonstrating a higher concentration of teachers. The map also highlights the top five cities with the highest number of teachers using Zearn.
 
 ```{r load packages}
-library(tidyverse)
 library(data.table)
+library(tidyverse)
+# library(zoo)
 library(ggrepel)
 library(ggpubr)
 library(RColorBrewer)
@@ -418,6 +420,9 @@ library(PerformanceAnalytics)
 library(doParallel)
 library(foreach)
 library(reticulate)
+library(cmdstanr)
+library(brms)
+
 
 set.seed(832399554)
 random_py <- import("random")
@@ -428,40 +433,32 @@ random_py$seed(832399554)
 
 ```{r data prep}
 
-df <- read.csv(file = "Data/df_clean.csv")
+dt <- read.csv(file = "Data/df_clean.csv")
 
 # Convert columns to appropriate data types
-dt <- as.data.table(df)
+setDT(dt)
 # Rename variable
 dt[, `:=`(
-  Usage.Week = as.Date(Usage.Week),
-  week = week(Usage.Week),
-  poverty = factor(poverty, ordered = TRUE, exclude = c("")),
-  income = factor(income, ordered = TRUE, exclude = c("")),
-  charter.school = ifelse(charter.school == "Yes",
-                          1, ifelse(charter.school == "No",
-                                    0, NA)),
-  school.account = ifelse(school.account == "Yes",
-                          1, ifelse(school.account == "No",
-                                    0, NA))
+  poverty = factor(poverty, ordered = TRUE, exclude = c("", NA)),
+  income = factor(income, ordered = TRUE, exclude = c("", NA)),
+  st_login = fifelse(Minutes.per.Active.User > 0, 1, 0, na=0),
+  tch_login = fifelse(User.Session > 0, 1, 0, na=0)
   # Log Transform
   # Badges.per.Active.User = log(Badges.per.Active.User + 1),
   # Tower.Alerts.per.Tower.Completion = log(Tower.Alerts.per.Tower.Completion + 1),
   # tch_min = log(tch_min + 1)
 )]
 
-# Create new variables using data.table syntax
-dt[, min_week := week(min(Usage.Week)),
-   by = Teacher.User.ID]
-dt[, `:=`(
-  week = ifelse(week >= min_week, week - min_week + 1, week - min_week + 53),
-  mean_act_st = mean(Active.Users...Total)
-), by = .(Classroom.ID)]
+# Code datetime variables and compute additional metrics
+setorder(dt, Teacher.User.ID, year, week, Classroom.ID)
+dt[, isoweek := week]
+dt[, week := week + 52*(year - 2019)]
+# Fixing week == 1 (last week of 2019 counts as week 1 of 2020)
+dt[week == 1, week := week + 52]
+dt[, first_week := min(week), by = .(Teacher.User.ID)]
+dt[, week := week - first_week + 1]
 dt[, Tsubj := max(week), by = .(Classroom.ID)]
-dt[, `:=`(
-  st_login = ifelse(Minutes.per.Active.User > 0, 1, 0),
-  tch_login = ifelse(tch_min > 0, 1, 0)
-), by = .(Classroom.ID, Teacher.User.ID, week)]
+
 # Update the Grade.Level values and labels
 dt <- dt[!(Grade.Level %in% c(-1, 11))] # Ignore -1 and 11
 dt[, Grade.Level := factor(Grade.Level,
@@ -473,13 +470,12 @@ dt[, Grade.Level := factor(Grade.Level,
                                       "3rd", "4th", "5th",
                                       "6th", "7th", "8th"))]
 
-# Remove duplicate classroom-week pairs
-dt <- dt[order(-Active.Users...Total),
-         .SD[1],
-         by = .(Classroom.ID, week)]
-
 df <- as.data.frame(dt) %>%
   ungroup()
+
+# Convert year and isoweek to a date (Monday of that week)
+df <- df %>%
+  mutate(date = as.Date(paste(year, isoweek, 1, sep="-"), format="%Y-%U-%u"))
 
 ```
 
@@ -588,11 +584,11 @@ df_summary <- df %>%
               group_by(Classroom.ID, MDR.School.ID) %>%
               summarise(
                 Students_Total = mean(Students...Total, na.rm = TRUE),
-                Weeks_Total = n_distinct(Usage.Week)
+                Weeks_Total = max(week)
                 ) %>%
               group_by(MDR.School.ID) %>%
               summarize(
-                Students_Total = sum(Students_Total),
+                Students_Total = sum(Students_Total, na.rm = TRUE),
                 Weeks_Total = mean(Weeks_Total)
                 ),
             by = "MDR.School.ID") %>%
@@ -635,15 +631,16 @@ df_proportions <- df %>%
   bind_rows(df %>%
               ungroup() %>%
               summarise(
-                Charter_Schools = mean(charter.school)*100,
-                Schools_with_Paid_Account = mean(school.account)*100
+                Charter_Schools = mean(charter.school, na.rm = T)*100,
+                Schools_with_Paid_Account = mean(school.account, na.rm = T)*100
                 ) %>%
               mutate(
                 Charter_Schools = paste0(round(Charter_Schools, digits = 2), "%"),
-                Schools_with_Paid_Account = paste0(round(Schools_with_Paid_Account, digits = 2), "%")
-              ) %>%
-              transpose(keep.names = "Variable") %>%
-              rename(Percentage = V1)) %>%
+                Schools_with_Paid_Account = paste0(round(Schools_with_Paid_Account,
+                                                         digits = 2), "%")) %>%
+              t() %>% as.data.frame() %>%
+              rename(Percentage = V1) %>%
+              mutate(Variable = row.names(.))) %>%
   add_row(Variable = "**Poverty Level**", Percentage = "", .before = 1) %>%
   add_row(Variable = "**Income**", Percentage = "", .before = 5) %>%
   add_row(Variable = "**Other**", Percentage = "", .before = 23)
@@ -691,19 +688,24 @@ The total number of weeks of data per classroom, as shown in @fig-classroom-week
 # Create the histogram
 df %>%
   group_by(Classroom.ID) %>%
-  summarize(Tsubj = max(Tsubj)) %>%
-  mutate(Tsubj_category = if_else(Tsubj < 16, "less than 16", "16 or more")) %>%
+  summarize(Tsubj = n()) %>%
+  mutate(Tsubj_category = if_else(Tsubj < 18, "less than 18", "18 or more")) %>%
   ggplot(aes(x = Tsubj, fill = Tsubj_category)) +
-  geom_histogram(color = "black", breaks = seq(min(df$Tsubj), max(df$Tsubj) + 1, by = 2)) +
-  geom_vline(xintercept = 15, color = "darkgray", linetype = "dashed", size = 0.8) +
-  annotate("text", x = 9, y = 3500, label = "Excluded\nClassrooms", vjust = 1, color = "red") +
+  geom_histogram(color = "black", breaks = seq(min(df$Tsubj, na.rm = T),
+                                               max(df$Tsubj, na.rm = T) + 1,
+                                               by = 2)) +
+  geom_vline(xintercept = 17, color = "darkgray",
+             linetype = "dashed", size = 0.8) +
+  annotate("text", x = 10, y = 4000, label = "Excluded\nClassrooms",
+           vjust = 1, color = "red") +
   labs(title = "Histogram of Total Number of Weeks",
        x = "Total Number of Weeks",
        y = "Frequency") +
-  scale_fill_manual(values = c("less than 16" = "red", "16 or more" = "steelblue")) +
+  scale_fill_manual(values = c("less than 18" = "red",
+                               "18 or more" = "steelblue")) +
   theme_minimal() +
   theme(legend.position = "none") +
-  scale_x_continuous(breaks = c(1, seq(5, max(df$Tsubj), by = 5)))
+  scale_x_continuous(breaks = c(1, seq(5, max(df$Tsubj, na.rm = T), by = 5)))
 
 ```
 
@@ -711,18 +713,18 @@ df %>%
 #| label: fig-logins-week
 #| fig-cap: "Total number of student logins over time."
 
-# Calculate the sum of login values by Usage.Week and Teacher.User.ID
+# Calculate the sum of login values by date and Teacher.User.ID
 login_data <- df %>%
-  group_by(Usage.Week, Teacher.User.ID) %>%
+  group_by(date, Teacher.User.ID) %>%
   summarize(tch_login = max(tch_login),
             st_login  = max(st_login)) %>%
-  group_by(Usage.Week) %>%
+  group_by(date) %>%
   summarize(tch_logins = sum(tch_login),
             st_logins  = sum(st_login))
 # Create bar plot
 bar_plot <- ggplot() +
-  geom_bar(data = login_data, aes(x = Usage.Week, y = st_logins), stat = "identity") +
-  # geom_point(data = login_data, aes(x = Usage.Week, y = tch_logins), color = "blue") +
+  geom_bar(data = login_data, aes(x = date, y = st_logins), stat = "identity") +
+  # geom_point(data = login_data, aes(x = date, y = tch_logins), color = "blue") +
   labs(
     title = "Mean of Logins Across Teachers' Classrooms",
     x = "Week",
@@ -815,30 +817,29 @@ The raw data underwent rigorous preprocessing to ensure its suitability for anal
 
 ```{r preprocess data}
 #| include: false
-dt[, n_weeks := .N,
-   by = Classroom.ID]
+
+dt <- setDT(df)
+dt[, `:=`(
+  n_weeks = .N,
+  mean_act_st = mean(Active.Users...Total, na.rm = TRUE)
+  ), by = Classroom.ID]
 
 dt <- dt[
-  n_weeks > 15 & # At least 4 months cumulative activity
+  n_weeks > 18 & # At least 4.5 months cumulative activity
     Tsubj < 2*n_weeks & # At least activity twice a month on average
     teacher_number_classes < 5 &
     Students...Total > 5 &
     mean_act_st > 3 &
     !(Grade.Level %in% c("6th","7th","8th")) &
-    !(month(Usage.Week) %in% c(6, 7, 8)) &
+    !(month(date) %in% c(6, 7, 8)) &
     !is.na(District.Rollup.ID),
 ]
 
-cols_to_select <- names(dt)[sapply(dt, function(x) !is.numeric(x) ||
-                                     (is.numeric(x) && is.finite(sd(x)) && sd(x) != 0))]
-dt <- dt[, ..cols_to_select]
-
 df <- as.data.frame(dt) %>%
-  group_by(MDR.School.ID) %>%
-  #Scale
-  mutate(Badges.per.Active.User = scale(Badges.per.Active.User),
-         Tower.Alerts.per.Tower.Completion = scale(Tower.Alerts.per.Tower.Completion)) %>%
-  ungroup() %>%
+  select(-X) %>%
+  mutate(Minutes.per.Active.User = as.numeric(Minutes.per.Active.User)) %>%
+  mutate(across(Active.Users...Total:Tower.Alerts.per.Tower.Completion,
+         ~ ifelse(is.na(.), 0, .))) %>%
   arrange(Classroom.ID, week)
 # Clean environment
 rm(list = setdiff(ls(), c("df","random_py")))
@@ -873,14 +874,31 @@ summaries_list <- list(
   create_summary("Badges.per.Active.User", "Badges per Student"),
   create_summary("Tower.Alerts.per.Tower.Completion", "Tower Alerts per Lesson Completion"),
   # create_summary("tch_login", "Teacher Login (0/1)", type = "dichotomous"),
-  create_summary("tch_min", "Minutes per Teacher")
+  create_summary("Minutes.on.Zearn...Total", "Minutes per Teacher")
 )
 
-summary_table <- bind_rows(summaries_list) %>% 
-  transpose(keep.names = "Characteristic", make.names = 1)
-names(summary_table)[1] <- "Grade Level"
+summary_table <- bind_rows(summaries_list) %>%
+  select(-c(9:11)) %>% t() %>% as.data.frame()
+colnames(summary_table) <- summary_table[1,]
+# Remove the first row and set row names
+summary_table <- summary_table[-1, ]
+summary_table$`Grade Level` <- rownames(summary_table)
 
-gt(summary_table)
+# Create a gt table
+gt_table <- gt(summary_table,
+               rowname_col = "Grade Level") %>%
+  tab_header(
+    title = "Summary Statistics by Grade Level"
+  ) %>%
+  cols_label(
+    `Minutes per Student` = "Minutes per Student",
+    `Badges per Student` = "Badges per Student",
+    `Tower Alerts per Lesson Completion` = "Tower Alerts per Lesson Completion",
+    `Minutes per Teacher` = "Minutes per Teacher"
+  )
+
+# Display the table
+gt_table
 
 ```
 
@@ -940,6 +958,17 @@ We performed these model estimations with the scikit-learn library [@pedregosa20
 
 ```{r pca nmf data-prep}
 #| include: false
+
+df <- df %>%
+  group_by(MDR.School.ID) %>%
+  #Scale
+  mutate(Badges.per.Active.User = scale(Badges.per.Active.User),
+         Tower.Alerts.per.Tower.Completion = scale(Tower.Alerts.per.Tower.Completion)) %>%
+  ungroup() %>%
+  filter(!is.na(Badges.per.Active.User) &
+         !is.na(Tower.Alerts.per.Tower.Completion)) %>%
+  arrange(Classroom.ID, week)
+
 # Choose which Teacher.User.IDs will be train vs test
 df$set <- ifelse(df$Teacher.User.ID %in%
                  sample(unique(df$Teacher.User.ID),
@@ -1489,9 +1518,9 @@ where $\mu$ and $\sigma$ denote the group-level hyperparameters, and the subscri
 
 ## Feature Selection
 
-- Explain how you created different combinations of variables for rewards and state variables.
-- Elaborate on data-driven exploration, model estimation, and HBI.
-- Discuss the code used for actor-critic models and variable combinations.
+-   Explain how you created different combinations of variables for rewards and state variables.
+-   Elaborate on data-driven exploration, model estimation, and HBI.
+-   Discuss the code used for actor-critic models and variable combinations.
 
 ## Model Performance
 
@@ -1569,7 +1598,7 @@ compute_nloglik <- function(residuals) {
 
 ```{r panel model comparison}
 #| cache: true
-library(plm)
+library(pglm)
 
 # Helper functions
 get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
@@ -1690,6 +1719,141 @@ results <- foreach(i = 1:nrow(params),
 # Stop the cluster
 stopCluster(cl)
 ```
+
+
+
+```{r temporal-variance}
+
+# Calculating variance over time for each teacher
+teacher_variance <- df %>%
+  mutate(poverty = factor(poverty, ordered = T),
+         income = factor(income, ordered = T),
+         across(c(FrobeniusNNDSVD1:FrobeniusNNDSVD3),
+                ~ ifelse(. > mean(.), 1, 0))) %>%
+  group_by(Teacher.User.ID) %>%
+  summarise(
+    NMF1_sd = sd(FrobeniusNNDSVD1, na.rm = TRUE),
+    NMF2_sd = sd(FrobeniusNNDSVD2, na.rm = TRUE),
+    NMF3_sd = sd(FrobeniusNNDSVD3, na.rm = TRUE),
+    NMF1_var = var(FrobeniusNNDSVD1, na.rm = TRUE),
+    NMF2_var = var(FrobeniusNNDSVD2, na.rm = TRUE),
+    NMF3_var = var(FrobeniusNNDSVD3, na.rm = TRUE),
+    num_classes = median(teacher_number_classes),
+    num_students = sum(Students...Total),
+    poverty = first(poverty),
+    income = first(income),
+    charter.school = median(charter.school),
+    school.account = median(school.account),
+    n_weeks = mean(n_weeks)
+  )  %>%
+  filter(NMF1_var > 0 & NMF2_var > 0 & NMF3_var > 0)
+
+# Calculating variance over time for each classroom
+classroom_variance <- df %>%
+  mutate(poverty = factor(poverty, ordered = T),
+         income = factor(income, ordered = T),
+         across(c(Active.Users...Total:Tower.Alerts.per.Tower.Completion),
+                ~ scale(.))) %>%
+  group_by(Classroom.ID) %>%
+  summarise(
+    Active_sd = sd(Active.Users...Total, na.rm = TRUE),
+    Minutes_sd = sd(Minutes.per.Active.User, na.rm = TRUE),
+    Badges_sd = sd(Badges.per.Active.User, na.rm = TRUE),
+    Boosts_sd = sd(Boosts.per.Tower.Completion, na.rm = TRUE),
+    Tower_sd = sd(Tower.Alerts.per.Tower.Completion, na.rm = TRUE),
+    num_classes = median(teacher_number_classes),
+    num_students = sum(Students...Total),
+    poverty = first(poverty),
+    income = first(income),
+    charter.school = median(charter.school),
+    school.account = median(school.account),
+    n_weeks = mean(n_weeks)
+  ) %>%
+  filter(Boosts_sd > 0 & Tower_sd > 0)
+
+# Density plot for teacher variables
+p1 <- ggplot(teacher_variance) +
+  geom_density(aes(x = NMF1_sd, fill = "NMF1_sd"), alpha = 0.5) +
+  geom_density(aes(x = NMF2_sd, fill = "NMF2_sd"), alpha = 0.5) +
+  geom_density(aes(x = NMF3_sd, fill = "NMF3_sd"), alpha = 0.5) +
+  scale_fill_brewer(palette = "Dark2") +
+  labs(title = "Density Plot of Teacher Variables", x = "St Dev", y = "Density") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+# Density plot for student variables
+p2 <- ggplot(classroom_variance) +
+  geom_density(aes(x = Active_sd, fill = "Active_sd"), alpha = 0.5) +
+  geom_density(aes(x = Minutes_sd, fill = "Minutes_sd"), alpha = 0.5) +
+  geom_density(aes(x = Badges_sd, fill = "Badges_sd"), alpha = 0.5) +
+  # geom_density(aes(x = Boosts_sd, fill = "Boosts_sd"), alpha = 0.5) +
+  geom_density(aes(x = Tower_sd, fill = "Tower_sd"), alpha = 0.5) +
+  scale_fill_brewer(palette = "Dark2") +
+  labs(title = "Density Plot of Student Variables", x = "St Dev", y = "Density") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+# Combine plots side by side
+grid.arrange(p1, p2, ncol = 2)
+
+# Fitting the model using brm function
+fit_mv_model <- brm(NMF1_var ~ num_students, 
+                    data = teacher_variance, 
+                    family = Beta(), 
+                    chains = 8,
+                    cores = 8,
+                    iter = 10000,
+                    warmup = 5000, 
+                    backend = "cmdstanr")
+fit_mv_model2 <- brm(NMF1_sd ~ num_students, 
+                    data = teacher_variance, 
+                    family = Beta(), 
+                    chains = 8,
+                    cores = 8,
+                    iter = 10000,
+                    warmup = 5000, 
+                    backend = "cmdstanr")
+fit_mv_model <- brm(mvbind(NMF1_sd, NMF2_sd, NMF3_sd) ~ 
+                      num_students + poverty + income +
+                      charter.school + school.account + n_weeks, 
+                    data = teacher_variance, 
+                    family = hurdle_gamma(), 
+                    chains = 4,
+                    cores = 4,
+                    iter = 200,
+                    warmup = 100, 
+                    backend = "cmdstanr")
+
+# Preparing data for correlogram
+chart.Correlation(teacher_variance %>%
+                    mutate(poverty = as.integer(poverty),
+                           income = as.integer(income)) %>%
+                    select(NMF1_sd, NMF2_sd, NMF3_sd,
+                           num_students, poverty, income,
+                           charter.school, school.account, n_weeks),
+                  histogram = TRUE, method = "spearman")
+                           
+
+
+chart.Correlation(classroom_variance %>%
+                    select(NMF1_var, NMF2_1_var, NMF3_1_var,
+                           
+                           Active_sd, Minutes_sd, Badges_sd, Boosts_sd, Tower_sd,
+                           num_classes, num_students,
+                           poverty, income, charter.school, school.account, n_weeks), histogram = TRUE, method = "spearman",
+                  pch = 20, cex = 0.5, col = rgb(0, 0, 1, 0.5))
+cor_data <- teacher_variance %>%
+  select(NMF1_var, NMF2_1_var, NMF3_1_var, num_classes, num_students, poverty, income, charter.school, school.account, n_weeks)
+
+# Calculate correlation matrix
+cor_matrix <- cor(cor_data, use = "complete.obs")
+
+# Correlogram
+corrplot(cor_matrix, method = "circle")
+
+```
+
+
 
 ```{r}
 #| label: fig-panel-bic
@@ -1937,7 +2101,6 @@ gc(verbose = FALSE)
 #| cache: true
 #| label: tbl-RL-logit-comp
 #| tbl-cap: "Model comparison using Leave-One-Out Information Criterion (LOOIC). LOOIC values, a measure of model quality, were calculated for each model type. Lower values indicate better model performance. Q-learning models were built using a kernel-based approach. Hierarchical models incorporate a hierarchical structure to account for classroom-level variations."
-library(cmdstanr)
 
 # Non-hierarchical models
 ## Q-learning model
@@ -1980,6 +2143,7 @@ gt(df_looic)
 ## Feature Selection
 
 <!-- - Present the 4 models that stood out during the first estimation. -->
+
 <!-- - Discuss the HBI results and model comparison statistics. -->
 
 ## Model Fit
@@ -2355,7 +2519,7 @@ corrplot(cor_matrix_tower, method = "circle")
 
 ### Feature Selection Model Fit
 
-- Discuss the best-performing model using students online as a reward, and alerts, badges, and minutes as state variables.
+-   Discuss the best-performing model using students online as a reward, and alerts, badges, and minutes as state variables.
 
 ## Heterogeneity
 
@@ -2581,7 +2745,7 @@ n_comp <- 3
 method <- "FrobeniusNNDSVD"
 selected_cols <- c("Classroom.ID", "Teacher.User.ID",
                    "MDR.School.ID", "District.Rollup.ID",
-                   "week", "Usage.Week",
+                   "week", "date",
                    # Main loadings of Components:
                    "tch_min", "tch_min_1",
                    paste0("FrobeniusNNDSVD", seq_len(n_comp)),
