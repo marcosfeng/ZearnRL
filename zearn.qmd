@@ -23,7 +23,42 @@ execute:
   echo: false
   warning: false
   error: false
+  
+knitr:
+  opts_chunk:
+    cache.extra: set.seed(832399554)
+
 ---
+
+```{r load packages}
+library(data.table)
+library(tidyverse)
+# library(zoo)
+library(ggrepel)
+library(ggpubr)
+library(RColorBrewer)
+library(grid)
+library(gridExtra)
+library(scales)
+library(gt)
+library(gtsummary)
+library(PerformanceAnalytics)
+library(doParallel)
+library(foreach)
+library(reticulate)
+library(cmdstanr)
+library(brms)
+```
+
+```{r, set.seed(832399554)}
+#| cache: true
+
+set.seed(832399554)
+random_py <- import("random")
+random_py$seed(832399554)
+# https://www.random.org/integers/
+# Timestamp: 2023-05-17 16:18:28 UTC
+```
 
 # Introduction
 
@@ -403,33 +438,6 @@ Our data from the Zearn platform follows a time-series structure, spanning acros
 Geographically, the data encompasses a diverse range of schools in Louisiana. This geographical focus provides a fascinating context for our study, given the state's unique educational landscape and the widespread adoption of the Zearn platform across its schools. However, the insights derived from this study potentially have broader implications, extending beyond the confines of Louisiana, given the universal teaching and learning principles underpinning our analysis.
 
 @fig-teachers-map depicts the geographical distribution of teachers using the Zearn platform across various parishes in Louisiana. This map visually represents the number of teachers per parish, revealing a heterogeneous distribution of Zearn usage across Louisiana, with certain parishes demonstrating a higher concentration of teachers. The map also highlights the top five cities with the highest number of teachers using Zearn.
-
-```{r load packages}
-library(data.table)
-library(tidyverse)
-# library(zoo)
-library(ggrepel)
-library(ggpubr)
-library(RColorBrewer)
-library(grid)
-library(gridExtra)
-library(scales)
-library(gt)
-library(gtsummary)
-library(PerformanceAnalytics)
-library(doParallel)
-library(foreach)
-library(reticulate)
-library(cmdstanr)
-library(brms)
-
-
-set.seed(832399554)
-random_py <- import("random")
-random_py$seed(832399554)
-# https://www.random.org/integers/
-# Timestamp: 2023-05-17 16:18:28 UTC
-```
 
 ```{r data prep}
 
@@ -917,12 +925,12 @@ df_corr <- df  %>%
          Active.Users...Total,
          Minutes.per.Active.User,
          Tower.Alerts.per.Tower.Completion,
-         tch_min) %>%
+         Minutes.on.Zearn...Total) %>%
   rename("Badges" = Badges.per.Active.User,
          "Minutes per Student" = Minutes.per.Active.User,
          "Tower Alerts" = Tower.Alerts.per.Tower.Completion,
          "# of Students" = Active.Users...Total,
-         "Teacher Minutes" = tch_min)
+         "Teacher Minutes" = Minutes.on.Zearn...Total)
 
 chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
                   pch = 20, cex = 0.5, col = rgb(0, 0, 1, 0.5))
@@ -960,43 +968,43 @@ We performed these model estimations with the scikit-learn library [@pedregosa20
 #| include: false
 
 df <- df %>%
-  group_by(MDR.School.ID) %>%
-  #Scale
-  mutate(Badges.per.Active.User = scale(Badges.per.Active.User),
-         Tower.Alerts.per.Tower.Completion = scale(Tower.Alerts.per.Tower.Completion)) %>%
-  ungroup() %>%
-  filter(!is.na(Badges.per.Active.User) &
-         !is.na(Tower.Alerts.per.Tower.Completion)) %>%
-  arrange(Classroom.ID, week)
+  filter(!is.na(Minutes.on.Zearn...Total)) %>%
+  group_by(Classroom.ID) %>%
+  # train/test split
+  mutate(set = sample(c("train", "test"), size = n(),
+                      prob = c(0.8, 0.2), replace = TRUE)) %>%
+  ungroup() %>% arrange(Classroom.ID, week)
 
-# Choose which Teacher.User.IDs will be train vs test
-df$set <- ifelse(df$Teacher.User.ID %in%
-                 sample(unique(df$Teacher.User.ID),
-                        size = floor(0.8 * length(unique(df$Teacher.User.ID)))),
-                 "train", "test")
+columns <- names(
+  df %>% select(RD.elementary_schedule:Minutes.on.Zearn...Total,
+                Active.Users...Total:Tower.Alerts.per.Tower.Completion)
+  )
 
 # Create base data.table for models (faster than data.frame)
-df_comp <- as.data.table(df %>% 
-                           select(Classroom.ID, week, Badges.per.Active.User,
-                                  set, tch_min,
-                                  RD.elementary_schedule:RD.pd_course_guide))
-# Arrange
-setorder(df_comp, Classroom.ID, week)
+df_pca <- as.data.table(df)
+# Convert columns to double to prevent precision loss
+df_pca[, (columns) := lapply(.SD, as.numeric),
+        .SDcols = columns]
 
-## Prep data for PCA
-df_pca <- as.data.frame(df_comp) %>%
-  arrange(Classroom.ID, week) %>%
-  ungroup() %>%
-  mutate(across(everything(), ~ifelse(is.na(.), 0, .))) %>%
-  mutate(across(RD.elementary_schedule:RD.pd_course_guide, ~log1p(.)))
+# Apply the scaling operation
+df_pca[, (columns) := lapply(.SD, function(x) {
+  x[is.na(x)] <- 0
+  sd_x <- sd(x, na.rm = TRUE)
+  if(sd_x == 0 | is.na(sd_x)) return(rep(0, .N))
+  x / sd_x
+}), by = MDR.School.ID, .SDcols = columns]
+setorder(df_pca, Classroom.ID, week)
+
 # Calculate standard deviations
-std_devs <- apply(df_pca %>% select(-c("Classroom.ID", "week", "set")), 2, sd)
+std_devs <- apply(df_pca %>% select(all_of(columns)), 2, sd, na.rm = T)
 # Identify columns with defined standard deviations (not NaN or Inf)
-invalid_cols <- names(std_devs[is.na(std_devs) | is.infinite(std_devs)])
+invalid_cols <- names(std_devs[is.na(std_devs) |
+                                 is.infinite(std_devs) |
+                                 std_devs == 0])
 df_pca <- df_pca %>% select(-all_of(invalid_cols))
 
 # Clean environment
-rm(list = setdiff(ls(), c("df", "df_pca", "df_comp", "random_py")))
+rm(list = setdiff(ls(), c("df", "df_pca", "random_py")))
 gc(verbose = FALSE)
 
 ```
@@ -1006,7 +1014,6 @@ gc(verbose = FALSE)
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA, NMF
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import silhouette_score
 
 ## Basic Variables
@@ -1014,15 +1021,25 @@ from sklearn.metrics import silhouette_score
 dfpca_py = pd.DataFrame(r.df_pca)
 dfpca_py.sort_values(['Classroom.ID', 'week'], inplace=True)
 
-# Initialize scaler
-scaler = MinMaxScaler()
+# Split the data into teacher and student subsets
+teacher_variables = dfpca_py.columns[
+  dfpca_py.columns.get_loc(
+    "RD.elementary_schedule"
+    ):dfpca_py.columns.get_loc(
+      "RD.grade_level_teacher_materials"
+      # "Minutes.on.Zearn...Total"
+      )+1
+  ]
+student_variables = dfpca_py.columns[
+  dfpca_py.columns.get_loc(
+    "Active.Users...Total"
+    ):dfpca_py.columns.get_loc(
+      "Tower.Alerts.per.Tower.Completion"
+      )+1
+  ]
 
-# Drop unnecessary columns
-X = dfpca_py.drop(['Badges.per.Active.User', 'set', 'Classroom.ID', 'week'], axis=1)
-X_cols  = X.columns
-# Scale the data
-X_scaled = scaler.fit_transform(X)
-X_scaled = pd.DataFrame(X_scaled, columns=X_cols)
+X_teachers = dfpca_py[teacher_variables]
+X_students = dfpca_py[student_variables]
 
 # Dictionaries for export
 components = {}
@@ -1030,247 +1047,62 @@ results = {}
 residuals = {}
 silhouette = {}
 
-# Number of components for NMF
-n_comp = min(X.shape) // 3
 ```
 
 ```{python pca-nmf}
 
-################ PCA
-for n in range(2, n_comp):
-  pca = PCA(n_components=n)
-  X_pca = pca.fit_transform(X_scaled)
-  pca_comp = pca.components_
-  X_hat = pca.inverse_transform(X_pca)
-  labels = np.argmax(pca_comp, axis=0)
-
-  results.setdefault("PCA", {})[n] = X_pca
-  components.setdefault("PCA", {})[n] = pca_comp
-  residuals.setdefault("PCA", {})[n] =((X_scaled - X_hat)**2).sum().sum()  # RSS
-  silhouette.setdefault("PCA", {})[n] = silhouette_score(pca_comp.transpose(), labels)
-
-################ Non-negative Matrix Factorization
 # Function for NMF
-def nmf_method(n, method, initial, X_scaled, solv = 'mu'):
-    method_name = f"{method.title()} {initial.upper()}"
-    if method == 'frobenius' and initial == 'nndsvd': solv = 'cd'
-    if method != 'frobenius' and initial == 'nndsvd': return
-    if method != 'frobenius': method_name = f"{method.title()}"
+def nmf_method(n, method, initial, X_scaled, data_label, solv = 'mu', nomin = False):
+  method_name = f"{method.title()} {initial.upper()}"
+  
+  if method == 'frobenius' and initial == 'nndsvd': solv = 'cd'
+  if method != 'frobenius' and initial == 'nndsvd': return
+  if method != 'frobenius': method_name = f"{method.title()}"
+  if nomin: method_name = method_name + "_nomin"
+  
+  nmf = NMF(
+    n_components=n,
+    init=initial,
+    beta_loss=method,
+    solver=solv,
+    max_iter=4_000
+  )
+  X_nmf, nmf_comp = nmf.fit_transform(X_scaled), nmf.components_
+  X_hat = nmf.inverse_transform(X_nmf)
+  labels = np.argmax(nmf_comp, axis=0)
+  
+  results.setdefault(f"{method_name}_{data_label}", {})[n] = X_nmf
+  components.setdefault(f"{method_name}_{data_label}", {})[n] = nmf_comp
+  residuals.setdefault(f"{method_name}_{data_label}", {})[n] = ((X_scaled - X_hat)**2).sum().sum()
+  silhouette.setdefault(f"{method_name}_{data_label}", {})[n] = silhouette_score(nmf_comp.transpose(), labels)
+
+def perform_pca_nmf(X_scaled, data_label, n_comp):
+  for n in range(2, n_comp):
+    ## PCA
+    pca = PCA(n_components=n)
+    X_pca = pca.fit_transform(X_scaled)
+    pca_comp = pca.components_
+    X_hat = pca.inverse_transform(X_pca)
+    labels = np.argmax(pca_comp, axis=0)
+    results.setdefault(f"PCA_{data_label}", {})[n] = X_pca
+    components.setdefault(f"PCA_{data_label}", {})[n] = pca_comp
+    residuals.setdefault(f"PCA_{data_label}", {})[n] = ((X_scaled - X_hat)**2).sum().sum()
+    silhouette.setdefault(f"PCA_{data_label}", {})[n] = silhouette_score(pca_comp.transpose(), labels)
     
-    nmf = NMF(
-      n_components=n,
-      init=initial,
-      beta_loss=method,
-      solver=solv,
-      max_iter=4_000
-    )
-    X_nmf, nmf_comp = nmf.fit_transform(X_scaled), nmf.components_
-    X_hat = nmf.inverse_transform(X_nmf)
-    labels = np.argmax(nmf_comp, axis=0)
-    
-    results.setdefault(method_name, {})[n] = X_nmf
-    components.setdefault(method_name, {})[n] = nmf_comp
-    residuals.setdefault(method_name, {})[n] = ((X_scaled - X_hat)**2).sum().sum()  # RSS
-    silhouette.setdefault(method_name, {})[n] = silhouette_score(nmf_comp.transpose(), labels)
+    ## Non-negative Matrix Factorization
+    for method in {'frobenius', 'kullback-leibler'}:
+      for initial in {'nndsvd', 'nndsvda'}:
+        nmf_method(
+          n, method, initial, X_scaled,
+          data_label=data_label,
+          nomin = True    # No teacher minutes included
+          )
 
-# Call the function for NMF
-for n in range(2, n_comp):
-  for method in {'frobenius', 'kullback-leibler'}:
-    for initial in {'nndsvd', 'nndsvda'}:
-      try:
-        nmf_method(n, method, initial, X_scaled)
-      except:
-        continue
-```
+# Run PCA and NMF for teachers
+perform_pca_nmf(X_teachers, "teachers", min(X_teachers.shape) // 3)
+# Run PCA and NMF for students
+perform_pca_nmf(X_students, "students", min(X_students.shape))
 
-```{python train autoencoder}
-#| eval: false
-import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from keras.models import Model
-from keras.layers import Input, Dense
-from kerastuner.tuners import Hyperband
-from kerastuner.engine.hyperparameters import HyperParameters
-from keras.constraints import NonNeg
-from keras.callbacks import EarlyStopping
-from keras.regularizers import L1
-
-# Create training and testing data frames
-train_df = dfpca_py[dfpca_py['set'] == 'train']
-test_df = dfpca_py[dfpca_py['set'] == 'test']
-
-# Predictors
-X_train = train_df.drop(['Badges.per.Active.User', 'set', 'Classroom.ID', 'week'], axis=1)
-X_test = test_df.drop(['Badges.per.Active.User', 'set', 'Classroom.ID', 'week'], axis=1)
-# Scale the data
-X_train = scaler.transform(X_train)
-X_train = pd.DataFrame(X_train, columns=X_cols)
-X_test = scaler.transform(X_test)
-X_test = pd.DataFrame(X_test, columns=X_cols)
-
-# Get the target variable
-Y = dfpca_py[['Badges.per.Active.User']]
-Y_train = train_df[['Badges.per.Active.User']]
-Y_test = test_df[['Badges.per.Active.User']]
-Y = scaler.fit_transform(Y)
-Y_train = scaler.transform(Y_train)
-Y_test = scaler.transform(Y_test)
-
-# Define the number of components and features
-n_features = X_scaled.shape[1]
-n_labels = 1  # For regression, we usually have just one output node
-
-# Determine loss weights according to the data structure:
-decoding_weight = Y.std() / (Y.std() + X_scaled.std(numeric_only=True).mean())
-prediction_weight = 1 - decoding_weight
-def build_model(hp):
-    # Define the input layer
-    input_data = Input(shape=(n_features,))
-    
-    # Define the encoding layer(s)
-    n_layers = hp.Int('n_layers', min_value=1, max_value=4, step=1)
-    n_units = [
-      hp.Choice('units_' + str(i), values=[8, 16, 32, 64, 128, 256, 512])
-      for i in range(n_layers)
-    ]
-    encoded = input_data
-    for i in range(n_layers):
-        encoded = Dense(
-          units=n_units[i],
-          activation='relu')(encoded)
-          
-    # Generate the latent vector
-    latent_dim = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
-    l1_value = hp.Float('l1_value', min_value=0.0001, max_value=0.001, default=0.0005, step=0.0001)
-    latent = Dense(
-      units=latent_dim,
-      activation='linear',
-      activity_regularizer= L1(l1=l1_value),
-      kernel_constraint=NonNeg(),
-      name='latent')(encoded)      
-    
-    # Decoder
-    decoded = latent
-    for i in range(n_layers):
-        decoded = Dense(
-          units=n_units[n_layers - i - 1],
-          activation='relu')(decoded)
-    decoded = Dense(n_features, activation='sigmoid', name='decoded')(decoded)
-    
-    # Define the label output layer
-    label_output = Dense(n_labels, activation='linear', name='label_output')(latent)
-    
-    # Define the autoencoder model
-    autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
-    # Compile the model
-    autoencoder.compile(optimizer='adadelta',
-                    loss={
-                      'decoded': 'mean_squared_error',
-                      'label_output': 'mean_squared_error'
-                    },
-                    loss_weights={
-                      'decoded': decoding_weight,
-                      'label_output': prediction_weight
-                    })
-    
-    return autoencoder
-
-# Set up hyperparameter tuner
-tuner = Hyperband(build_model,
-                  objective='val_loss',
-                  max_epochs=20,
-                  directory='autoencoder_tuning',
-                  project_name='autoencoder_3rd_tuning')
-
-# Perform hyperparameter search
-early_stopping_callback = EarlyStopping(monitor='val_loss', patience=5)
-tuner.search(x=X_train,
-            y=[X_train, Y_train],
-            epochs=50,
-            validation_data=(X_test, [X_test, Y_test]),
-            callbacks=[early_stopping_callback])
-# tuner.results_summary()
-# Get the optimal hyperparameters
-best_hyperparameters = tuner.get_best_hyperparameters(num_trials=2)[1]
-model = tuner.hypermodel.build(best_hyperparameters)
-history = model.fit(x=X_train, 
-                    y=[X_train, Y_train],
-                    epochs=2_000,
-                    validation_data=(X_test, [X_test, Y_test]),
-                    callbacks=[early_stopping_callback])
-best_model = model
-
-
-# Function to get encoded representation and components
-def get_encoded_representation_and_components(best_model, X):
-    # Get index of encoding layer
-    encoding_layer_index = next(
-      i for i,
-      layer in enumerate(best_model.layers) if layer.name == 'latent'
-    )
-    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
-    input_data = Input(shape=(n_features,))
-    x = input_data
-    for layer in encoder_layers[1:]:
-      x = layer(x)
-    encoder = Model(input_data, x)
-    
-    # Copy weights for each layer from the best model
-    for i, layer in enumerate(encoder.layers):
-      layer.set_weights(best_model.layers[i].get_weights())
-    
-    X_encoded = encoder.predict(X)
-    X_hat = best_model.predict(X)[0]
-    res = ((X - X_hat)**2).sum().sum()
-    n_components = X_encoded.shape[1]
-    
-    results.setdefault("Autoencoder", {})[n_components] = X_encoded
-    residuals.setdefault("Autoencoder", {})[n_components] = res
-
-# Get encoded representation and components
-get_encoded_representation_and_components(best_model, X_scaled)
-
-# save the model
-model.save('./autoencoder_tuning/final_model.h5')
-
-```
-
-```{python load autoencoder}
-#| include: false
-from tensorflow.keras.models import load_model
-from keras.models import Model
-from keras.layers import Input
-
-# Function to get encoded representation and components
-loaded_model = load_model('./autoencoder_tuning/final_model.h5')
-def get_encoded_representation_and_components(best_model, X):
-    # Get index of encoding layer
-    encoding_layer_index = next(
-      i for i,
-      layer in enumerate(best_model.layers) if layer.name == 'latent'
-    )
-    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
-    input_data = Input(shape=(n_features,))
-    x = input_data
-    for layer in encoder_layers[1:]:
-      x = layer(x)
-    encoder = Model(input_data, x)
-    
-    # Copy weights for each layer from the best model
-    for i, layer in enumerate(encoder.layers):
-      layer.set_weights(best_model.layers[i].get_weights())
-    
-    X_encoded = encoder.predict(X)
-    X_hat = best_model.predict(X)[0]
-    res = ((X - X_hat)**2).sum().sum()
-    n_components = X_encoded.shape[1]
-    
-    results.setdefault("Autoencoder", {})[n_components] = X_encoded
-    residuals.setdefault("Autoencoder", {})[n_components] = res
-
-n_features = X_scaled.shape[1]
-# Get encoded representation and components
-get_encoded_representation_and_components(loaded_model, X_scaled)
 ```
 
 ```{python clean environment}
@@ -1303,6 +1135,23 @@ gc.collect()
 residuals_list <- py$residuals
 silhouette_list <- py$silhouette
 
+teacher_variables <- names(
+  df_pca[,RD.elementary_schedule:RD.grade_level_teacher_materials]
+)
+student_variables <- names(
+  df_pca[,Active.Users...Total:Tower.Alerts.per.Tower.Completion]
+)
+TSS_teacher <- df_pca %>%
+  select(all_of(teacher_variables)) %>%
+  mutate(across(all_of(teacher_variables), ~ (. - mean(., na.rm = TRUE))^2)) %>%
+  summarize(across(all_of(teacher_variables), sum, na.rm = TRUE)) %>%
+  unlist() %>% sum()
+TSS_student <- df_pca %>%
+  select(all_of(student_variables)) %>%
+  mutate(across(all_of(student_variables), ~ (. - mean(., na.rm = TRUE))^2)) %>%
+  summarize(across(all_of(student_variables), sum, na.rm = TRUE)) %>%
+  unlist() %>% sum()
+
 # Creating dataframes
 df_residuals <- do.call(rbind, lapply(names(residuals_list), function(method) {
   do.call(rbind, lapply(names(residuals_list[[method]]), function(n) {
@@ -1313,9 +1162,16 @@ df_residuals <- do.call(rbind, lapply(names(residuals_list), function(method) {
     )
   }))
 }))
-# Creating separate dataframes for 'Autoencoder' and the rest of the methods
-df_residuals_autoencoder <- df_residuals[df_residuals$Method == "Autoencoder", ]
-df_residuals_others <- df_residuals[df_residuals$Method != "Autoencoder", ]
+df_residuals_teachers <- df_residuals[
+  grepl("_teachers", df_residuals$Method),
+  ] %>%
+  mutate(Method = gsub("_teachers|_nomin", "", Method)) %>%
+  mutate(Rsq = 1 - Residuals/TSS_teacher)
+df_residuals_students <- df_residuals[
+  grepl("_students", df_residuals$Method),
+  ] %>%
+  mutate(Method = gsub("_students|_nomin", "", Method)) %>%
+  mutate(Rsq = 1 - Residuals/TSS_student)
 
 df_silhouette <- do.call(rbind, lapply(names(silhouette_list), function(method) {
   do.call(rbind, lapply(names(silhouette_list[[method]]), function(n) {
@@ -1326,35 +1182,68 @@ df_silhouette <- do.call(rbind, lapply(names(silhouette_list), function(method) 
     )
   }))
 }))
-# Add nuisance row for Autoencoder to unify legends
-df_silhouette <- rbind(df_silhouette,
-                       data.frame(Method = "Autoencoder",
-                                  Components = 4,
-                                  Silhouette = mean(df_silhouette$Silhouette)))
+df_silhouette_teachers <- df_silhouette[
+  grepl("_teachers", df_silhouette$Method),
+  ] %>%
+  mutate(Method = gsub("_teachers|_nomin", "", Method))
+df_silhouette_students <- df_silhouette[
+  grepl("_students", df_silhouette$Method),
+  ] %>%
+  mutate(Method = gsub("_students|_nomin", "", Method))
 
 # Plotting residuals
 p1 <- ggplot() +
-  geom_line(data = df_residuals_others,
-            aes(x = Components, y = Residuals, color = Method)) +
-  geom_point(data = df_residuals_autoencoder,
-             aes(x = Components, y = Residuals, color = Method)) +
-  labs(title = "Sum of Square Residuals",
+  geom_line(data = df_residuals_teachers,
+            aes(x = Components, y = Rsq, color = Method)) +
+  # geom_point(data = df_residuals_autoencoder,
+  #            aes(x = Components, y = Residuals, color = Method)) +
+  labs(title = "Reconstruction R2",
        x = "Number of Components") +
-  scale_x_continuous(breaks = seq(min(df_residuals$Components),
-                                  max(df_residuals$Components),
+  scale_x_continuous(breaks = seq(min(df_residuals_teachers$Components),
+                                  max(df_residuals_teachers$Components),
                                   by = 1)) +
   theme_minimal() +
   theme(axis.title.y = element_blank())
+
 # Plotting silhouette scores
-p2 <- ggplot(df_silhouette, aes(x = Components, y = Silhouette, color = Method)) +
+p2 <- ggplot(df_silhouette_teachers,
+             aes(x = Components, y = Silhouette, color = Method)) +
   geom_line(show.legend = FALSE) +
   labs(title = "Silhouette Score",
        x = "Number of Components") +
-  scale_x_continuous(breaks = seq(min(df_silhouette$Components),
-                                  max(df_silhouette$Components),
+  scale_x_continuous(breaks = seq(min(df_silhouette_teachers$Components),
+                                  max(df_silhouette_teachers$Components),
                                   by = 1)) +
-  coord_cartesian(ylim = c(NA, (mean(df_silhouette$Silhouette) +
-                                  2*sd(df_silhouette$Silhouette)))) +
+  coord_cartesian(ylim = c(NA, (mean(df_silhouette_teachers$Silhouette) +
+                                  3*sd(df_silhouette_teachers$Silhouette)))) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank())
+
+# Plotting residuals
+p3 <- ggplot() +
+  geom_line(data = df_residuals_students,
+            aes(x = Components, y = Rsq, color = Method)) +
+  # geom_point(data = df_residuals_autoencoder,
+  #            aes(x = Components, y = Residuals, color = Method)) +
+  labs(title = "Reconstruction R2",
+       x = "Number of Components") +
+  scale_x_continuous(breaks = seq(min(df_residuals_students$Components),
+                                  max(df_residuals_students$Components),
+                                  by = 1)) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank())
+
+# Plotting silhouette scores
+p4 <- ggplot(df_silhouette_students,
+             aes(x = Components, y = Silhouette, color = Method)) +
+  geom_line(show.legend = FALSE) +
+  labs(title = "Silhouette Score",
+       x = "Number of Components") +
+  scale_x_continuous(breaks = seq(min(df_silhouette_students$Components),
+                                  max(df_silhouette_students$Components),
+                                  by = 1)) +
+  coord_cartesian(ylim = c(NA, (mean(df_silhouette_students$Silhouette) +
+                                  3*sd(df_silhouette_students$Silhouette)))) +
   theme_minimal() +
   theme(axis.title.y = element_blank())
 
@@ -1363,7 +1252,13 @@ comparison_plot <- ggarrange(p1, p2,
                            ncol = 2,
                            common.legend = TRUE,
                            legend = "bottom")
+comparison_plot2 <- ggarrange(p3, p4,
+                           ncol = 2,
+                           common.legend = TRUE,
+                           legend = "bottom")
+
 comparison_plot
+comparison_plot2
 
 ```
 
@@ -1385,12 +1280,16 @@ comparison_plot
 library(pheatmap)
 
 components_list <- py$components
-df_heatmap <- components_list[["Frobenius NNDSVDA"]][["3"]] %>%
+df_heatmap_teachers <- 
+  components_list[["Frobenius NNDSVD_nomin_teachers"]][["4"]] %>%
+  t() %>% as.data.frame()
+df_heatmap_students <- 
+  components_list[["Frobenius NNDSVD_nomin_students"]][["4"]] %>%
   t() %>% as.data.frame()
 
 # Define a named vector to map old variable names to new ones
 variable_names <- c(
-  "tch_min" = "Teacher Minutes",
+  "Minutes.on.Zearn...Total" = "Teacher Minutes",
   "RD.optional_problem_sets" = "Optional Problem Sets Download",
   "RD.student_notes_and_exit_tickets" = "Student Notes and Exit Tickets Download",
   "RD.mission_overview" = "Mission Overview Download",
@@ -1414,20 +1313,43 @@ variable_names <- c(
   "RD.k_schedule" = "Kindergarten Schedule Download",
   "RD.curriculum_map" = "Curriculum Map Download",
   "RD.assessments_answer_key" = "Assessments Answer Key Download",
-  "RD.pd_course_guide" = "Course Guide Download"
+  "RD.pd_course_guide" = "Course Guide Download",
+  "RD.grade_level_teacher_materials" = "Teacher Materials Download",
+  "Active.Users...Total" = "Active Students",
+  "Sessions.per.Active.User" = "Student Logins",
+  "Badges.per.Active.User" = "Badges",
+  "Badges..on.grade..per.Active.Student" = "On-grade Badges",
+  "Minutes.per.Active.User" = "Student Minutes",
+  "Tower.Alerts.per.Tower.Completion" = "Tower Alerts",
+  "Boosts.per.Tower.Completion" = "Boosts"
 )
 # Rename the rows of the dataframe
-row.names(df_heatmap) <- variable_names[names(df_pca)[-c(1:4)]]
+row.names(df_heatmap_teachers) <- variable_names[teacher_variables]
+row.names(df_heatmap_students) <- variable_names[student_variables]
 
-names(df_heatmap) <- paste0("Comp ", 1:3)
-df_heatmap <- df_heatmap %>% arrange(-`Comp 1`)
+names(df_heatmap_teachers) <- paste0("Comp ", 1:4)
+names(df_heatmap_students) <- paste0("Comp ", 1:4)
+df_heatmap_teachers <- df_heatmap_teachers %>% arrange(-`Comp 1`)
+df_heatmap_students <- df_heatmap_students %>% arrange(-`Comp 1`)
 
 color_scheme <- colorRampPalette(
   c("#F7F7F7",brewer.pal(n = 9, name = "YlOrRd"))
   )(100)
 breaks <- seq(0, 1, by = 0.01)
 minmax <- function(x) ((x - min(x))/(max(x) - min(x)))
-pheatmap(df_heatmap %>%
+pheatmap(df_heatmap_teachers %>%
+           mutate_all(minmax),
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         angle_col = 0,
+         # main = "Loadings of NMF components",
+         color = color_scheme,  # Use the color scheme defined above
+         breaks = breaks,  # Use breaks defined above
+         border_color = NA,
+         show_colnames = TRUE,
+         show_rownames = TRUE)
+
+pheatmap(df_heatmap_students %>%
            mutate_all(minmax),
          cluster_rows = FALSE,
          cluster_cols = FALSE,
@@ -1447,20 +1369,29 @@ pheatmap(df_heatmap %>%
 results_list <- py$results
 
 # List of method names
-methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
-names(results_list) <- methods
+# methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler")
+methods <- c("Frobenius NNDSVD")
 # Initialize df_components
-df_components <- df
+df_components <- df_pca
 
 # Loop over each method, extract the results at 3 components and bind to df_components
 for (method in methods) {
-  result_3 <- results_list[[method]][["3"]]
+  method_teacher <- paste0(method, "_nomin_teachers")
+  method_student <- paste0(method, "_nomin_students")
+  result_teacher <- results_list[[method_teacher]][["4"]]
+  result_student <- results_list[[method_student]][["4"]]
   df_components <- df_components %>%
-    bind_cols(result_3)
+    bind_cols(result_teacher, result_student, .name_repair = )
   
   # Adjust column names
-  new_cols <- paste0(method, 1:3)
-  names(df_components)[(ncol(df_components) - 2):ncol(df_components)] <- new_cols
+  new_cols <- paste0("Frobenius NNDSVD",
+                     rep(c("_teacher", "_student"), each = 4),
+                     rep(1:4, 2))
+  names(df_components)[
+    (ncol(df_components) -
+       ncol(result_teacher) -
+       ncol(result_student) + 1):ncol(df_components)
+    ] <- new_cols
 }
 
 # Write to csv
@@ -1542,13 +1473,43 @@ We first select the most suitable action variable by comparing the Bayesian Info
 
 ```{r load dimension reduction}
 #| include: false
-df <- read.csv(file = "./Bayesian/df.csv")
+df <- read.csv(file = "./Bayesian/df.csv") %>%
+    mutate(across(where(is.numeric),
+                  ~ ifelse(. < .Machine$double.eps, 0, .)))
 # Clean environment
 rm(list = setdiff(ls(), c("df", "random_py")))
 gc(verbose = FALSE)
 ```
 
-```{r}
+```{r helper-functions}
+
+get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
+  # Add a column for week_lag
+  datatable[, week_lag := c(0, diff(week)), by = Classroom.ID]
+
+  if (is.null(n_comp)) {
+    # Update the lag column with shift function
+    datatable[, (paste0(col, "_", lag_period)) :=
+                shift(get(col), lag_period, fill = 0, type = "lag"),
+              by = Classroom.ID]
+  } else {
+    for (comp in 1:n_comp) {
+      # Update the lag column with shift function
+      datatable <- datatable[, (paste0(col, comp, "_", lag_period)) :=
+                              shift(get(paste0(col, comp)), lag_period, fill = 0, type = "lag"),
+                            by = Classroom.ID]
+    }
+  }
+  
+  return(datatable)
+}
+
+```
+
+```{r panel model comparison}
+#| cache: true
+library(pglm)
+
 bic_plm <- function(object) {
   # object is "plm", "panelmodel"
   sp = summary(object)
@@ -1594,33 +1555,6 @@ compute_nloglik <- function(residuals) {
   return(as.numeric(nll))
 }
 
-```
-
-```{r panel model comparison}
-#| cache: true
-library(pglm)
-
-# Helper functions
-get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
-  # Add a column for week_lag
-  datatable[, week_lag := c(0, diff(week)), by = Classroom.ID]
-
-  if (is.null(n_comp)) {
-    # Update the lag column with shift function
-    datatable[, (paste0(col, "_", lag_period)) :=
-                shift(get(col), lag_period, fill = 0, type = "lag"),
-              by = Classroom.ID]
-  } else {
-    for (comp in 1:n_comp) {
-      # Update the lag column with shift function
-      datatable <- datatable[, (paste0(col, comp, "_", lag_period)) :=
-                              shift(get(paste0(col, comp)), lag_period, fill = 0, type = "lag"),
-                            by = Classroom.ID]
-    }
-  }
-  
-  return(datatable)
-}
 
 create_formula <- function(method, lag, comp) {
   terms <- c()
@@ -1642,7 +1576,6 @@ create_formula <- function(method, lag, comp) {
   return(as.formula(formula_string))
 }
 
-
 model_selection <- function(wi, re) {
   if (phtest(wi, re)$p.value < 0.05) return(wi) else return(re)
 }
@@ -1655,8 +1588,15 @@ create_model <- function(formula, data) {
   return(model_selection(wi, re))
 }
 
+#-------------
+
 # Data and Variables
-df <- setDT(df)
+df <- as.data.table(
+  df %>%
+    group_by(MDR.School.ID) %>%
+    mutate(across(Active.Users...Total:Tower.Alerts.per.Tower.Completion,
+                  scale))
+  )
 results_df_list <- list()
 lags <- c(1:7)
 n_comp = 3
@@ -1679,8 +1619,12 @@ for (col in columns) {
 }
 
 # Panel data
-train_data <- pdata.frame(df[set == "train"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
-test_data <- pdata.frame(df[set == "test"], index = c("Classroom.ID", "week", "Teacher.User.ID"))
+train_data <- pdata.frame(
+  df[set == "train"], index = c("Classroom.ID", "week", "Teacher.User.ID")
+  )
+test_data <- pdata.frame(
+  df[set == "test"], index = c("Classroom.ID", "week", "Teacher.User.ID")
+  )
 
 # Estimation
 cl <- makeCluster(detectCores())
@@ -1712,15 +1656,690 @@ results <- foreach(i = 1:nrow(params),
   list(Method = col,
        Component = comp,
        Lag = lag,
+       formula = formula,
        nloglik = compute_nloglik(residuals),
        bic = as.numeric(bic_plm(model)),
+       rsq = r.squared(model),
        coef = summary(model)$coefficients)
 }
 # Stop the cluster
 stopCluster(cl)
+rm(cl)
+
+```
+
+```{r}
+#| label: fig-panel-bic
+#| fig-cap: ""
+
+# Wrangling the results data frame for plotting
+results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
+# Convert variables to appropriate data types
+results_df <- results_df %>%
+  mutate(Method = as.factor(Method),
+         Component = as.factor(unlist(Component)),
+         Lag = as.numeric(Lag),
+         nloglik = as.numeric(nloglik),
+         bic = as.numeric(bic),
+         rsq = as.numeric(rsq)) %>%
+  group_by(Method, Component, Lag) %>%
+  summarise(avg_bic = mean(bic, na.rm = TRUE),
+            avg_nloglik = mean(nloglik, na.rm = TRUE),
+            rsq = mean(rsq, na.rm = TRUE),
+            .groups = "drop")
+# Filter methods for the plots
+methods_for_plots <- c("FrobeniusNNDSVD")
+plot_data <- filter(results_df, Method %in% methods_for_plots)
+
+# Create a function to generate a plot for a given component and metric
+generate_plot <- function(data, component) {
+  filtered_data <- filter(data, Component == component)
+  plot <- ggplot(filtered_data, aes(x = Lag, y = value)) +
+    geom_line() +
+    scale_y_continuous(labels = scales::scientific) +
+    theme_minimal() +
+    theme(axis.title.y = element_blank(), legend.position = "none")
+  return(plot)
+}
+
+# Create plots for each combination
+plots <- list()
+for (component in levels(plot_data$Component)) {
+  plots[[paste("BIC", component)]] <-
+    generate_plot(plot_data %>% rename(value = avg_bic), component)
+  plots[[paste("Negative Log-Likelihood", component)]] <-
+    generate_plot(plot_data %>% rename(value = avg_nloglik), component)
+  plots[[paste("R-square", component)]] <-
+    generate_plot(plot_data %>% rename(value = rsq), component)
+}
+
+# Arrange the plots in a 3x2 grid
+combined_plot <- grid.arrange(
+    grobs = plots,
+    ncol = 3
+    # top = "Comparative Analysis of Components"
+)
+
+```
+
+```{r action-reward-corr}
+
+# Select relevant variables for correlation analysis
+rows <- c("Active.Users...Total", "Sessions.per.Active.User", 
+          "Minutes.per.Active.User", "Badges.per.Active.User",
+          "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
+columns_1 <- c("FrobeniusNNDSVD1", "FrobeniusNNDSVD1_1",
+               "FrobeniusNNDSVD1_2", "FrobeniusNNDSVD1_3")
+columns_2 <- c("FrobeniusNNDSVD2", "FrobeniusNNDSVD2_1",
+               "FrobeniusNNDSVD2_2", "FrobeniusNNDSVD2_3")
+columns_3 <- c("FrobeniusNNDSVD3", "FrobeniusNNDSVD3_1",
+               "FrobeniusNNDSVD3_2", "FrobeniusNNDSVD3_3")
+
+selected_vars <- df %>%
+  select(all_of(c(rows, columns_1, columns_2, columns_3)))
+
+
+# Compute correlation matrix
+cor_matrix <- cor(selected_vars, use = "complete.obs", method = "spearman")
+
+# Function to test significance and annotate correlation matrix
+annotate_cor_matrix <- function(cor_matrix, n) {
+  cor_matrix_melted <- melt(cor_matrix)
+  p_values <- apply(cor_matrix_melted, 1, function(x) {
+    cor.test(selected_vars %>% pull(as.character(x[1])),
+             selected_vars %>% pull(as.character(x[2])),
+             method = "spearman")$p.value
+    })
+  cor_matrix_melted <- cor_matrix_melted %>%
+    mutate(coeff = if_else(p_values < 0.001 / n, # Bonferroni
+                           sprintf("%.2f", value),
+                           paste0(sprintf("%.2f", value), "†")))
+  return(cor_matrix_melted)
+}
+
+# Prepare data for plotting
+cor_matrix_1 <- cor_matrix[rows, columns_1]
+cor_matrix_2 <- cor_matrix[rows, columns_2]
+cor_matrix_3 <- cor_matrix[rows, columns_3]
+
+n <- length(cor_matrix) # Number for Bonferroni correction
+melted_cor_matrix_1 <- annotate_cor_matrix(cor_matrix_1, n) %>%
+    mutate(Var1 = case_when(
+      Var1 == "Active.Users...Total" ~ "Active Students",
+      Var1 == "Sessions.per.Active.User" ~ "Student Logins",
+      Var1 == "Minutes.per.Active.User" ~ "Student Minutes",
+      Var1 == "Badges.per.Active.User" ~ "Student Badges",
+      Var1 == "Boosts.per.Tower.Completion" ~ "Student Boosts",
+      Var1 == "Tower.Alerts.per.Tower.Completion" ~ "Student Alerts"
+      ))
+melted_cor_matrix_2 <- annotate_cor_matrix(cor_matrix_2, n) %>%
+    mutate(Var1 = case_when(
+      Var1 == "Active.Users...Total" ~ "Active Students",
+      Var1 == "Sessions.per.Active.User" ~ "Student Logins",
+      Var1 == "Minutes.per.Active.User" ~ "Student Minutes",
+      Var1 == "Badges.per.Active.User" ~ "Student Badges",
+      Var1 == "Boosts.per.Tower.Completion" ~ "Student Boosts",
+      Var1 == "Tower.Alerts.per.Tower.Completion" ~ "Student Alerts"
+      ))
+melted_cor_matrix_3 <- annotate_cor_matrix(cor_matrix_3, n) %>%
+    mutate(Var1 = case_when(
+      Var1 == "Active.Users...Total" ~ "Active Students",
+      Var1 == "Sessions.per.Active.User" ~ "Student Logins",
+      Var1 == "Minutes.per.Active.User" ~ "Student Minutes",
+      Var1 == "Badges.per.Active.User" ~ "Student Badges",
+      Var1 == "Boosts.per.Tower.Completion" ~ "Student Boosts",
+      Var1 == "Tower.Alerts.per.Tower.Completion" ~ "Student Alerts"
+      ))
+
+
+# Modified plot function with conditional y-axis labels
+plot_cor_matrix <- function(melted_matrix, title, show_y_axis = TRUE,
+                            xlabel = c("t", "t-1", "t-2", "t-3")) {
+  p <- ggplot(data = melted_matrix, aes(x = Var2, y = Var1, fill = value)) +
+    geom_tile() +
+    geom_text(aes(label = coeff), color = "black", size = 3) +
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                         midpoint = 0, limit = c(-1,1), guide = "none") +
+    theme_minimal() +
+    scale_x_discrete(labels = xlabel) +
+    labs(title = title, x = NULL, y = NULL) +
+    theme(axis.text.x = element_text(),
+          axis.text.y = if (show_y_axis) element_text() else element_blank())
+
+  if (show_y_axis) {
+    p <- p + scale_y_discrete()
+  }
+  
+  return(p)
+}
+
+# Create individual plots
+p1 <- plot_cor_matrix(melted_cor_matrix_1, "Lag(NMF 1)", show_y_axis = TRUE)
+p2 <- plot_cor_matrix(melted_cor_matrix_2, "Lag(NMF 2)", show_y_axis = FALSE)
+p3 <- plot_cor_matrix(melted_cor_matrix_3, "Lag(NMF 3)", show_y_axis = FALSE)
+
+# Create a dummy plot for extracting the legend
+legend_plot <- ggplot(data.frame(value = c(-1, 1)),
+                      aes(x = value, y = value, fill = value)) +
+  geom_point() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                       midpoint = 0, limit = c(-1,1)) +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+# Extract the legend
+legend <- ggplotGrob(legend_plot)$grobs[[
+  which(sapply(ggplotGrob(legend_plot)$grobs,
+               function(x) x$name) == "guide-box")
+  ]]
+
+# Combine the plots into one panel with a shared legend
+grid.arrange(p1, p2, p3, nrow = 1, bottom = legend, widths = c(1.5, 1, 1))
+
+```
+
+```{r reward-action-corr}
+
+# Select relevant variables for correlation analysis
+rows <- c("Active.Users...Total", "Sessions.per.Active.User", 
+          "Minutes.per.Active.User", "Badges.per.Active.User",
+          "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
+
+# Create lags
+for (col in rows) {
+  for (lag_period in 1:3) {
+    df <- get_lag_value(df, col, lag_period)
+  }
+}
+
+rows <- c(rows, names(
+  df[,Active.Users...Total_1:Tower.Alerts.per.Tower.Completion_3]
+  ),
+  names(
+    df[,Badges.per.Active.User_1:Badges.per.Active.User_3]
+  ))
+rows <- rows[order(rows)]
+
+columns <- c("FrobeniusNNDSVD1", "FrobeniusNNDSVD2", "FrobeniusNNDSVD3")
+
+selected_vars <- df %>%
+  select(all_of(c(rows, columns)))
+
+
+# Compute correlation matrix
+cor_matrix <- cor(selected_vars, use = "complete.obs", method = "spearman")
+
+
+# Prepare data for plotting
+cor_matrix <- cor_matrix[rows, columns]
+n <- length(cor_matrix) # Number for Bonferroni correction
+melted_cor_matrix <- annotate_cor_matrix(cor_matrix, n) %>%
+  mutate(
+    Var2 = case_when(
+      grepl("_1", Var1) ~ paste0(Var2, "_1"),
+      grepl("_2", Var1) ~ paste0(Var2, "_2"),
+      grepl("_3", Var1) ~ paste0(Var2, "_3"),
+      .default = Var2),
+    Var1 = case_when(
+      grepl("Active.Users...Total", Var1) ~ "Lag(Active Students)",
+      grepl("Sessions.per.Active.User", Var1) ~ "Lag(Student Logins)",
+      grepl("Minutes.per.Active.User", Var1) ~ "Lag(Student Minutes)",
+      grepl("Badges.per.Active.User", Var1) ~ "Lag(Student Badges)",
+      grepl("Boosts.per.Tower.Completion", Var1) ~ "Lag(Student Boosts)",
+      grepl("Tower.Alerts.per.Tower.Completion", Var1) ~ "Lag(Student Alerts)")
+    )
+
+
+# Create individual plots
+p1 <- plot_cor_matrix(melted_cor_matrix %>% filter(grepl("D1", Var2)),
+                      "NMF1", show_y_axis = TRUE)
+p2 <- plot_cor_matrix(melted_cor_matrix %>% filter(grepl("D2", Var2)),
+                      "NMF2", show_y_axis = FALSE)
+p3 <- plot_cor_matrix(melted_cor_matrix %>% filter(grepl("D3", Var2)),
+                      "NMF3", show_y_axis = FALSE)
+
+# Create a dummy plot for extracting the legend
+legend_plot <- ggplot(data.frame(value = c(-1, 1)),
+                      aes(x = value, y = value, fill = value)) +
+  geom_point() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                       midpoint = 0, limit = c(-1,1)) +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+# Extract the legend
+legend <- ggplotGrob(legend_plot)$grobs[[
+  which(sapply(ggplotGrob(legend_plot)$grobs,
+               function(x) x$name) == "guide-box")
+  ]]
+
+# Combine the plots into one panel with a shared legend
+grid.arrange(p1, p2, p3, nrow = 1, bottom = legend, widths = c(1.65, 1, 1))
+
+```
+
+```{r reward-minutes-corr}
+
+# Select relevant variables for correlation analysis
+rows <- c("Active.Users...Total", "Sessions.per.Active.User", 
+          "Minutes.per.Active.User", "Badges.per.Active.User",
+          "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
+
+rows <- c(rows, names(
+  df[,Active.Users...Total_1:Tower.Alerts.per.Tower.Completion_3]
+  ),
+  names(
+    df[,Badges.per.Active.User_1:Badges.per.Active.User_3]
+  ))
+rows <- rows[order(rows)]
+
+columns <- c("Minutes.on.Zearn...Total", "Minutes.on.Zearn...Total_1",
+             "Minutes.on.Zearn...Total_2", "Minutes.on.Zearn...Total_3")
+# Create lags
+for (lag_period in 1:3) {
+  df <- get_lag_value(df, columns[1], lag_period)
+}
+selected_vars <- df %>%
+  select(all_of(c(rows, columns)))
+
+
+# Compute correlation matrix
+cor_matrix <- cor(selected_vars, use = "complete.obs", method = "spearman")
+
+# Prepare data for plotting
+cor_matrix <- cor_matrix[rows, columns]
+n <- length(cor_matrix) # Number for Bonferroni correction
+melted_cor_matrix <- annotate_cor_matrix(cor_matrix, n)
+
+
+# Create individual plots
+p1 <- plot_cor_matrix(
+  melted_cor_matrix %>%
+    filter(!grepl("_", Var2)) %>%
+  mutate(
+    Var2 = case_when(
+      grepl("_1", Var1) ~ paste0(Var2, "_1"),
+      grepl("_2", Var1) ~ paste0(Var2, "_2"),
+      grepl("_3", Var1) ~ paste0(Var2, "_3"),
+      .default = Var2),
+    Var1 = case_when(
+      grepl("Active.Users...Total", Var1) ~ "Lag(Active Students)",
+      grepl("Sessions.per.Active.User", Var1) ~ "Lag(Student Logins)",
+      grepl("Minutes.per.Active.User", Var1) ~ "Lag(Student Minutes)",
+      grepl("Badges.per.Active.User", Var1) ~ "Lag(Student Badges)",
+      grepl("Boosts.per.Tower.Completion", Var1) ~ "Lag(Student Boosts)",
+      grepl("Tower.Alerts.per.Tower.Completion", Var1) ~ "Lag(Student Alerts)")
+    ), "Teacher Minutes", show_y_axis = TRUE)
+p2 <- plot_cor_matrix(
+  melted_cor_matrix %>%
+    filter(!grepl("_", Var1)) %>%
+  mutate(
+    Var1 = case_when(
+      grepl("Active.Users...Total", Var1) ~ "Active Students",
+      grepl("Sessions.per.Active.User", Var1) ~ "Student Logins",
+      grepl("Minutes.per.Active.User", Var1) ~ "Student Minutes",
+      grepl("Badges.per.Active.User", Var1) ~ "Student Badges",
+      grepl("Boosts.per.Tower.Completion", Var1) ~ "Student Boosts",
+      grepl("Tower.Alerts.per.Tower.Completion", Var1) ~ "Student Alerts")
+    ), "Lag(Teacher Minutes)", show_y_axis = TRUE)
+
+# Create a dummy plot for extracting the legend
+legend_plot <- ggplot(data.frame(value = c(-1, 1)),
+                      aes(x = value, y = value, fill = value)) +
+  geom_point() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                       midpoint = 0, limit = c(-1,1)) +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+# Extract the legend
+legend <- ggplotGrob(legend_plot)$grobs[[
+  which(sapply(ggplotGrob(legend_plot)$grobs,
+               function(x) x$name) == "guide-box")
+  ]]
+
+# Combine the plots into one panel with a shared legend
+grid.arrange(p1, p2, nrow = 1, bottom = legend, widths = c(1.055, 1))
+
+```
+
+```{r RL-exploration}
+#| eval: false
+
+library(lme4)
+
+create_RL_formula <- function(action, reward, state = NULL, lag = 1,
+                              group = "Teacher.User.ID") {
+  re_terms <- c()
+  fe_terms <- c()
+  
+  for (i in 1:lag) {
+    fe_terms <- c(fe_terms, paste0(reward, "_", i), paste0(action, "_", i))
+    # Add the interaction term for Reward_i * action_i
+    re_terms <- c(re_terms, paste0(reward, "_", i, ":", action, "_", i))
+    if (i != lag) {
+      for (j in (i + 1):lag) {
+        # Add the interaction for Reward_i * action_j when i < lag
+        re_terms <- c(re_terms, paste0(reward, "_", i, ":", action, "_", j))
+      }
+    }
+  }
+  if (is.null(state)) {
+    formula_string <- paste0(action, " ~ ",
+                             paste(fe_terms, collapse = " + "), " + ",
+                             "(", paste(re_terms, collapse = " + "), "|",
+                             group, ") + ", "week_lag")
+    return(as.formula(formula_string))
+  } else {
+    formula_string <- paste0(action, " ~ ",
+                             paste(fe_terms, collapse = " + "), " + ",
+                             "(", paste(re_terms, collapse = " + "), " + ",
+                             state, " + ", paste0(state, ":", action, "_1"), "|",
+                             group, ") + ", "week_lag")
+  }
+  
+  return(as.formula(formula_string))
+}
+
+# Function to compute out-of-sample negative log-likelihood for logistic regression
+compute_nloglik_logit <- function(model, test_data, outcome_var) {
+  # Predicted probabilities
+  predicted_probs <- predict(model, newdata = test_data, type = "response",
+                             allow.new.levels = TRUE)
+  
+  # Actual binary outcomes
+  actual_outcomes <- test_data[[outcome_var]]
+  
+  # Compute log-likelihood
+  log_likelihood <- actual_outcomes * log(predicted_probs) + 
+                    (1 - actual_outcomes) * log(1 - predicted_probs)
+  
+  # Negative log-likelihood
+  nll <- -sum(log_likelihood, na.rm = TRUE)
+  
+  return(as.numeric(nll))
+}
+
+# Data and Variables
+actions <- c("Frobenius.NNDSVD_teacher", "Minutes.on.Zearn...Total")
+rewards <- c("Frobenius.NNDSVD_student")
+# rewards <- c("Active.Users...Total", "Sessions.per.Active.User",
+#              "Minutes.per.Active.User", "Badges.per.Active.User",
+#              "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
+columns <- colnames(
+  df %>% select(contains(c(actions, rewards)))
+)
+
+df_binary <- as.data.table(
+  df %>%
+    group_by(MDR.School.ID) %>%
+    mutate(across(contains(actions), ~ if_else(. > median(.), 1, 0))) %>%
+    ungroup()
+  )
+
+results_df_list <- list()
+# lags <- c(1:7)
+lags <- 2
+# n_comp = 3
+n_lags = max(lags)
+
+# Create lags
+for (col in columns) {
+  for (lag_period in 1:n_lags) {
+    df_binary <- get_lag_value(df_binary, col, lag_period)
+  }
+}
+
+# Create train and test datasets
+train_data <- df_binary[set == "train"]
+test_data <- df_binary[set == "test"]
+
+# Estimation
+params <- crossing(
+  act = columns[str_detect(columns, paste0(actions, collapse = "|"))],
+  lag = lags,
+  rwd = columns[str_detect(columns, paste0(rewards, collapse = "|"))],
+  st  = columns[str_detect(columns, paste0(rewards, collapse = "|"))]
+) %>%
+  filter(rwd != st) %>%
+  unique()
+
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+results <- foreach(i = 1:nrow(params),
+                   .multicombine = TRUE,
+                   .noexport = c("formula", "model"),
+                   .export = ls(),
+                   .packages = "lme4") %dopar% {
+  act <- as.character(params$act[i])
+  lag <- params$lag[i]
+  rwd <- as.character(params$rwd[i])
+  st  <- as.character(params$st[i])
+  formula <- create_RL_formula(act, rwd, st, lag)
+  model <- tryCatch(
+    glmer(formula, data = train_data, family = binomial(link = "logit"),
+          control = glmerControl(boundary.tol = 1e-3)),
+    error = function(e) { return(NULL) }
+    )
+
+  # Return the results as a list
+  list(Action = act,
+       Reward = rwd,
+       State = st,
+       Lag = lag,
+       equation = as.character(formula),
+       nloglik = tryCatch(
+         compute_nloglik_logit(model, test_data, act),
+         error = function(e) { return(NULL) }
+         ),
+       bic = tryCatch(
+         as.numeric(summary(model)$AICtab["BIC"]),
+         error = function(e) { return(NULL) }
+         )
+       )
+}
+# Stop the cluster
+stopCluster(cl)
+rm(cl)
+
+save(results, file = "me-results.RData")
+
+```
+
+```{r}
+#| label: fig-RL-exploration
+#| fig-cap: ""
+
+# Wrangling the results data frame for plotting
+results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
+# Convert variables to appropriate data types
+results_df <- results_df %>%
+  filter(Action != "Minutes.on.Zearn...Total") %>%
+  mutate(Action = as.factor(unlist(Action)),
+         Reward = as.factor(unlist(Reward)),
+         State = as.factor(unlist(State)),
+         Lag = as.numeric(unlist(Lag)),
+         nloglik = as.numeric(unlist(nloglik)),
+         bic = as.numeric(unlist(bic)),
+         # rsq = as.numeric(unlist(rsq)),
+         # formula = as.character(unlist(equation)),
+         across(dplyr::starts_with("coef"),
+                ~ as.numeric(unlist(.)))) %>%
+  mutate(Action = case_when(
+    Action == "Frobenius.NNDSVD_teacher1" ~ "Teacher NMF1",
+    Action == "Frobenius.NNDSVD_teacher2" ~ "Teacher NMF2",
+    Action == "Frobenius.NNDSVD_teacher3" ~ "Teacher NMF3",
+    Action == "Frobenius.NNDSVD_teacher4" ~ "Teacher NMF4",
+    Action == "Minutes.on.Zearn...Total" ~ "Teacher Minutes"
+    ),
+    across(c(Reward, State),
+           ~ case_when(
+             . == "Frobenius.NNDSVD_student1" ~ "Student NMF1",
+             . == "Frobenius.NNDSVD_student2" ~ "Student NMF2",
+             . == "Frobenius.NNDSVD_student3" ~ "Student NMF3",
+             . == "Frobenius.NNDSVD_student4" ~ "Student NMF4")
+    )) %>%
+  na.omit()
+  
+# Function to create a plot for a specific action
+plot_for_action <- function(action_var) {
+  ggplot(results_df[results_df$Action == action_var, ],
+         aes(x = nloglik, y = bic, color = Reward, shape = State)) +
+    geom_point() +
+    theme_minimal() +
+    labs(title = action_var,
+         x = "Out-of-sample Neg. Log-likelihood", y = "BIC") +
+    theme(legend.position = "none")
+}
+
+# Create individual plots for each action
+plots <- lapply(unique(results_df$Action),
+                plot_for_action)
+
+# Extract separate legends for color and shape
+legend_color_plot <- ggplot(
+  results_df, aes(x = nloglik, y = bic, color = Reward)
+  ) +
+  geom_point() +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+legend_shape_plot <- ggplot(
+  results_df, aes(x = nloglik, y = bic, shape = State)
+  ) +
+  geom_point() +
+  theme_void() +
+  theme(legend.position = "bottom")
+
+legend_color <- ggplotGrob(legend_color_plot)$grobs[[
+  which(sapply(ggplotGrob(legend_color_plot)$grobs,
+               function(x) x$name) == "guide-box")
+  ]]
+legend_shape <- ggplotGrob(legend_shape_plot)$grobs[[
+  which(sapply(ggplotGrob(legend_shape_plot)$grobs,
+               function(x) x$name) == "guide-box")
+  ]]
+
+# Combine the color and shape legends vertically
+combined_legend <- arrangeGrob(legend_color, legend_shape, ncol = 1)
+
+# Combine the plots into a 2x2 panel with the combined legends at the bottom
+combined_plot <- grid.arrange(
+  grobs = c(plots, list(combined_legend)),
+  layout_matrix = rbind(c(1, 2),
+                        c(3, 4),
+                        c(5, 5))
+)
+
+```
+
+```{r re-estimation}
+
+# Estimation
+params <- params %>%
+  filter(st == "Frobenius.NNDSVD_student3",
+         grepl("1|2|4", rwd),
+         act != "Minutes.on.Zearn...Total")
+
+cl <- makeCluster(min(detectCores() - 1, nrow(params)))
+registerDoParallel(cl)
+top_results <- foreach(i = 1:nrow(params),
+                   .multicombine = TRUE,
+                   .noexport = c("formula", "model"),
+                   .export = ls(),
+                   .packages = "lme4") %dopar% {
+  act <- as.character(params$act[i])
+  lag <- params$lag[i]
+  rwd <- as.character(params$rwd[i])
+  st  <- as.character(params$st[i])
+  formula <- create_RL_formula(act, rwd, st, lag,
+                               group = "Teacher.User.ID/MDR.School.ID")
+
+  # Return the results as a list
+  list(Action = act,
+       Reward = rwd,
+       State = st,
+       Lag = lag,
+       equation = as.character(formula),
+       model <- tryCatch(
+         glmer(formula, data = train_data, family = binomial(link = "logit")),
+         error = function(e) { return(NULL) }
+         )
+       )
+}
+# Stop the cluster
+stopCluster(cl)
+rm(cl)
+
+save(top_results, file = "me-top-results.RData")
+
 ```
 
 
+
+
+```{r}
+#| label: fig-timelines
+#| fig-cap: ""
+
+# Reshape the data to long format
+long_df <- df %>%
+  select(MDR.School.ID, week, Active.Users...Total, Sessions.per.Active.User, 
+         Minutes.per.Active.User, Badges.per.Active.User, 
+         Boosts.per.Tower.Completion, Tower.Alerts.per.Tower.Completion, 
+         FrobeniusNNDSVD1, FrobeniusNNDSVD2, FrobeniusNNDSVD3,
+         poverty, school.account) %>%
+  group_by(MDR.School.ID, week, poverty, school.account) %>%
+  summarize(across(where(is.numeric), ~ mean(., na.rm = TRUE))) %>%
+  gather(key = "Variable", value = "Value",
+         -MDR.School.ID, -week, -poverty, -school.account)
+
+# Function to create a plot for each variable with error ribbons
+plot_variable <- function(variable_name, var) {
+  # Calculate overall average and standard error
+  avg_data <- long_df %>%
+    filter(Variable == variable_name) %>%
+    filter(!is.na({{var}})) %>%
+    group_by({{var}}, week) %>%
+    summarize(
+      Avg = mean(Value, na.rm = TRUE),
+      SE = sd(Value, na.rm = TRUE)/sqrt(n()),
+      CI_low = Avg - SE,
+      CI_high = Avg + SE
+    )
+  
+  # Calculate 2 standard deviations from the overall data
+  y_high <- quantile(avg_data$Value[avg_data$Variable == variable_name],
+                     0.85, na.rm = T)
+  y_low <- quantile(avg_data$Value[avg_data$Variable == variable_name],
+                    0.15, na.rm = T)
+
+  ggplot(avg_data, aes(x = week, y = Avg, group = {{var}})) +
+    geom_line(aes(color = {{var}})) +
+    geom_ribbon(data = avg_data,
+                aes(x = week, y = Avg, group = {{var}}, alpha = 0.2,
+                    fill = {{var}}, ymin = CI_low, ymax = CI_high)) +
+    theme_minimal() +
+    labs(title = variable_name, x = "Time", y = "Value") +
+    theme(legend.position = "none") +
+    coord_cartesian(ylim = c(y_low, y_high))  # Adjust y-axis range
+}
+
+# Variables to plot
+variables_to_plot <- c(
+  "Active.Users...Total", "Sessions.per.Active.User",
+  "Minutes.per.Active.User", "Badges.per.Active.User",
+  "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion", 
+  "FrobeniusNNDSVD1", "FrobeniusNNDSVD2", "FrobeniusNNDSVD3"
+  )
+
+# Create individual plots
+plots <- lapply(variables_to_plot, plot_variable, var = school.account)
+
+# Combine the plots into a panel
+do.call(grid.arrange, c(plots, ncol = 3))
+
+```
 
 ```{r temporal-variance}
 
@@ -1729,7 +2348,7 @@ teacher_variance <- df %>%
   mutate(poverty = factor(poverty, ordered = T),
          income = factor(income, ordered = T),
          across(c(FrobeniusNNDSVD1:FrobeniusNNDSVD3),
-                ~ ifelse(. > mean(.), 1, 0))) %>%
+                ~ ifelse(. > median(.), 1, 0))) %>%
   group_by(Teacher.User.ID) %>%
   summarise(
     NMF1_sd = sd(FrobeniusNNDSVD1, na.rm = TRUE),
@@ -1745,8 +2364,11 @@ teacher_variance <- df %>%
     charter.school = median(charter.school),
     school.account = median(school.account),
     n_weeks = mean(n_weeks)
-  )  %>%
-  filter(NMF1_var > 0 & NMF2_var > 0 & NMF3_var > 0)
+  ) %>%
+  # Remove teachers with no variance
+  filter(NMF1_var > 0 & NMF2_var > 0 & NMF3_var > 0) %>%
+  # Remove teachers with biased variance
+  filter(NMF1_var <= 0.25 & NMF2_var <= 0.25 & NMF3_var <= 0.25)
 
 # Calculating variance over time for each classroom
 classroom_variance <- df %>%
@@ -1802,26 +2424,27 @@ fit_mv_model <- brm(NMF1_var ~ num_students,
                     family = Beta(), 
                     chains = 8,
                     cores = 8,
-                    iter = 10000,
-                    warmup = 5000, 
+                    iter = 2000,
+                    warmup = 1000, 
                     backend = "cmdstanr")
-fit_mv_model2 <- brm(NMF1_sd ~ num_students, 
+fit_mv_model2 <- brm(NMF2_sd ~ n_weeks + num_classes +
+                       school.account + n_weeks, 
                     data = teacher_variance, 
                     family = Beta(), 
-                    chains = 8,
-                    cores = 8,
-                    iter = 10000,
-                    warmup = 5000, 
+                    chains = 6,
+                    cores = 6,
+                    iter = 3000,
+                    warmup = 1500, 
+                    silent = 2,
                     backend = "cmdstanr")
-fit_mv_model <- brm(mvbind(NMF1_sd, NMF2_sd, NMF3_sd) ~ 
-                      num_students + poverty + income +
-                      charter.school + school.account + n_weeks, 
+fit_mv_model <- brm(mvbind(NMF1_sd, NMF3_sd) ~ n_weeks + num_classes +
+                       school.account + n_weeks,
                     data = teacher_variance, 
-                    family = hurdle_gamma(), 
-                    chains = 4,
-                    cores = 4,
-                    iter = 200,
-                    warmup = 100, 
+                    family = Beta(), 
+                    chains = 6,
+                    cores = 6,
+                    iter = 3000,
+                    warmup = 1500,
                     backend = "cmdstanr")
 
 # Preparing data for correlogram
@@ -1853,92 +2476,16 @@ corrplot(cor_matrix, method = "circle")
 
 ```
 
+TO-DO: temporal analysis of teachers choices and a bunch of variables: 
+bayesian analysis of 
+<!-- Panel Regression of all variables and badges. -->
+<!-- Investigate the basic analysis of behavior and its structure over time. John: "Really try to dig into what the structure is between how teachers' choices are changing across weeks, and what factors might be related to those." -->
+<!-- Detailed Data Analysis by School and Classroom: how much do individual schools and classrooms vary. You might want to downsample schools in some way. -->
+<!-- Cooper: "What is going on in the data—school quality, what is changing over time, etc. just understand the statistics of all the data." -->
 
+<!-- Temporal Changes in States and Rewards -->
+<!-- "Are these like behavioral metrics like Tower Alerts decreasing as a function of time? Is it a product of teacher interventions, or are the teachers, for some reason, acting less at the end of the 15 weeks?" -->
 
-```{r}
-#| label: fig-panel-bic
-#| fig-cap: ""
-# Wrangling the results data frame for plotting
-results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
-# Convert variables to appropriate data types
-results_df <- results_df %>%
-  mutate(Method = as.factor(Method),
-         Component = as.factor(Component),
-         Lag = as.numeric(Lag),
-         nloglik = as.numeric(nloglik),
-         bic = as.numeric(bic)) %>%
-  group_by(Method, Component, Lag) %>%
-  summarise(avg_bic = mean(bic, na.rm = TRUE),
-            avg_nloglik = mean(nloglik, na.rm = TRUE),
-            .groups = "drop")
-# Filter methods for the plots
-# methods_for_plots <- c("FrobeniusNNDSVD", "KullbackLeibler", "FrobeniusNNDSVDA")
-methods_for_plots <- c("FrobeniusNNDSVD")
-plot_data <- filter(results_df, Method %in% methods_for_plots)
-# Shared aesthetics for the plots
-aes <- ggplot2::aes(x = Lag, y = value, color = Component)
-
-# Summarize methods not included in the plots and prepare tables
-methods_for_summary <- setdiff(unique(results_df$Method), methods_for_plots)
-summary_data <- filter(results_df, Method %in% methods_for_summary) %>%
-  group_by(Method, Component) %>%
-  summarise(BIC = mean(avg_bic, na.rm = TRUE),
-            NLL = mean(avg_nloglik, na.rm = TRUE),
-            .groups = "drop")
-# Rename method
-levels(summary_data$Method)[levels(summary_data$Method)=="tch_min"] <- "Minutes"
-# Convert to scientific notation
-summary_data$BIC <- format(summary_data$BIC, scientific = TRUE, digits = 2)
-summary_data$NLL <- format(summary_data$NLL, scientific = TRUE, digits = 2)
-
-# Create tables and remove headers
-# bic_table <- summary_data %>% select(Method, BIC) %>%
-#   tableGrob(theme = ttheme_minimal(base_size = 8, 
-#                                    core=list(bg_params = list(fill = "white", col=NA),
-#                                              fg_params=list(fontface=3))),
-#              rows = NULL)
-# bic_table <- bic_table[-1, ]  # Remove header
-bic_data <- filter(plot_data, !is.na(avg_bic)) %>% 
-  mutate(value = avg_bic, metric = "BIC")
-# BIC Plot
-bic_plot <- ggplot(bic_data, aes) + 
-  geom_line() + 
-  labs(title = "BIC", x = "Number of Lags") +
-  scale_y_continuous(labels = scientific) +
-  theme_minimal() +
-  theme(axis.title.y = element_blank(), legend.position = "none")
-  # annotation_custom(bic_table, xmin = max(bic_data$Lag) - 3.5,
-  #                   xmax = max(bic_data$Lag) - 0.5,
-  #                   ymin = 1.01*max(bic_data$value),
-  #                   ymax = Inf)
-
-# nll_table <- summary_data %>% select(Method, NLL) %>%
-#   tableGrob(theme = ttheme_minimal(base_size = 8, 
-#                                    core=list(bg_params = list(fill = "white", col=NA),
-#                                              fg_params=list(fontface=3))), 
-#              rows = NULL)
-# nll_table <- nll_table[-1, ]  # Remove header
-nll_data <- filter(plot_data, !is.na(avg_nloglik)) %>% 
-  mutate(value = avg_nloglik, metric = "Negative Log-Likelihood")
-nll_plot <- ggplot(nll_data, aes) + 
-  geom_line() + 
-  labs(title = "Out-of-sample NLL", x = "Number of Lags") +
-  scale_y_continuous(labels = scientific) +
-  theme_minimal() +
-  theme(axis.title.y = element_blank(), legend.position = "none")
-  # annotation_custom(nll_table, xmin = max(nll_data$Lag) - 3.5,
-  #                   xmax = max(nll_data$Lag) - 0.5,
-  #                   ymin = 1.01*max(nll_data$value),
-  #                   ymax = Inf)
-
-# Combine the plots and add a legend
-combined_plot <- ggarrange(bic_plot, nll_plot,
-                           ncol = 2,
-                           common.legend = TRUE,
-                           legend = "bottom")
-combined_plot
-
-```
 
 The trade-off between model complexity and predictive accuracy justifies including four lags. Including more lags would increase the complexity of the model, potentially leading to overfitting and poorer predictive performance. Conversely, including fewer lags might result in a model that fails to capture critical temporal dependencies in the data. The selection of four lags represents an inflection point in the BIC and NLL, indicating an optimal balance between model complexity and predictive accuracy.
 
@@ -2867,6 +3414,292 @@ ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
 ```{r meta-analysis summary}
 #| eval: false
 summary(res)
+```
+
+## Lag Comparison Across NMF Methods
+
+```{r}
+#| eval: false
+#| label: fig-panel-nmf-methods
+#| fig-cap: ""
+
+# Wrangling the results data frame for plotting
+results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
+# Convert variables to appropriate data types
+results_df <- results_df %>%
+  mutate(Method = as.factor(Method),
+         Component = as.factor(Component),
+         Lag = as.numeric(Lag),
+         nloglik = as.numeric(nloglik),
+         bic = as.numeric(bic)) %>%
+  group_by(Method, Component, Lag) %>%
+  summarise(avg_bic = mean(bic, na.rm = TRUE),
+            avg_nloglik = mean(nloglik, na.rm = TRUE),
+            .groups = "drop")
+# Filter methods for the plots
+# methods_for_plots <- c("FrobeniusNNDSVD", "KullbackLeibler", "FrobeniusNNDSVDA")
+methods_for_plots <- c("FrobeniusNNDSVD")
+plot_data <- filter(results_df, Method %in% methods_for_plots)
+
+
+
+# Shared aesthetics for the plots
+aes <- ggplot2::aes(x = Lag, y = value, color = Component)
+
+# Summarize methods not included in the plots and prepare tables
+methods_for_summary <- setdiff(unique(results_df$Method), methods_for_plots)
+summary_data <- filter(results_df, Method %in% methods_for_summary) %>%
+  group_by(Method, Component) %>%
+  summarise(BIC = mean(avg_bic, na.rm = TRUE),
+            NLL = mean(avg_nloglik, na.rm = TRUE),
+            .groups = "drop")
+# Rename method
+levels(summary_data$Method)[levels(summary_data$Method)=="tch_min"] <- "Minutes"
+# Convert to scientific notation
+summary_data$BIC <- format(summary_data$BIC, scientific = TRUE, digits = 2)
+summary_data$NLL <- format(summary_data$NLL, scientific = TRUE, digits = 2)
+
+# Create tables and remove headers
+# bic_table <- summary_data %>% select(Method, BIC) %>%
+#   tableGrob(theme = ttheme_minimal(base_size = 8, 
+#                                    core=list(bg_params = list(fill = "white", col=NA),
+#                                              fg_params=list(fontface=3))),
+#              rows = NULL)
+# bic_table <- bic_table[-1, ]  # Remove header
+bic_data <- filter(plot_data, !is.na(avg_bic)) %>% 
+  mutate(value = avg_bic, metric = "BIC")
+# BIC Plot
+bic_plot <- ggplot(bic_data, aes) + 
+  geom_line() + 
+  labs(title = "BIC", x = "Number of Lags") +
+  scale_y_continuous(labels = scientific) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), legend.position = "none")
+  # annotation_custom(bic_table, xmin = max(bic_data$Lag) - 3.5,
+  #                   xmax = max(bic_data$Lag) - 0.5,
+  #                   ymin = 1.01*max(bic_data$value),
+  #                   ymax = Inf)
+
+# nll_table <- summary_data %>% select(Method, NLL) %>%
+#   tableGrob(theme = ttheme_minimal(base_size = 8, 
+#                                    core=list(bg_params = list(fill = "white", col=NA),
+#                                              fg_params=list(fontface=3))), 
+#              rows = NULL)
+# nll_table <- nll_table[-1, ]  # Remove header
+nll_data <- filter(plot_data, !is.na(avg_nloglik)) %>% 
+  mutate(value = avg_nloglik, metric = "Negative Log-Likelihood")
+nll_plot <- ggplot(nll_data, aes) + 
+  geom_line() + 
+  labs(title = "Out-of-sample NLL", x = "Number of Lags") +
+  scale_y_continuous(labels = scientific) +
+  theme_minimal() +
+  theme(axis.title.y = element_blank(), legend.position = "none")
+  # annotation_custom(nll_table, xmin = max(nll_data$Lag) - 3.5,
+  #                   xmax = max(nll_data$Lag) - 0.5,
+  #                   ymin = 1.01*max(nll_data$value),
+  #                   ymax = Inf)
+
+# Combine the plots and add a legend
+combined_plot <- ggarrange(bic_plot, nll_plot,
+                           ncol = 2,
+                           common.legend = TRUE,
+                           legend = "bottom")
+combined_plot
+
+```
+
+## Autoencoder
+
+```{python train autoencoder}
+#| eval: false
+import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from keras.models import Model
+from keras.layers import Input, Dense
+from kerastuner.tuners import Hyperband
+from kerastuner.engine.hyperparameters import HyperParameters
+from keras.constraints import NonNeg
+from keras.callbacks import EarlyStopping
+from keras.regularizers import l1, l2
+
+# Create training and testing data frames
+train_df = dfpca_py[dfpca_py['set'] == 'train']
+test_df = dfpca_py[dfpca_py['set'] == 'test']
+
+# Predictors
+X_train = train_df.drop([
+  'Badges.per.Active.User', 'Classroom.ID', 'MDR.School.ID',
+  'set', 'week'
+  ], axis=1)
+X_test = test_df.drop([
+  'Badges.per.Active.User', 'Classroom.ID', 'MDR.School.ID',
+  'set', 'week'
+  ], axis=1)
+
+X_train = pd.DataFrame(X_train, columns=X_cols)
+X_test = pd.DataFrame(X_test, columns=X_cols)
+
+# Get the target variable
+Y = dfpca_py[['Badges.per.Active.User']]
+Y_train = train_df[['Badges.per.Active.User']]
+Y_test = test_df[['Badges.per.Active.User']]
+
+# Define the number of components and features
+n_features = X_scaled.shape[1]
+n_labels = 1  # For regression, we usually have just one output node
+
+# Determine loss weights according to the data structure:
+decoding_weight = Y.std() / (Y.std() + X_scaled.std(numeric_only=True).mean())
+prediction_weight = 1 - decoding_weight
+def build_model(hp):
+  # Define the input layer
+  input_data = Input(shape=(n_features,))
+  
+  # Define the encoding layer(s)
+  n_layers = hp.Int('n_layers', min_value=1, max_value=4, step=1)
+  n_units = [
+    hp.Choice('units_' + str(i), values=[8, 16, 32, 64, 128, 256, 512])
+    for i in range(n_layers)
+  ]
+  encoded = input_data
+  for i in range(n_layers):
+      encoded = Dense(
+        units=n_units[i],
+        kernel_regularizer=l2(0.001),
+        activation='relu')(encoded)
+        
+  # Generate the latent vector
+  latent_dim = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
+  l1_value = hp.Float('l1_value', min_value=0.0001, max_value=0.001, default=0.0005, step=0.0001)
+  latent = Dense(
+    units=latent_dim,
+    activation='linear',
+    # activity_regularizer= L1(l1=l1_value),
+    kernel_constraint=NonNeg(),
+    name='latent')(encoded)      
+
+  # Decoder
+  decoded = latent
+  for i in range(n_layers):
+      decoded = Dense(
+        units=n_units[n_layers - i - 1],
+        activation='relu')(decoded)
+  decoded = Dense(n_features, activation='sigmoid', name='decoded')(decoded)
+  
+  # Define the label output layer
+  label_output = Dense(n_labels, activation='linear', name='label_output')(latent)
+
+  # Define the autoencoder model
+  autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
+  # Compile the model
+  autoencoder.compile(optimizer='adadelta',
+                  loss={
+                    'decoded': 'mean_squared_error',
+                    'label_output': 'mean_squared_error'
+                  },
+                  loss_weights={
+                    'decoded': decoding_weight,
+                    'label_output': prediction_weight
+                  })
+                  
+  return autoencoder
+
+# Set up hyperparameter tuner
+tuner = Hyperband(build_model,
+                  objective='val_loss',
+                  max_epochs=20,
+                  directory='autoencoder_tuning',
+                  project_name='autoencoder_3rd_tuning')
+
+# Perform hyperparameter search
+early_stopping_callback = EarlyStopping(monitor='val_loss', patience=5)
+tuner.search(x=X_train,
+            y=[X_train, Y_train],
+            epochs=50,
+            validation_data=(X_test, [X_test, Y_test]),
+            callbacks=[early_stopping_callback])
+# tuner.results_summary()
+# Get the optimal hyperparameters
+best_hyperparameters = tuner.get_best_hyperparameters(num_trials=2)[1]
+model = tuner.hypermodel.build(best_hyperparameters)
+history = model.fit(x=X_train, 
+                    y=[X_train, Y_train],
+                    epochs=2_000,
+                    validation_data=(X_test, [X_test, Y_test]),
+                    callbacks=[early_stopping_callback])
+best_model = model
+
+
+# Function to get encoded representation and components
+def get_encoded_representation_and_components(best_model, X):
+    # Get index of encoding layer
+    encoding_layer_index = next(
+      i for i,
+      layer in enumerate(best_model.layers) if layer.name == 'latent'
+    )
+    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
+    input_data = Input(shape=(n_features,))
+    x = input_data
+    for layer in encoder_layers[1:]:
+      x = layer(x)
+    encoder = Model(input_data, x)
+    
+    # Copy weights for each layer from the best model
+    for i, layer in enumerate(encoder.layers):
+      layer.set_weights(best_model.layers[i].get_weights())
+    
+    X_encoded = encoder.predict(X)
+    X_hat = best_model.predict(X)[0]
+    res = ((X - X_hat)**2).sum().sum()
+    n_components = X_encoded.shape[1]
+    
+    results.setdefault("Autoencoder", {})[n_components] = X_encoded
+    residuals.setdefault("Autoencoder", {})[n_components] = res
+
+# Get encoded representation and components
+get_encoded_representation_and_components(best_model, X_scaled)
+
+# save the model
+model.save('./autoencoder_tuning/final_model.h5')
+
+```
+
+```{python load autoencoder}
+#| include: false
+from tensorflow.keras.models import load_model
+from keras.models import Model
+from keras.layers import Input
+
+# Function to get encoded representation and components
+loaded_model = load_model('./autoencoder_tuning/final_model.h5')
+def get_encoded_representation_and_components(best_model, X):
+    # Get index of encoding layer
+    encoding_layer_index = next(
+      i for i,
+      layer in enumerate(best_model.layers) if layer.name == 'latent'
+    )
+    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
+    input_data = Input(shape=(n_features,))
+    x = input_data
+    for layer in encoder_layers[1:]:
+      x = layer(x)
+    encoder = Model(input_data, x)
+    
+    # Copy weights for each layer from the best model
+    for i, layer in enumerate(encoder.layers):
+      layer.set_weights(best_model.layers[i].get_weights())
+    
+    X_encoded = encoder.predict(X)
+    X_hat = best_model.predict(X)[0]
+    res = ((X - X_hat)**2).sum().sum()
+    n_components = X_encoded.shape[1]
+    
+    results.setdefault("Autoencoder", {})[n_components] = X_encoded
+    residuals.setdefault("Autoencoder", {})[n_components] = res
+
+n_features = X_scaled.shape[1]
+# Get encoded representation and components
+get_encoded_representation_and_components(loaded_model, X_scaled)
 ```
 
 ## Bayesian Model Diagnostics
