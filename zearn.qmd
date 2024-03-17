@@ -27,21 +27,17 @@ execute:
 knitr:
   opts_chunk:
     cache.extra: set.seed(832399554)
-
 ---
 
 ```{r load packages}
 library(data.table)
 library(tidyverse)
-# library(zoo)
-library(ggrepel)
 library(ggpubr)
-library(RColorBrewer)
-library(grid)
+library(ggforce)
 library(gridExtra)
 library(scales)
-library(gt)
 library(gtsummary)
+library(gtExtras)
 library(PerformanceAnalytics)
 library(doParallel)
 library(foreach)
@@ -50,7 +46,7 @@ library(cmdstanr)
 library(brms)
 ```
 
-```{r, set.seed(832399554)}
+```{r}
 #| cache: true
 
 set.seed(832399554)
@@ -1329,8 +1325,10 @@ row.names(df_heatmap_students) <- variable_names[student_variables]
 
 names(df_heatmap_teachers) <- paste0("Comp ", 1:4)
 names(df_heatmap_students) <- paste0("Comp ", 1:4)
-df_heatmap_teachers <- df_heatmap_teachers %>% arrange(-`Comp 1`)
-df_heatmap_students <- df_heatmap_students %>% arrange(-`Comp 1`)
+df_heatmap_teachers <- df_heatmap_teachers %>%
+  arrange(-`Comp 1`, -`Comp 2`, -`Comp 3`, -`Comp 4`)
+df_heatmap_students <- df_heatmap_students %>%
+  arrange(-`Comp 1`, -`Comp 2`, -`Comp 3`, -`Comp 4`)
 
 color_scheme <- colorRampPalette(
   c("#F7F7F7",brewer.pal(n = 9, name = "YlOrRd"))
@@ -1407,6 +1405,43 @@ We performed the dynamic analysis using the `plm` package in R [@croissant2008],
 
 ## Base Models
 
+### Panel Model Estimation for Lag Selection
+
+We specified and estimated panel logistic regression models to capture the dynamics of actions influenced by lagged rewards and actions, including their interactions. The general model formulation for both state-free and state-based scenarios is presented as follows:
+
+**State-Free Model**:
+$$
+\text{Action}_t = \sum_{i=1}^{L} \left( \beta_{i} \text{Reward}_{t-i} + \gamma_i \text{Action}_{t-i} + \sum_{j=i}^{L} \delta_{ij} (\text{Reward}_{t-i} \times \text{Action}_{t-j}) \right) + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t 
+$$
+
+**State-Based Model**:
+
+$$
+\begin{align*}
+\text{Action}_t =& \ \sum_{i=1}^{L} \left( \beta_{i} \text{Reward}_{t-i} + \gamma_i \text{Action}_{t-i} + \sum_{j=i}^{L} \delta_{ij} (\text{Reward}_{t-i} \times \text{Action}_{t-j}) \right) \\
+& + \phi \text{State}_t + \psi (\text{State}_t \times \text{Action}_{t-1}) + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t
+\end{align*}
+$$
+
+where $\text{Action}_t$ denotes the binary outcome at time $t$, $\text{Reward}_{t-i}$ and $\text{Action}_{t-i}$ represent the reward and action variables lagged by $i$ periods, and $L$ is the maximum lag considered. $\mu_{\text{Teacher}}$ and $\lambda_{\text{Week}}$ represent fixed effects for teachers and weeks, respectively.
+
+Model performance was assessed using the area under the receiver operating characteristic curve (AUC) and Bayesian Information Criterion (BIC). Optimal lag structures were identified based on predictive accuracy and model parsimony.
+
+We used a varying coefficients model to capture individual teacher effects on the dynamics between rewards, actions, and states. The model is specified as follows:
+
+$$
+\begin{align*}
+\text{Action}_{kt} =& \ \sum_{i=1}^{L} \left( \beta_{ki} \text{Reward}_{k, t-i} + \gamma_{ki} \text{Action}_{k, t-i} + \sum_{j=i}^{L} \delta_{kij} (\text{Reward}_{k, t-i} \times \text{Action}_{k, t-j}) \right) \\
+& + \phi_k \text{State}_{kt} + \psi_k (\text{State}_{kt} \times \text{Action}_{k, t-1}) + \mu_k + \lambda_{\text{Week}} + \epsilon_{kt}
+\end{align*}
+$$
+
+where $\beta_{ki}$, $\gamma_{ki}$, and $\delta_{kij}$ represent the reward, action, and their interaction coefficients that vary by teacher; $\phi_k$ and $\psi_k$ are the fixed effects for the state and the interaction between state and lagged action, respectively; and $\mu_k$ and $\lambda_{\text{Week}}$ are fixed effects for teachers and weeks, respectively.
+
+To assess the model's predictive accuracy and generalizability, we used the out-of-sample AUC as a performance metric, calculated separately for each teacher.
+
+## Hierarchical Models
+
 Our initial approach involved fitting non-hierarchical models for three binary action variables using a simple logistic regression model. The dependent variables were derived from the Non-negative Matrix Factorization (NMF) using the Frobenius Nonnegative Double Singular Value Decomposition (NNDSVD) method. For each of these variables, we generated a lagged version and incorporated it into the model alongside the 'Badges' and 'State' variables. The models were constructed using the `brms` package, specifying the Bernoulli family and employing the `cmdstanr` backend [@bates2015; @bürkner2017; @gabry2022; @stanmod2022; @bürkner2021; @croissant2008]. The formula for these models are represented as follows:
 
 $$
@@ -1467,10 +1502,6 @@ We extended our analysis to examine the relationship between the estimated param
 
 # Results
 
-## Action Variable and Lag Selection
-
-We first select the most suitable action variable by comparing the Bayesian Information Criterion (BIC) and Negative Log-Likelihood (NLL) across different combinations of variables and lags. We incorporate lagged variables into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. As depicted in @fig-panel-bic, the model that best fits the data includes four lags of the Non-negative Matrix Factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) method. Including these four lags suggests that the teachers' actions over the past four weeks, encapsulated by this component, significantly influence their choices in the current week.
-
 ```{r load dimension reduction}
 #| include: false
 df <- read.csv(file = "./Bayesian/df.csv") %>%
@@ -1504,517 +1535,1149 @@ get_lag_value <- function(datatable, col, lag_period, n_comp = NULL) {
   return(datatable)
 }
 
+# Function to identify high-density regions for a given vector of values
+find_hdr <- function(values) {
+  IQR <- quantile(values, 0.75) - quantile(values, 0.25)
+  return(c(quantile(values, 0.25) - 1.5*IQR,
+           quantile(values, 0.75) + 1.5*IQR))
+}
+
+in_hdr <- function(values) {
+  hdr <- find_hdr(values)
+  return(hdr[1] <= values & values <= hdr[2])
+}
+
 ```
 
-```{r panel model comparison}
-#| cache: true
-library(pglm)
+```{r panel-model}
+#| eval: false
 
-bic_plm <- function(object) {
-  # object is "plm", "panelmodel"
-  sp = summary(object)
-  if (class(object)[1] == "plm") {
-    u.hat <- residuals(sp) # extract residuals
-    model_data <- cbind(as.vector(u.hat), attr(u.hat, "index"))
-    names(model_data)[1] <- "resid"
-    c = length(unique(model_data[, "Classroom.ID"])) # extract classroom dimensions
-    t = length(unique(model_data[, "week"])) # extract time dimension
-    np = length(sp$coefficients[, 1]) # number of parameters
-    n.N = nrow(sp$model) # number of data
-    s.sq  <- log((sum(u.hat ^ 2) / (n.N))) # log sum of squares
-    
-    # effect = c("individual", "time", "twoways", "nested"),
-    # model = c("within", "random", "ht", "between", "pooling", "fd")
-    
-    if (sp$args$model == "within" & sp$args$effect == "individual") {
-      np = np + c + 1 # update number of parameters
-    }
-    
-    if (sp$args$model == "within" & sp$args$effect == "time") {
-      np = np + t + 1 # update number of parameters
-    }
-    
-    if (sp$args$model == "within" & sp$args$effect == "twoways") {
-      np = np + c + t # update number of parameters
-    }
-    
-    if (sp$args$model == "random" & sp$args$effect == "twoways") {
-      np = np + length(sp$ercomp$sigma2) # update number of parameters
-    }
-    
-    bic <- round(log(n.N) * np  +  n.N * (log(2 * pi) + s.sq  + 1), 1)
-    names(bic) = "BIC"
-    return(bic)
-  }
+library(fixest)
+
+create_model <- function(formula, data) {
+  # Fit a logistic regression model with fixed effects
+  model <- feglm(formula, data = data, family = binomial)
+  return(model)
 }
 
-compute_nloglik <- function(residuals) {
-  n <- length(residuals)
-  sigma2 <- sum(residuals^2) / n
-  nll <- n/2 * ( log(2 * pi) + log(sigma2) + 1 ) # Negative log likelihood
-  return(as.numeric(nll))
-}
-
-
-create_formula <- function(method, lag, comp) {
+create_formula <- function(action, reward, state = NULL, lag = 1) {
   terms <- c()
-  
+
   for (i in 1:lag) {
-    # Add the interaction term for Badges.per.Active.User_i * method_i
-    terms <- c(terms, paste0("Badges.per.Active.User_", i, "*", method, comp, "_", i))
+    # Interaction term for reward_i * action_i
+    terms <- c(terms, paste0(reward, "_", i, "*", action, "_", i))
     if (i != lag) {
       for (j in (i + 1):lag) {
-        # Add the interaction for Badges_i * method_j when i < lag
-        terms <- c(terms, paste0("Badges.per.Active.User_", i, "*",
-                                 method, comp, "_", j))
+        # Interaction for reward_i * action_j when i < lag
+        terms <- c(terms, paste0(reward, "_", i, "*", action, "_", j))
       }
     }
   }
-  
-  formula_string <- paste0(method, comp, " ~ ", paste(terms, collapse = " + "), " + ", "week_lag")
-  
-  return(as.formula(formula_string))
-}
 
-model_selection <- function(wi, re) {
-  if (phtest(wi, re)$p.value < 0.05) return(wi) else return(re)
+  if (is.null(state)) {
+    formula_string <- paste0(action, " ~ ",
+                             paste(terms, collapse = " + "),
+                             " + week_lag | ", # Adding fixed effects part
+                             "Teacher.User.ID + week")
+  } else {
+    formula_string <- paste0(action, " ~ ",
+                             paste(terms, collapse = " + "),
+                             " + ", state, " + ", paste0(state, ":", action, "_1"),
+                             " + week_lag | ",
+                             "Teacher.User.ID + week")
+  }
+  return(formula_string)
 }
-
-create_model <- function(formula, data) {
-  # Models
-  wi <- plm(formula, data = data, effect = "twoway", model = "within")
-  re <- plm(formula, data = data, effect = "twoway", model = "random")
-  
-  return(model_selection(wi, re))
-}
-
 #-------------
-
-# Data and Variables
-df <- as.data.table(
-  df %>%
-    group_by(MDR.School.ID) %>%
-    mutate(across(Active.Users...Total:Tower.Alerts.per.Tower.Completion,
-                  scale))
-  )
-results_df_list <- list()
-lags <- c(1:7)
-n_comp = 3
+lags <- c(1:6)
+n_comp = 4
 n_lags = max(lags)
 # Use map to iterate over methods, paste0 to concatenate strings
-# methods <- c("PCA", "FrobeniusNNDSVD", "FrobeniusNNDSVDA", "KullbackLeibler", "Autoencoder")
-# columns <- c("tch_min", "Badges.per.Active.User", methods)
-methods <- c("FrobeniusNNDSVD")
-columns <- c("Badges.per.Active.User", "FrobeniusNNDSVD")
+action <- c("Frobenius.NNDSVD_teacher")
+reward <- c("Frobenius.NNDSVD_student")
+# Estimation
+params <- crossing(
+  act = colnames(df)[str_detect(colnames(df), paste0(action, collapse = "|"))],
+  lag = lags,
+  # st  = colnames(df)[str_detect(colnames(df), paste0(reward, collapse = "|"))],
+  rwd = colnames(df)[str_detect(colnames(df), paste0(reward, collapse = "|"))]
+) %>%
+  # filter(rwd != st) %>%
+  unique()
 
+# Data and Variables
+df_bin <- as.data.table(
+  df %>%
+    mutate(across(dplyr::starts_with(action), ~if_else(.>median(.),1,0)))
+)
 # Create lags
-for (col in columns) {
+for (col in c(action, reward)) {
   for (lag_period in 1:n_lags) {
-    if (!col %in% methods) {
-      df <- get_lag_value(df, col, lag_period)
-      next
-    }
-    df <- get_lag_value(df, col, lag_period, n_comp)
+    df_bin <- get_lag_value(df_bin, col, lag_period, n_comp)
   }
 }
 
 # Panel data
-train_data <- pdata.frame(
-  df[set == "train"], index = c("Classroom.ID", "week", "Teacher.User.ID")
-  )
-test_data <- pdata.frame(
-  df[set == "test"], index = c("Classroom.ID", "week", "Teacher.User.ID")
-  )
+train_data <- as.data.frame(df_bin[set == "train"])
+test_data <- as.data.frame(df_bin[set == "test"])
 
 # Estimation
-cl <- makeCluster(detectCores())
+# Clean environment
+rm(list = setdiff(ls(), c("df", "params", "train_data", "test_data",
+                          "bic_plm", "compute_nloglik","create_formula",
+                          "create_model", "get_lag_value", "model_selection")))
+gc(verbose = FALSE)
+
+cl <- makeCluster(detectCores()-1)
 registerDoParallel(cl)
-params <- expand.grid(col = c(methods),
-                      lag = lags,
-                      comp = 1:n_comp) %>%
-  mutate(comp = as.character(comp),
-         comp = case_when(col == "tch_min" ~ "",
-                          .default = comp)) %>%
-  unique()
 results <- foreach(i = 1:nrow(params),
                    .multicombine = TRUE,
+                   .errorhandling = "remove",
                    .noexport = c("formula", "model",
                                  "residuals", "predictions"),
-                   .export = ls(),
-                   .packages = "plm") %dopar% {
-  col <- as.character(params$col[i])
-  lag <- params$lag[i]
-  comp <- params$comp[i]
-  formula <- create_formula(col, lag, comp)
-  model <- create_model(formula, train_data)
+                   .packages = c("fixest", "pROC")) %dopar% {
+                     act <- as.character(params$act[i])
+                     lag <- params$lag[i]
+                     # st <- as.character(params$st[i])
+                     st <- NULL
+                     rwd <- as.character(params$rwd[i])
+                     fmla <- create_formula(action = act, reward = rwd,
+                                            state = st, lag = lag)
+                     model <- create_model(as.formula(fmla), train_data)
 
-  # Out of Sample Log Likelihood
-  predictions <- predict(model, newdata = test_data, na.fill = TRUE)
-  residuals <- test_data[,paste0(col, comp)] - predictions
+                     # Out of Sample Log Likelihood
+                     predictions <- predict(model, newdata = test_data)
 
-  # Return the results as a list
-  list(Method = col,
-       Component = comp,
-       Lag = lag,
-       formula = formula,
-       nloglik = compute_nloglik(residuals),
-       bic = as.numeric(bic_plm(model)),
-       rsq = r.squared(model),
-       coef = summary(model)$coefficients)
-}
+                     # Return the results as a list
+                     list(Method = act,
+                          Lag = lag,
+                          # State = st,
+                          Reward = rwd,
+                          formula = fmla,
+                          AUC = as.numeric(
+                            roc(response = test_data[,act],
+                                predictor = predictions)$auc
+                          ),
+                          bic = BIC(model),
+                          fecoef = summary(model)$coeftable,
+                          recoef = fixef(model))
+                   }
 # Stop the cluster
 stopCluster(cl)
 rm(cl)
 
+save(results, file = "fe-results.RData")
+
 ```
+
+```{r panel-model-states}
+#| eval: false
+
+#-------------
+lags <- c(1:6)
+n_comp = 4
+n_lags = max(lags)
+# Use map to iterate over methods, paste0 to concatenate strings
+action <- c("Frobenius.NNDSVD_teacher")
+reward <- c("Frobenius.NNDSVD_student")
+# Estimation
+params <- crossing(
+  act = colnames(df)[str_detect(colnames(df), paste0(action, collapse = "|"))],
+  lag = lags,
+  st  = colnames(df)[str_detect(colnames(df), paste0(reward, collapse = "|"))],
+  rwd = colnames(df)[str_detect(colnames(df), paste0(reward, collapse = "|"))]
+) %>%
+  filter(rwd != st) %>%
+  unique()
+
+# Data and Variables
+df_bin <- as.data.table(
+  df %>%
+    mutate(across(dplyr::starts_with(action), ~if_else(.>median(.),1,0)))
+)
+# Create lags
+for (col in c(action, reward)) {
+  for (lag_period in 1:n_lags) {
+    df_bin <- get_lag_value(df_bin, col, lag_period, n_comp)
+  }
+}
+
+# Panel data
+train_data <- as.data.frame(df_bin[set == "train"])
+test_data <- as.data.frame(df_bin[set == "test"])
+
+# Estimation
+# Clean environment
+rm(list = setdiff(ls(), c("df", "params", "train_data", "test_data",
+                          "bic_plm", "compute_nloglik","create_formula",
+                          "create_model", "get_lag_value", "model_selection")))
+gc(verbose = FALSE)
+
+cl <- makeCluster(detectCores()-1)
+registerDoParallel(cl)
+results <- foreach(i = 1:nrow(params),
+                   .multicombine = TRUE,
+                   .errorhandling = "remove",
+                   .noexport = c("formula", "model",
+                                 "residuals", "predictions"),
+                   .packages = c("fixest", "pROC")) %dopar% {
+                     act <- as.character(params$act[i])
+                     lag <- params$lag[i]
+                     st <- as.character(params$st[i])
+                     rwd <- as.character(params$rwd[i])
+                     fmla <- create_formula(action = act, reward = rwd,
+                                            state = st, lag = lag)
+                     model <- create_model(as.formula(fmla), train_data)
+
+                     # Out of Sample Log Likelihood
+                     predictions <- predict(model, newdata = test_data)
+
+                     # Return the results as a list
+                     list(Method = act,
+                          Lag = lag,
+                          State = st,
+                          Reward = rwd,
+                          formula = fmla,
+                          AUC = as.numeric(
+                            roc(response = test_data[,act],
+                                predictor = predictions)$auc
+                          ),
+                          bic = BIC(model),
+                          fecoef = summary(model)$coeftable,
+                          recoef = fixef(model))
+                   }
+# Stop the cluster
+stopCluster(cl)
+rm(cl)
+
+save(results, file = "fe-state-results.RData")
+
+```
+
+We first explore reinforcement learning (RL)-like characteristics within the teacher and classroom usage data. We aimed to uncover patterns indicative of RL, where actors (teachers) select actions (teaching strategies) that historically yield higher rewards (improved student outcomes) and use states (classroom contexts) as signals for action selection. Further, we sought to understand how actions contribute to achieving or maintaining desired states and the extent to which actions exhibit auto-correlation due to incremental learning processes.
+
+## Model Fit and Performance
+
+In order to capture the temporal dynamics of actions influenced by lagged rewards and states, we employed panel logistic regression models across different combinations of variables and lags. We incorporate lagged variables (ranging from one to six weeks) into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. We applied reward and state structures extracted from classroom data via non-negative matrix factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD), and actions derived similarly from teacher data. We evaluate these models on the Bayesian Information Criterion (BIC) for model complexity and fit and the Area Under the Receiver Operating Characteristic curve (AUC) for predictive accuracy.
+
+### Temporal Dynamics
+
+Our investigation into temporal dynamics confirmed the impact of lagged rewards and actions on decision-making, embodying a foundational RL principle: shaping future decisions by past experiences. @fig-panel-bic illustrates this relationship, showcasing the predictive accuracy and model fit across different lag models, with a clear preference for a lag of two periods as optimal, based on the "elbow" in the AUC curves and the minima in BIC curves. This finding underscores the significance of immediate and preceding influences on future actions, aligning with the delayed reinforcement principle in RL.
 
 ```{r}
 #| label: fig-panel-bic
 #| fig-cap: ""
 
-# Wrangling the results data frame for plotting
-results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
-# Convert variables to appropriate data types
-results_df <- results_df %>%
-  mutate(Method = as.factor(Method),
-         Component = as.factor(unlist(Component)),
-         Lag = as.numeric(Lag),
-         nloglik = as.numeric(nloglik),
-         bic = as.numeric(bic),
-         rsq = as.numeric(rsq)) %>%
-  group_by(Method, Component, Lag) %>%
-  summarise(avg_bic = mean(bic, na.rm = TRUE),
-            avg_nloglik = mean(nloglik, na.rm = TRUE),
-            rsq = mean(rsq, na.rm = TRUE),
-            .groups = "drop")
-# Filter methods for the plots
-methods_for_plots <- c("FrobeniusNNDSVD")
-plot_data <- filter(results_df, Method %in% methods_for_plots)
+load("fe-results.RData")
 
-# Create a function to generate a plot for a given component and metric
-generate_plot <- function(data, component) {
-  filtered_data <- filter(data, Component == component)
-  plot <- ggplot(filtered_data, aes(x = Lag, y = value)) +
-    geom_line() +
-    scale_y_continuous(labels = scales::scientific) +
+fe_results_df <- do.call(rbind, lapply(results, function(x) {
+  data.frame(
+    Method = x$Method,
+    Lag = x$Lag,
+    State = "None",
+    Reward = x$Reward,
+    auc = x$AUC,
+    bic = x$bic,
+    stringsAsFactors = FALSE
+  )
+}))
+
+results_df <- do.call(rbind, lapply(results, function(x) {
+  data.frame(
+    Method = x$Method,
+    Lag = x$Lag,
+    # State = x$State,
+    Reward = x$Reward,
+    auc = x$AUC,
+    bic = x$bic,
+    stringsAsFactors = FALSE
+  )
+})) %>%
+  group_by(Method, Reward) %>%
+  mutate(bic_base = bic[which(Lag == 1)],
+         bic = bic - bic_base,
+         auc_base = auc[which(Lag == 1)],
+         auc = auc - auc_base) %>%
+  ungroup()
+
+results_df_se <- results_df %>%
+  group_by(Lag) %>%
+  summarise(se_bic = sd(bic, na.rm = TRUE) / sqrt(n()),
+            bic = mean(bic, na.rm = TRUE),
+            se_auc = sd(auc, na.rm = TRUE) / sqrt(n()),
+            auc = mean(auc, na.rm = TRUE))
+
+generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
+  y_label <- switch(metric_name,
+                    "bic" = "BIC",
+                    "auc" = "AUC")
+  
+  plot <- ggplot() +
+    geom_line(data = data, aes(x = Lag, y = !!sym(metric_name),
+                               group = interaction(Reward, Method),
+                               # group = interaction(State, Reward, Method),
+                               color = Method),
+              linewidth = 0.3) +
+    geom_ribbon(data = data_se,
+                aes(x = Lag, ymin = !!sym(metric_name) - !!sym(metric_se_name),
+                    ymax = !!sym(metric_name) + !!sym(metric_se_name)),
+                fill = "lightblue", alpha = 0.3) +
+    geom_line(data = data_se,
+              aes(x = Lag, y = !!sym(metric_name)),
+              linewidth = 1, color = "blue") +
     theme_minimal() +
-    theme(axis.title.y = element_blank(), legend.position = "none")
+    labs(y = y_label, x = "Lag") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.title = element_blank(),
+          legend.position = "none")
   return(plot)
 }
 
-# Create plots for each combination
-plots <- list()
-for (component in levels(plot_data$Component)) {
-  plots[[paste("BIC", component)]] <-
-    generate_plot(plot_data %>% rename(value = avg_bic), component)
-  plots[[paste("Negative Log-Likelihood", component)]] <-
-    generate_plot(plot_data %>% rename(value = avg_nloglik), component)
-  plots[[paste("R-square", component)]] <-
-    generate_plot(plot_data %>% rename(value = rsq), component)
-}
+# Example usage for plotting Average BIC with Standard Error
+bic_plot_se <- generate_plots_with_se(results_df, results_df_se, "bic", "se_bic")
+auc_plot_se <- generate_plots_with_se(results_df, results_df_se, "auc", "se_auc")
 
-# Arrange the plots in a 3x2 grid
-combined_plot <- grid.arrange(
-    grobs = plots,
-    ncol = 3
-    # top = "Comparative Analysis of Components"
-)
+#------------------
 
-```
+load("fe-state-results.RData")
 
-```{r action-reward-corr}
-
-# Select relevant variables for correlation analysis
-rows <- c("Active.Users...Total", "Sessions.per.Active.User", 
-          "Minutes.per.Active.User", "Badges.per.Active.User",
-          "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
-columns_1 <- c("FrobeniusNNDSVD1", "FrobeniusNNDSVD1_1",
-               "FrobeniusNNDSVD1_2", "FrobeniusNNDSVD1_3")
-columns_2 <- c("FrobeniusNNDSVD2", "FrobeniusNNDSVD2_1",
-               "FrobeniusNNDSVD2_2", "FrobeniusNNDSVD2_3")
-columns_3 <- c("FrobeniusNNDSVD3", "FrobeniusNNDSVD3_1",
-               "FrobeniusNNDSVD3_2", "FrobeniusNNDSVD3_3")
-
-selected_vars <- df %>%
-  select(all_of(c(rows, columns_1, columns_2, columns_3)))
-
-
-# Compute correlation matrix
-cor_matrix <- cor(selected_vars, use = "complete.obs", method = "spearman")
-
-# Function to test significance and annotate correlation matrix
-annotate_cor_matrix <- function(cor_matrix, n) {
-  cor_matrix_melted <- melt(cor_matrix)
-  p_values <- apply(cor_matrix_melted, 1, function(x) {
-    cor.test(selected_vars %>% pull(as.character(x[1])),
-             selected_vars %>% pull(as.character(x[2])),
-             method = "spearman")$p.value
-    })
-  cor_matrix_melted <- cor_matrix_melted %>%
-    mutate(coeff = if_else(p_values < 0.001 / n, # Bonferroni
-                           sprintf("%.2f", value),
-                           paste0(sprintf("%.2f", value), "†")))
-  return(cor_matrix_melted)
-}
-
-# Prepare data for plotting
-cor_matrix_1 <- cor_matrix[rows, columns_1]
-cor_matrix_2 <- cor_matrix[rows, columns_2]
-cor_matrix_3 <- cor_matrix[rows, columns_3]
-
-n <- length(cor_matrix) # Number for Bonferroni correction
-melted_cor_matrix_1 <- annotate_cor_matrix(cor_matrix_1, n) %>%
-    mutate(Var1 = case_when(
-      Var1 == "Active.Users...Total" ~ "Active Students",
-      Var1 == "Sessions.per.Active.User" ~ "Student Logins",
-      Var1 == "Minutes.per.Active.User" ~ "Student Minutes",
-      Var1 == "Badges.per.Active.User" ~ "Student Badges",
-      Var1 == "Boosts.per.Tower.Completion" ~ "Student Boosts",
-      Var1 == "Tower.Alerts.per.Tower.Completion" ~ "Student Alerts"
-      ))
-melted_cor_matrix_2 <- annotate_cor_matrix(cor_matrix_2, n) %>%
-    mutate(Var1 = case_when(
-      Var1 == "Active.Users...Total" ~ "Active Students",
-      Var1 == "Sessions.per.Active.User" ~ "Student Logins",
-      Var1 == "Minutes.per.Active.User" ~ "Student Minutes",
-      Var1 == "Badges.per.Active.User" ~ "Student Badges",
-      Var1 == "Boosts.per.Tower.Completion" ~ "Student Boosts",
-      Var1 == "Tower.Alerts.per.Tower.Completion" ~ "Student Alerts"
-      ))
-melted_cor_matrix_3 <- annotate_cor_matrix(cor_matrix_3, n) %>%
-    mutate(Var1 = case_when(
-      Var1 == "Active.Users...Total" ~ "Active Students",
-      Var1 == "Sessions.per.Active.User" ~ "Student Logins",
-      Var1 == "Minutes.per.Active.User" ~ "Student Minutes",
-      Var1 == "Badges.per.Active.User" ~ "Student Badges",
-      Var1 == "Boosts.per.Tower.Completion" ~ "Student Boosts",
-      Var1 == "Tower.Alerts.per.Tower.Completion" ~ "Student Alerts"
-      ))
-
-
-# Modified plot function with conditional y-axis labels
-plot_cor_matrix <- function(melted_matrix, title, show_y_axis = TRUE,
-                            xlabel = c("t", "t-1", "t-2", "t-3")) {
-  p <- ggplot(data = melted_matrix, aes(x = Var2, y = Var1, fill = value)) +
-    geom_tile() +
-    geom_text(aes(label = coeff), color = "black", size = 3) +
-    scale_fill_gradient2(low = "blue", high = "red", mid = "white",
-                         midpoint = 0, limit = c(-1,1), guide = "none") +
-    theme_minimal() +
-    scale_x_discrete(labels = xlabel) +
-    labs(title = title, x = NULL, y = NULL) +
-    theme(axis.text.x = element_text(),
-          axis.text.y = if (show_y_axis) element_text() else element_blank())
-
-  if (show_y_axis) {
-    p <- p + scale_y_discrete()
-  }
-  
-  return(p)
-}
-
-# Create individual plots
-p1 <- plot_cor_matrix(melted_cor_matrix_1, "Lag(NMF 1)", show_y_axis = TRUE)
-p2 <- plot_cor_matrix(melted_cor_matrix_2, "Lag(NMF 2)", show_y_axis = FALSE)
-p3 <- plot_cor_matrix(melted_cor_matrix_3, "Lag(NMF 3)", show_y_axis = FALSE)
-
-# Create a dummy plot for extracting the legend
-legend_plot <- ggplot(data.frame(value = c(-1, 1)),
-                      aes(x = value, y = value, fill = value)) +
-  geom_point() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
-                       midpoint = 0, limit = c(-1,1)) +
-  theme_void() +
-  theme(legend.position = "bottom")
-
-# Extract the legend
-legend <- ggplotGrob(legend_plot)$grobs[[
-  which(sapply(ggplotGrob(legend_plot)$grobs,
-               function(x) x$name) == "guide-box")
-  ]]
-
-# Combine the plots into one panel with a shared legend
-grid.arrange(p1, p2, p3, nrow = 1, bottom = legend, widths = c(1.5, 1, 1))
-
-```
-
-```{r reward-action-corr}
-
-# Select relevant variables for correlation analysis
-rows <- c("Active.Users...Total", "Sessions.per.Active.User", 
-          "Minutes.per.Active.User", "Badges.per.Active.User",
-          "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
-
-# Create lags
-for (col in rows) {
-  for (lag_period in 1:3) {
-    df <- get_lag_value(df, col, lag_period)
-  }
-}
-
-rows <- c(rows, names(
-  df[,Active.Users...Total_1:Tower.Alerts.per.Tower.Completion_3]
-  ),
-  names(
-    df[,Badges.per.Active.User_1:Badges.per.Active.User_3]
-  ))
-rows <- rows[order(rows)]
-
-columns <- c("FrobeniusNNDSVD1", "FrobeniusNNDSVD2", "FrobeniusNNDSVD3")
-
-selected_vars <- df %>%
-  select(all_of(c(rows, columns)))
-
-
-# Compute correlation matrix
-cor_matrix <- cor(selected_vars, use = "complete.obs", method = "spearman")
-
-
-# Prepare data for plotting
-cor_matrix <- cor_matrix[rows, columns]
-n <- length(cor_matrix) # Number for Bonferroni correction
-melted_cor_matrix <- annotate_cor_matrix(cor_matrix, n) %>%
-  mutate(
-    Var2 = case_when(
-      grepl("_1", Var1) ~ paste0(Var2, "_1"),
-      grepl("_2", Var1) ~ paste0(Var2, "_2"),
-      grepl("_3", Var1) ~ paste0(Var2, "_3"),
-      .default = Var2),
-    Var1 = case_when(
-      grepl("Active.Users...Total", Var1) ~ "Lag(Active Students)",
-      grepl("Sessions.per.Active.User", Var1) ~ "Lag(Student Logins)",
-      grepl("Minutes.per.Active.User", Var1) ~ "Lag(Student Minutes)",
-      grepl("Badges.per.Active.User", Var1) ~ "Lag(Student Badges)",
-      grepl("Boosts.per.Tower.Completion", Var1) ~ "Lag(Student Boosts)",
-      grepl("Tower.Alerts.per.Tower.Completion", Var1) ~ "Lag(Student Alerts)")
+fe_results_df <- fe_results_df %>%
+  rbind(
+    do.call(rbind, lapply(results, function(x) {
+      data.frame(
+        Method = x$Method,
+        Lag = x$Lag,
+        State = x$State,
+        Reward = x$Reward,
+        auc = x$AUC,
+        bic = x$bic,
+        stringsAsFactors = FALSE
+        )
+      }))
     )
 
+results_df <- do.call(rbind, lapply(results, function(x) {
+  data.frame(
+    Method = x$Method,
+    Lag = x$Lag,
+    State = x$State,
+    Reward = x$Reward,
+    auc = x$AUC,
+    bic = x$bic,
+    stringsAsFactors = FALSE
+  )
+})) %>%
+  group_by(Method, Reward, State) %>%
+  mutate(bic_base = bic[which(Lag == 1)],
+         bic = bic - bic_base,
+         auc_base = auc[which(Lag == 1)],
+         auc = auc - auc_base) %>%
+  ungroup()
 
-# Create individual plots
-p1 <- plot_cor_matrix(melted_cor_matrix %>% filter(grepl("D1", Var2)),
-                      "NMF1", show_y_axis = TRUE)
-p2 <- plot_cor_matrix(melted_cor_matrix %>% filter(grepl("D2", Var2)),
-                      "NMF2", show_y_axis = FALSE)
-p3 <- plot_cor_matrix(melted_cor_matrix %>% filter(grepl("D3", Var2)),
-                      "NMF3", show_y_axis = FALSE)
+results_df_se <- results_df %>%
+  group_by(Lag) %>%
+  summarise(se_bic = sd(bic, na.rm = TRUE) / sqrt(n()),
+            bic = mean(bic, na.rm = TRUE),
+            se_auc = sd(auc, na.rm = TRUE) / sqrt(n()),
+            auc = mean(auc, na.rm = TRUE))
 
-# Create a dummy plot for extracting the legend
-legend_plot <- ggplot(data.frame(value = c(-1, 1)),
-                      aes(x = value, y = value, fill = value)) +
-  geom_point() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
-                       midpoint = 0, limit = c(-1,1)) +
-  theme_void() +
-  theme(legend.position = "bottom")
-
-# Extract the legend
-legend <- ggplotGrob(legend_plot)$grobs[[
-  which(sapply(ggplotGrob(legend_plot)$grobs,
-               function(x) x$name) == "guide-box")
-  ]]
-
-# Combine the plots into one panel with a shared legend
-grid.arrange(p1, p2, p3, nrow = 1, bottom = legend, widths = c(1.65, 1, 1))
-
-```
-
-```{r reward-minutes-corr}
-
-# Select relevant variables for correlation analysis
-rows <- c("Active.Users...Total", "Sessions.per.Active.User", 
-          "Minutes.per.Active.User", "Badges.per.Active.User",
-          "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
-
-rows <- c(rows, names(
-  df[,Active.Users...Total_1:Tower.Alerts.per.Tower.Completion_3]
-  ),
-  names(
-    df[,Badges.per.Active.User_1:Badges.per.Active.User_3]
-  ))
-rows <- rows[order(rows)]
-
-columns <- c("Minutes.on.Zearn...Total", "Minutes.on.Zearn...Total_1",
-             "Minutes.on.Zearn...Total_2", "Minutes.on.Zearn...Total_3")
-# Create lags
-for (lag_period in 1:3) {
-  df <- get_lag_value(df, columns[1], lag_period)
+generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
+  y_label <- switch(metric_name,
+                    "bic" = "BIC",
+                    "auc" = "AUC")
+  
+  plot <- ggplot() +
+    geom_line(data = data, aes(x = Lag, y = !!sym(metric_name),
+                               group = interaction(State, Reward, Method),
+                               color = Method),
+              linewidth = 0.3) +
+    geom_ribbon(data = data_se,
+                aes(x = Lag, ymin = !!sym(metric_name) - !!sym(metric_se_name),
+                    ymax = !!sym(metric_name) + !!sym(metric_se_name)),
+                fill = "lightblue", alpha = 0.3) +
+    geom_line(data = data_se,
+              aes(x = Lag, y = !!sym(metric_name)),
+              linewidth = 1, color = "blue") +
+    theme_minimal() +
+    labs(y = y_label, x = "Lag") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.title = element_blank(),
+          legend.position = "none")
+  return(plot)
 }
-selected_vars <- df %>%
-  select(all_of(c(rows, columns)))
 
+# Example usage for plotting Average BIC with Standard Error
+bic_plot_se_st <- generate_plots_with_se(results_df, results_df_se, "bic", "se_bic")
+auc_plot_se_st <- generate_plots_with_se(results_df, results_df_se, "auc", "se_auc")
 
-# Compute correlation matrix
-cor_matrix <- cor(selected_vars, use = "complete.obs", method = "spearman")
+#----------------
 
-# Prepare data for plotting
-cor_matrix <- cor_matrix[rows, columns]
-n <- length(cor_matrix) # Number for Bonferroni correction
-melted_cor_matrix <- annotate_cor_matrix(cor_matrix, n)
-
-
-# Create individual plots
-p1 <- plot_cor_matrix(
-  melted_cor_matrix %>%
-    filter(!grepl("_", Var2)) %>%
-  mutate(
-    Var2 = case_when(
-      grepl("_1", Var1) ~ paste0(Var2, "_1"),
-      grepl("_2", Var1) ~ paste0(Var2, "_2"),
-      grepl("_3", Var1) ~ paste0(Var2, "_3"),
-      .default = Var2),
-    Var1 = case_when(
-      grepl("Active.Users...Total", Var1) ~ "Lag(Active Students)",
-      grepl("Sessions.per.Active.User", Var1) ~ "Lag(Student Logins)",
-      grepl("Minutes.per.Active.User", Var1) ~ "Lag(Student Minutes)",
-      grepl("Badges.per.Active.User", Var1) ~ "Lag(Student Badges)",
-      grepl("Boosts.per.Tower.Completion", Var1) ~ "Lag(Student Boosts)",
-      grepl("Tower.Alerts.per.Tower.Completion", Var1) ~ "Lag(Student Alerts)")
-    ), "Teacher Minutes", show_y_axis = TRUE)
-p2 <- plot_cor_matrix(
-  melted_cor_matrix %>%
-    filter(!grepl("_", Var1)) %>%
-  mutate(
-    Var1 = case_when(
-      grepl("Active.Users...Total", Var1) ~ "Active Students",
-      grepl("Sessions.per.Active.User", Var1) ~ "Student Logins",
-      grepl("Minutes.per.Active.User", Var1) ~ "Student Minutes",
-      grepl("Badges.per.Active.User", Var1) ~ "Student Badges",
-      grepl("Boosts.per.Tower.Completion", Var1) ~ "Student Boosts",
-      grepl("Tower.Alerts.per.Tower.Completion", Var1) ~ "Student Alerts")
-    ), "Lag(Teacher Minutes)", show_y_axis = TRUE)
-
-# Create a dummy plot for extracting the legend
-legend_plot <- ggplot(data.frame(value = c(-1, 1)),
-                      aes(x = value, y = value, fill = value)) +
-  geom_point() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white",
-                       midpoint = 0, limit = c(-1,1)) +
-  theme_void() +
-  theme(legend.position = "bottom")
-
-# Extract the legend
-legend <- ggplotGrob(legend_plot)$grobs[[
-  which(sapply(ggplotGrob(legend_plot)$grobs,
-               function(x) x$name) == "guide-box")
-  ]]
-
-# Combine the plots into one panel with a shared legend
-grid.arrange(p1, p2, nrow = 1, bottom = legend, widths = c(1.055, 1))
+bic_plot_se
+auc_plot_se
+bic_plot_se_st
+auc_plot_se_st
 
 ```
 
 ```{r RL-exploration}
 #| eval: false
 
-library(lme4)
+library(fixest)
+
+create_model <- function(formula, data) {
+  # Fit a logistic regression model with fixed effects
+  model <- feglm(formula, data = data, family = binomial, 
+                 panel.id = c("Teacher.User.ID", "week"),
+                 glm.iter = 50, mem.clean = TRUE)
+  return(model)
+}
+create_formula <- function(action, reward, state = NULL, lag = 1) {
+  terms <- c()
+
+  for (i in 1:lag) {
+    # Base terms for action and reward
+    terms <- c(terms, paste0(reward, "_", i), paste0(action, "_", i))
+
+    # Interaction term for reward_i * action_i with varying slopes
+    terms <- c(terms, paste0(reward, "_", i, ":", action, "_", i))
+
+    if (i != lag) {
+      for (j in (i + 1):lag) {
+        # Add the interaction for reward_i * action_j when i < lag with varying slopes
+        terms <- c(terms, paste0(reward, "_", i, ":", action, "_", j))
+      }
+    }
+  }
+
+  if (is.null(state)) {
+    formula_string <- paste0(action, " ~ week_lag ",
+                             " | Teacher.User.ID[",
+                             paste(terms, collapse = ", "),
+                             "] + week")
+  } else {
+    formula_string <- paste0(action, " ~ week_lag ",
+                             " | Teacher.User.ID[",
+                             paste(terms, collapse = ", "), ", ",
+                             state, ", ", state, ":", action, "_1",
+                             "] + week")
+  }
+
+  return(formula_string)
+}
+
+action <- c("Frobenius.NNDSVD_teacher")
+reward <- c("Frobenius.NNDSVD_student")
+lags = 2
+n_lags = 2
+params2 <- crossing(
+  act = colnames(df)[str_detect(colnames(df),
+                                paste0(action, collapse = "|"))],
+  lag = lags,
+  st  = c(colnames(df)[str_detect(colnames(df),
+                                  paste0(reward, collapse = "|"))],
+          "NA"),
+  rwd = colnames(df)[str_detect(colnames(df),
+                                paste0(reward, collapse = "|"))]
+) %>%
+  filter(rwd != st) %>%
+  unique()
+
+# Data and Variables
+df_bin <- as.data.table(
+  df %>%
+    mutate(across(dplyr::starts_with(action), ~if_else(.>median(.),1,0)))
+)
+# Create lags
+for (col in c(action, reward)) {
+  for (lag_period in 1:n_lags) {
+    df_bin <- get_lag_value(df_bin, col, lag_period, n_comp)
+  }
+}
+# Panel data
+train_data <- as.data.frame(df_bin[set == "train"])
+test_data <- as.data.frame(df_bin[set == "test"])
+
+cl <- makeCluster(detectCores()-1)
+registerDoParallel(cl)
+results <- foreach(i = 1:nrow(params2),
+                   .multicombine = TRUE,
+                   .errorhandling = "remove",
+                   .noexport = c("formula", "model",
+                                 "residuals", "predictions"),
+                   .packages = c("fixest", "pROC", "dplyr")) %dopar% {
+                     act <- as.character(params2$act[i])
+                     lag <- params2$lag[i]
+                     st <- NULL
+                     if (as.character(params2$st[i]) != "NA") {
+                       st <- as.character(params2$st[i])
+                     }
+                     rwd <- as.character(params2$rwd[i])
+                     fmla <- create_formula(action = act, reward = rwd,
+                                            state = st, lag = lag)
+                     model <- create_model(as.formula(fmla), train_data)
+
+                     # Out-of-Sample Predictions
+                     predictions <- predict(model, newdata = test_data)
+                     perform_df <- cbind(test_data, predictions) %>%
+                       filter(!is.na(predictions), !is.na(!!sym(act))) %>%
+                       group_by(Teacher.User.ID) %>%
+                       filter(sd(!!sym(act)) > 0, sd(predictions) > 0) %>%
+                       summarise(n_test = n(),
+                                 auc_out = as.numeric(
+                                   roc(response = !!sym(act),
+                                       predictor = predictions,
+                                       quiet = TRUE)$auc)) %>%
+                       # In-Sample Predictions
+                       inner_join(cbind(train_data,
+                                        predictions = predict(
+                                          model, newdata = train_data)) %>%
+                           filter(!is.na(predictions), !is.na(!!sym(act))) %>%
+                           mutate(logLik_ind = if_else(!!sym(act) == 1,
+                                                       log(predictions),
+                                                       log(1 - predictions))) %>%
+                           group_by(Teacher.User.ID) %>%
+                           filter(sd(!!sym(act)) > 0, sd(predictions) > 0) %>%
+                           summarise(logLik_ind = sum(logLik_ind, na.rm = TRUE),
+                                     n_train = n(),
+                                     auc_in = as.numeric(
+                                       roc(response = !!sym(act),
+                                           predictor = predictions,
+                                           quiet = TRUE)$auc)),
+                           by = "Teacher.User.ID")
+
+                     # Return the results as a list
+                     list(Method = act,
+                          Lag = lag,
+                          State = st,
+                          Reward = rwd,
+                          formula = fmla,
+                          AUC = as.numeric(
+                            roc(response = test_data[,act],
+                                predictor = predictions,
+                                quiet = TRUE)$auc),
+                          bic = BIC(model),
+                          perform_df = perform_df,
+                          fecoef = summary(model)$coeftable,
+                          recoef = fixef(model))
+                   }
+# Stop the cluster
+stopCluster(cl)
+rm(cl)
+
+save(results, file = "me-results.RData")
+
+```
+
+### Variability Among Teachers
+
+With a two-week lag established as optimal, we explored variability in model performance across teachers through a varying coefficients approach, which allows for individual slope estimations for each teacher. @tbl-RL-exploration shows pronounced variability, suggesting idiosyncratic pedagogical differences across teachers or diverse strategies tailored to classroom-specific needs. This finding highlights the need for hybrid models to accommodate teachers' diverse pedagogical approaches, strategies, and reinforcement patterns.
+
+```{r}
+#| label: tbl-RL-exploration
+#| tbl-cap: ""
+
+library(gtExtras)
+load("me-results.RData")
+
+top_fits_df <- do.call(rbind, lapply(results, function(x) {
+  # Assuming 'perform_df' is correctly structured as shown in your summary
+  top_fits <- x$perform_df %>%
+    mutate(keep = case_when(!in_hdr(n_train) ~ F,
+                            !in_hdr(n_test) ~ F,
+                            !in_hdr(logLik_ind) ~ F,
+                            auc_in < 0.5 ~ F,
+                            auc_out < 0.5 ~ F,
+                            auc_in  == 1 ~ F,
+                            auc_out == 1 ~ F,
+                            .default = T)) %>%
+    filter(keep) %>%
+    summarize(across(c(auc_out, auc_in, logLik_ind),
+                     ~ sd(., na.rm = T)/sqrt(n()), .names = "{.col}_se"),
+              across(c(auc_out, auc_in, logLik_ind),
+                     ~ list(mean(., na.rm = T))),
+              total = n())
+  top_fits$Action <- x$Method
+  top_fits$Reward <- x$Reward
+  top_fits$State <- ifelse(is.null(x$State), "None", x$State)
+  return(top_fits)
+})) %>%
+  mutate(across(c(auc_out, auc_in, logLik_ind), ~ unlist(.))) %>%
+  na.omit()
+
+top_fits_df <- top_fits_df %>%
+  full_join(fe_results_df %>%
+              filter(Lag == 2),
+            by = c("Action" = "Method", "Reward", "State")) %>%
+  mutate(across(c(Action, Reward, State),
+                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Completion",
+                            . == "Frobenius.NNDSVD_student2" ~ "Struggle",
+                            . == "Frobenius.NNDSVD_student3" ~ "No. Students",
+                            . == "Frobenius.NNDSVD_student4" ~ "No. Sessions",
+                            . == "Frobenius.NNDSVD_teacher1" ~ "Assessments",
+                            . == "Frobenius.NNDSVD_teacher2" ~ "Scaffolding",
+                            . == "Frobenius.NNDSVD_teacher3" ~ "Activities",
+                            . == "Frobenius.NNDSVD_teacher4" ~ "Planning Guides",
+                            .default = .)))
+  
+top_statefree <- rbind(
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(desc(auc)) %>% slice_head(n = 1) %>% select(Action, Reward),
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(bic) %>% slice_head(n = 1) %>% select(Action, Reward),
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(desc(auc_out)) %>% slice_head(n = 1) %>% select(Action, Reward),
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(desc(logLik_ind)) %>% slice_head(n = 1) %>% select(Action, Reward)
+)
+top_statebased <- rbind(
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(desc(auc)) %>% slice_head(n = 1) %>% select(Action, Reward, State),
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(bic) %>% slice_head(n = 1) %>% select(Action, Reward, State),
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(desc(auc_out)) %>% slice_head(n = 1) %>% select(Action, Reward, State),
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(desc(logLik_ind)) %>% slice_head(n = 1) %>% select(Action, Reward, State)
+)
+
+top_fits_df %>%
+  mutate(bic = bic/1000) %>%
+  select(auc, bic, auc_out, logLik_ind) %>%
+  rename("Total AUC" = auc,
+         "Total BIC (x10<sup>3</sup>)" = bic,
+         "Best-Fit AUC" = auc_out,
+         "Best-Fit Log Likelihood" = logLik_ind) %>%
+  gt_plt_summary(title = "Model Performance") %>%
+  fmt_markdown() %>%
+  # Remove "Missing" column
+  cols_hide(n_missing) %>%
+  fmt_number(
+    columns = c(Mean, Median, SD),
+    decimals = 2
+  ) %>%
+  # Add columns for top models
+  cols_add(
+    top_action = top_statefree$Action,
+    top_reward = top_statefree$Reward,
+    top_action_st = top_statebased$Action,
+    top_reward_st = top_statebased$Reward,
+    top_state = top_statebased$State) %>%
+  cols_label(
+    top_action = "Top Action",
+    top_reward = "Top Reward",
+    top_action_st = "Top Action",
+    top_reward_st = "Top Reward",
+    top_state = "Top State"
+  ) %>%
+  tab_spanner(
+    label = "State-Free",
+    columns = c(top_action, top_reward)
+  ) %>%
+  tab_spanner(
+    label = "State-Based",
+    columns = c(top_action_st, top_reward_st, top_state)
+  ) %>% gt::gtsave(filename = "tbl-RL-exploration.png")
+
+```
+
+### Model Selection and Interpretability
+
+#### Model Selection Part 1
+
+We then refined our analysis to highlight models that demonstrated robustness and high predictive accuracy and provided meaningful insights into the interactions between rewards, actions, and states.
+
+@fig-RL-exploration showcases 11 models selected with the highest a) fixed effects AUC, b) mean teacher-specific AUC, c) lowest fixed effects BIC, and d) highest mean teacher-specific log-likelihood, with the top state-free model of each category selected along with the top two state-based models from each category. Models closest to the bottom right corner of the graph (lowest BIC, highest out-of-sample AUC) do best in balancing parsimony in the fixed effects model and predictability in the varying coefficients model. In general, @fig-RL-exploration suggests that the best-fitting models use scaffolding as their action, but the best rewards and states are not clearly defined.
+
+```{r}
+#| label: fig-RL-exploration
+#| fig-cap: ""
+
+n_select = 1
+# Select top models by BIC (lower is better) and AUC (higher is better)
+selected_models <- bind_rows(
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(bic) %>% slice_head(n = n_select),
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(desc(auc_out)) %>% slice_head(n = n_select),
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(desc(auc)) %>% slice_head(n = n_select),
+  top_fits_df %>% filter(State == "None") %>%
+    arrange(desc(logLik_ind)) %>% slice_head(n = n_select),
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(bic) %>% slice_head(n = 2*n_select),
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(desc(auc_out)) %>% slice_head(n = 2*n_select),
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(desc(auc)) %>% slice_head(n = 2*n_select),
+  top_fits_df %>% filter(State != "None") %>%
+    arrange(desc(logLik_ind)) %>% slice_head(n = 2*n_select)
+) %>% distinct(Action, Reward, State, .keep_all = TRUE)
+
+plot <- selected_models %>%
+  select(Action, Reward, State, bic, auc_out) %>%
+  ggplot(aes(x = auc_out, y = bic, shape = State, color = Reward)) +
+  geom_point() +
+  theme(legend.position = "bottom") +
+  geom_mark_ellipse(
+    aes(group = Action, label = Action, color = NULL),
+    con.type = "straight",
+    con.cap = 0,
+    expand = .02,
+    label.buffer = unit(0.1, "mm")
+  ) +
+  theme_minimal() +
+  labs(x = "Best-Fit AUC", y = "Total BIC",
+       title = "Selected Models for Further Analysis")
+
+print(plot)
+
+```
+
+```{r RL-me-interpretation}
+#| eval: false
+
+library(fixest)
+
+create_model <- function(formula, data) {
+  # Fit a logistic regression model with fixed effects
+  model <- feglm(formula, data = data, family = binomial, 
+                 panel.id = c("Teacher.User.ID", "week"),
+                 glm.iter = 50, mem.clean = TRUE)
+  return(model)
+}
+create_formula <- function(action, reward, state = NULL, lag = 1) {
+  terms <- c()
+
+  for (i in 1:lag) {
+    # Base terms for action and reward
+    terms <- c(terms, paste0(reward, "_", i), paste0(action, "_", i))
+
+    # Interaction term for reward_i * action_i with varying slopes
+    terms <- c(terms, paste0(reward, "_", i, ":", action, "_", i))
+
+    if (i != lag) {
+      for (j in (i + 1):lag) {
+        # Add the interaction for reward_i * action_j when i < lag with varying slopes
+        terms <- c(terms, paste0(reward, "_", i, ":", action, "_", j))
+      }
+    }
+  }
+
+  if (is.null(state)) {
+    formula_string <- paste0(action, " ~ week_lag ",
+                             " | Teacher.User.ID[",
+                             paste(terms, collapse = ", "),
+                             "] + week")
+  } else {
+    formula_string <- paste0(action, " ~ week_lag ",
+                             " | Teacher.User.ID[",
+                             paste(terms, collapse = ", "), ", ",
+                             state, ", ", state, ":", action, "_1",
+                             "] + week")
+  }
+
+  return(formula_string)
+}
+
+action <- c("Frobenius.NNDSVD_teacher")
+reward <- c("Frobenius.NNDSVD_student")
+lags = 2
+n_lags = 2
+n_comp = 4
+params2 <- crossing(
+  act = colnames(df)[str_detect(colnames(df),
+                                paste0(action, collapse = "|"))],
+  lag = lags,
+  st  = c(colnames(df)[str_detect(colnames(df),
+                                  paste0(reward, collapse = "|"))],
+          "NA"),
+  rwd = colnames(df)[str_detect(colnames(df),
+                                paste0(reward, collapse = "|"))]
+) %>%
+  filter(rwd != st) %>%
+  unique() %>%
+  semi_join(
+    selected_models %>%
+      select(Action, Reward, State) %>%
+      mutate(across(c(Action, Reward, State),
+                    ~ case_when(. == "Completion" ~ "Frobenius.NNDSVD_student1",
+                                . == "Struggle" ~ "Frobenius.NNDSVD_student2",
+                                . == "No. Students" ~ "Frobenius.NNDSVD_student3",
+                                . == "No. Sessions" ~ "Frobenius.NNDSVD_student4",
+                                . == "Assessments" ~ "Frobenius.NNDSVD_teacher1",
+                                . == "Scaffolding" ~ "Frobenius.NNDSVD_teacher2",
+                                . == "Activities" ~ "Frobenius.NNDSVD_teacher3",
+                                . == "Planning Guides" ~ "Frobenius.NNDSVD_teacher4",
+                                . == "None" ~ "NA",
+                                .default = .))),
+    by = c("act" = "Action", "rwd" = "Reward", "st" = "State"))
+
+# Data and Variables
+df_bin <- as.data.table(
+  df %>%
+    mutate(across(dplyr::starts_with(action), ~ if_else(.>median(.),1,0))) %>%
+    mutate(across(dplyr::starts_with(reward), ~ ./sd(., na.rm = TRUE)))
+)
+# Create lags
+for (col in c(action, reward)) {
+  for (lag_period in 1:n_lags) {
+    df_bin <- get_lag_value(df_bin, col, lag_period, n_comp)
+  }
+}
+# Panel data
+train_data <- as.data.frame(df_bin[set == "train"])
+test_data <- as.data.frame(df_bin[set == "test"])
+
+cl <- makeCluster(min(nrow(params2), detectCores()-1))
+registerDoParallel(cl)
+results <- foreach(i = 1:nrow(params2),
+                   .multicombine = TRUE,
+                   .errorhandling = "remove",
+                   .noexport = c("formula", "model",
+                                 "residuals", "predictions"),
+                   .packages = c("fixest", "pROC", "dplyr")) %dopar% {
+                     act <- as.character(params2$act[i])
+                     lag <- params2$lag[i]
+                     st <- NULL
+                     if (as.character(params2$st[i]) != "NA") {
+                       st <- as.character(params2$st[i])
+                     }
+                     rwd <- as.character(params2$rwd[i])
+                     fmla <- create_formula(action = act, reward = rwd,
+                                            state = st, lag = lag)
+                     model <- create_model(as.formula(fmla), train_data)
+
+                     # Out-of-Sample Predictions
+                     predictions <- predict(model, newdata = test_data)
+                     perform_df <- cbind(test_data, predictions) %>%
+                       filter(!is.na(predictions), !is.na(!!sym(act))) %>%
+                       group_by(Teacher.User.ID) %>%
+                       filter(sd(!!sym(act)) > 0, sd(predictions) > 0) %>%
+                       summarise(n_test = n(),
+                                 auc_out = as.numeric(
+                                   roc(response = !!sym(act),
+                                       predictor = predictions,
+                                       quiet = TRUE)$auc)) %>%
+                       # In-Sample Predictions
+                       inner_join(cbind(train_data,
+                                        predictions = predict(
+                                          model, newdata = train_data)) %>%
+                           filter(!is.na(predictions), !is.na(!!sym(act))) %>%
+                           mutate(logLik_ind = if_else(!!sym(act) == 1,
+                                                       log(predictions),
+                                                       log(1 - predictions))) %>%
+                           group_by(Teacher.User.ID) %>%
+                           filter(sd(!!sym(act)) > 0, sd(predictions) > 0) %>%
+                           summarise(logLik_ind = sum(logLik_ind, na.rm = TRUE),
+                                     n_train = n(),
+                                     auc_in = as.numeric(
+                                       roc(response = !!sym(act),
+                                           predictor = predictions,
+                                           quiet = TRUE)$auc)),
+                           by = "Teacher.User.ID")
+
+                     # Return the results as a list
+                     list(Method = act,
+                          Lag = lag,
+                          State = st,
+                          Reward = rwd,
+                          formula = fmla,
+                          AUC = as.numeric(
+                            roc(response = test_data[,act],
+                                predictor = predictions,
+                                quiet = TRUE)$auc),
+                          bic = BIC(model),
+                          perform_df = perform_df,
+                          fecoef = summary(model)$coeftable,
+                          recoef = fixef(model))
+                   }
+# Stop the cluster
+stopCluster(cl)
+rm(cl)
+
+save(results, file = "me-standardized-coef.RData")
+
+```
+
+#### Model Selection Part 2
+
+We applied further scrutiny to the top models through re-estimation with scaled independent variables, enabling a direct comparison of coefficients. In this case, an increase of 1 unit in the independent variable represents an increase of one standard deviation. @tbl-re-estimation summarizes these results, revealing the standardized coefficients for reward and state variables and their interactions with lagged actions.
+
+Here, we sought the models with coefficients presenting attributes most resembling RL. Specifically, the interaction between rewards and actions positively influenced future actions for desired outcomes (e.g., lesson completion) and negatively for undesired outcomes (e.g., struggles). Further, state-based models should incorporate the effects of current states on strategic action selection. The interaction term between states and lagged actions further points to the role of actions in achieving and maintaining desired states. 
+
+Notably, the models underscore the absence of a one-size-fits-all approach, indicating a spectrum of strategies where some teachers' practices align more closely with RL principles than others. Ranking the models by the proportion of teachers whose coefficients present RL-like effects, this analysis favors 1) Action: Scaffolding, Reward: No. Sessions, State: No. Students; 2) Action: Activities, Reward: Completion, State: No. Students; and 3) Action: Assessments, Reward: No. Students, State: Completion. @fig-RL-exploration, on the other hand, highlights the models closest to the bottom right corner: 1) Action: Scaffolding, Reward: No. Students, State: No. Sessions; 2) Action: Scaffolding, Reward: No. Sessions, State-free; 3) Action: Scaffolding, Reward: No. Sessions, State: Completion; 4) Action: Activities, Reward: Completion, State: No. Students; and 5) Action: Activities, Reward: Struggle, State-free. Overall, the complexity of these individual differences and the model performance calls for hybrid modeling in future RL-fitting steps.
+
+```{r}
+#| label: tbl-re-estimation
+#| tbl-cap: ""
+
+load("me-standardized-coef.RData")
+
+filtered_results <- lapply(results, function(x) {
+  temp <- data.frame(
+    Action = x$Method,
+    Reward = x$Reward,
+    State = ifelse(is.null(x$State), "None", x$State)
+  ) %>%
+  mutate(across(c(Action, Reward, State),
+                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Completion",
+                            . == "Frobenius.NNDSVD_student2" ~ "Struggle",
+                            . == "Frobenius.NNDSVD_student3" ~ "No. Students",
+                            . == "Frobenius.NNDSVD_student4" ~ "No. Sessions",
+                            . == "Frobenius.NNDSVD_teacher1" ~ "Assessments",
+                            . == "Frobenius.NNDSVD_teacher2" ~ "Scaffolding",
+                            . == "Frobenius.NNDSVD_teacher3" ~ "Activities",
+                            . == "Frobenius.NNDSVD_teacher4" ~ "Planning Guides",
+                            .default = .)))
+  if(nrow(
+    temp %>%
+    semi_join(selected_models, by = c("Action", "Reward", "State"))
+    ) == 0) return(NULL)
+  if(x$AUC < 0.5) return(NULL)
+  x$recoef <- do.call(cbind, x$recoef[-c(1, length(x$recoef))]) %>%
+    as.data.frame() %>%
+    filter(if_all(everything(),
+                  ~ . >= find_hdr(.)[1] & . <= find_hdr(.)[2])) %>%
+    rownames_to_column(var = "Teacher.User.ID")
+  
+  if (is.null(x$State)) {
+    return(list(
+      Action = temp$Action,
+      Reward = temp$Reward,
+      State = "None",
+      AUCmodel = x$AUC,
+      BICmodel = x$bic,
+      coef = data.frame(
+        Teacher.User.ID = as.integer(x$recoef[,1]),
+        lag1 = x$recoef[,3],
+        lag2 = x$recoef[,7],
+        rwd1 = x$recoef[,2],
+        rwd2 = x$recoef[,6],
+        rwd1_lag1 = x$recoef[,4],
+        rwd1_lag2 = x$recoef[,5],
+        rwd2_lag2 = x$recoef[,8]
+      ) %>%
+        inner_join(x$perform_df %>%
+                     select(Teacher.User.ID, auc_out, logLik_ind) %>%
+                     filter(if_all(everything(), ~ . >= find_hdr(.)[1] &
+                                                   . <= find_hdr(.)[2])) %>%
+                     filter(0.5 < auc_out & auc_out < 1),
+                   by = "Teacher.User.ID")
+    ))
+  } else {
+    return(list(
+      Action = temp$Action,
+      Reward = temp$Reward,
+      State = temp$State,
+      AUCmodel = x$AUC,
+      BICmodel = x$bic,
+      coef = data.frame(
+        Teacher.User.ID = as.integer(x$recoef[,1]),
+        lag1 = x$recoef[,3],
+        lag2 = x$recoef[,7],
+        rwd1 = x$recoef[,2],
+        rwd2 = x$recoef[,6],
+        rwd1_lag1 = x$recoef[,4],
+        rwd1_lag2 = x$recoef[,5],
+        rwd2_lag2 = x$recoef[,8],
+        st = x$recoef[,9],
+        st_lag1 = x$recoef[,10]
+      ) %>%
+        inner_join(x$perform_df %>%
+                     select(Teacher.User.ID, auc_out, logLik_ind) %>%
+                     filter(auc_out >= 0.5 & auc_out < 1),
+                   by = "Teacher.User.ID")
+    ))
+  }
+})
+filtered_results <- filtered_results[!sapply(filtered_results, is.null)]
+
+model_summary <- do.call(rbind, lapply(filtered_results, function(x) {
+  summary <- data.frame(
+    Action = x$Action,
+    Reward = x$Reward,
+    State = x$State,
+    AUC = x$AUCmodel,
+    BIC = x$BICmodel
+  )
+  summary$lag1 = list(x$coef$lag1)
+  summary$lag2 = list(x$coef$lag2)
+  summary$rwd1_lag1 = list(x$coef$rwd1_lag1)
+  summary$rwd1_lag2 = list(x$coef$rwd1_lag2)
+  summary$rwd2_lag2 = list(x$coef$rwd2_lag2)
+  summary$st = ifelse(x$State == "None", list(0), list(x$coef$st))
+  summary$st_lag1 = ifelse(x$State == "None", list(0), list(x$coef$st_lag1))
+  summary$auc_ind = list(x$coef$auc_out)
+  summary$logLik_ind = list(x$coef$logLik_ind)
+  
+  summary <- summary %>%
+    # # Standardize the coefficients by dividing by the standard deviation
+    # mutate(across(c(rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
+    #               ~ lapply(., function(x) x / sd(x, na.rm = T)))) %>%
+    # # Fill in x$State == "None" with 0s
+    # mutate(across(c(st, st_lag1), ~ if_else(is.na(.), list(0), .))) %>%
+    mutate(n_teachers = lapply(summary$lag1, length)) %>%
+    mutate(across(c(lag1, lag2, rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1,
+                    auc_ind, logLik_ind),
+                  ~ lapply(., mean, na.rm = T),
+                  .names = "{.col}.mean")) %>%
+    mutate(across(c(lag1, lag2, rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
+                  ~ lapply(., sd, na.rm = T),
+                  .names = "{.col}.sd")) %>%
+    mutate(across(c(lag1, lag2, rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
+                  ~ lapply(., quantile, 0.25, names = F),
+                  .names = "{.col}.q1")) %>%
+    mutate(across(c(lag1, lag2, rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
+                  ~ lapply(., median, na.rm = T),
+                  .names = "{.col}.median")) %>%
+    mutate(across(c(lag1, lag2, rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
+                  ~ lapply(., quantile, 0.75, names = F),
+                  .names = "{.col}.q3")) %>%
+    mutate(across(c(lag1, lag2, rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
+                  ~ lapply(., function(x) mean(x > 0, na.rm = T)),
+                  .names = "{.col}.pos")) %>%
+    select(-c(lag1, lag2, rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1,
+              auc_ind, logLik_ind, auc_ind.mean, logLik_ind.mean))
+  
+  return(summary)
+}))
+
+# Transform the model_summary dataframe to a long format for plotting
+model_summary_long <- model_summary %>%
+  mutate(across(!c(Action, Reward, State), as.numeric)) %>%
+  mutate(across(dplyr::ends_with(".pos") & dplyr::starts_with("st"),
+                ~ case_when(State == "Struggle" ~ 1 - ., .default = .)),
+         across(dplyr::ends_with(".pos") & dplyr::starts_with("rwd"),
+                ~ case_when(Reward == "Struggle" ~ 1 - ., .default = .))) %>%
+  select(!c(AUC, BIC)) %>%
+  mutate(across(dplyr::starts_with("st", ignore.case = F),
+                ~ if_else(State == "None", NA, .))) %>%
+  pivot_longer(cols = -c(Action, Reward, State), 
+               names_to = c("variable", "statistic"), values_to = "value",
+               names_sep = "\\.") %>%
+  arrange(Action, Reward, State) %>%
+  pivot_wider(names_from = c(Action, Reward, State), values_from = c(value))
+  
+max <- model_summary_long %>%
+  filter(statistic == "pos" & !variable %in% c("lag1","lag2")) %>%
+  rowwise() %>%
+  # Remove columns that do not have the max of at least 1 row
+  mutate(max_val = max(c_across(is.numeric), na.rm = T)) %>%
+  ungroup() %>%
+  mutate(across(is.numeric, ~ if_else(. == max_val, ., NA))) %>%
+  select(where(~ !all(is.na(.)))) %>%
+  select(-c("max_val","statistic")) %>%
+  mutate(across(is.numeric, ~ !is.na(.))) %>%
+  pivot_longer(cols = -variable, names_to = "model", values_to = "keep") %>%
+  filter(keep) %>% select(-keep)
+
+model_summary_long %>%
+  filter(!variable %in% c("lag1", "lag2")) %>%
+  mutate(statistic = factor(statistic,
+                            levels = c("mean", "sd", "q1", "median", "q3", "pos"),
+                            labels = c("Mean", "SD", "Q1", "Median", "Q3", "RL-like")),
+         variable = factor(variable,
+                           levels = c(
+                             # "lag1", "lag2",
+                             "rwd1_lag1", "rwd1_lag2", "rwd2_lag2",
+                             "st", "st_lag1",
+                             "n_teachers"),
+                           labels = c(
+                             # "Action<sub>t-1</sub>",
+                             # "Action<sub>t-2</sub>",
+                             "Reward<sub>t-1</sub> x \n Action<sub>t-1</sub>",
+                             "Reward<sub>t-1</sub> x \n Action<sub>t-2</sub>",
+                             "Reward<sub>t-2</sub> x \n Action<sub>t-2</sub>",
+                             "State<sub>t</sub>",
+                             "State<sub>t</sub> x \n Action<sub>t-1</sub>",
+                             "No. Teachers"
+                             ))) %>%
+  select(order(names(model_summary_long))) %>%
+  group_by(variable) %>%
+  gt(rowname_col = "statistic", row_group_as_column = T) %>%
+  row_group_order(groups = c(
+    # "Action<sub>t-1</sub>",
+    # "Action<sub>t-2</sub>",
+    "Reward<sub>t-1</sub> x \n Action<sub>t-1</sub>",
+    "Reward<sub>t-1</sub> x \n Action<sub>t-2</sub>",
+    "Reward<sub>t-2</sub> x \n Action<sub>t-2</sub>",
+    "State<sub>t</sub>",
+    "State<sub>t</sub> x \n Action<sub>t-1</sub>",
+    "No. Teachers")) %>%
+  fmt_markdown(columns = "variable") %>%
+  fmt_number(decimals = 2) %>%
+  fmt_integer(rows = variable == "No. Teachers") %>%
+  fmt_percent(rows = statistic == "RL-like") %>%
+  # cols_hide(starts_with("Assessments_No. Students")) %>%
+  sub_missing() %>%
+  tab_spanner_delim("_") %>%
+  tab_header(
+    title = "Summary of Model Coefficients"
+  )
+
+```
+
+
+
+
+```{r}
+#| label: tbl-school-characteristics
+
+library(fixest)
+
+school_df <- do.call(rbind, lapply(filtered_results, function(item) {
+  # Merge with badges data
+  temp <- item$coef %>%
+    right_join(badges_df, by = "Teacher.User.ID") %>%
+    mutate(auc_logit = log(auc_out/(1-auc_out))) %>%
+    select(Teacher.User.ID, MDR.School.ID, auc_logit, logLik_ind,
+           school.account, charter.school, income, poverty) %>%
+    mutate(state = ifelse(is.null(item$State), "None", item$State),
+           reward = item$Reward,
+           action = item$Method)
+})) %>%
+  mutate(across(c(state, reward, action), factor))
+
+reg_school <- feols(auc_logit ~ i(poverty, "40-75% (Mid-High)") +
+                      school.account + charter.school |
+                      state^reward^action,
+                 data = school_df)
+
+Xpower <- sapply(levels(school_df$income), 
+               function(x)ifelse(school_df$income==x, 1, 0))
+colnames(Xpower) <- c(levels(school_df$income))
+Xpower <- Xpower %*% contr.poly(length(levels(school_df$income)))[,1:3]
+colnames(Xpower) <- c("income.L", "income.Q", "income.C")
+school_df <- cbind(school_df, Xpower)
+reg_school <- feols(auc_logit ~ income.L + income.Q + income.C + 
+                      school.account + charter.school |
+                      state^reward^action,
+                 data = school_df)
+
+school_df <- school_df %>%
+  mutate(low_pov = if_else(poverty == "0-40% (Low)", 1, 0),
+         mid_pov = if_else(poverty == "40-75% (Mid-High)", 1, 0),
+         high_pov = if_else(poverty == "75-100% (High)", 1, 0))
+
+reg_school <- feols(auc_logit ~ i(low_pov, state:reward:action) +
+                      i(mid_pov, state:reward:action) +
+                      school.account + charter.school |
+                      state^reward^action,
+                 data = school_df)
+
+iplot(reg_school)
+
+```
+
+```{r re-estimation}
+#| eval: false
 
 create_RL_formula <- function(action, reward, state = NULL, lag = 1,
                               group = "Teacher.User.ID") {
   re_terms <- c()
-  fe_terms <- c()
   
   for (i in 1:lag) {
-    fe_terms <- c(fe_terms, paste0(reward, "_", i), paste0(action, "_", i))
+    re_terms <- c(re_terms, paste0(reward, "_", i), paste0(action, "_", i))
     # Add the interaction term for Reward_i * action_i
     re_terms <- c(re_terms, paste0(reward, "_", i, ":", action, "_", i))
     if (i != lag) {
@@ -2026,13 +2689,13 @@ create_RL_formula <- function(action, reward, state = NULL, lag = 1,
   }
   if (is.null(state)) {
     formula_string <- paste0(action, " ~ ",
-                             paste(fe_terms, collapse = " + "), " + ",
+                             paste(re_terms, collapse = " + "), " + ",
                              "(", paste(re_terms, collapse = " + "), "|",
                              group, ") + ", "week_lag")
     return(as.formula(formula_string))
   } else {
     formula_string <- paste0(action, " ~ ",
-                             paste(fe_terms, collapse = " + "), " + ",
+                             paste(re_terms, collapse = " + "), " + ",
                              "(", paste(re_terms, collapse = " + "), " + ",
                              state, " + ", paste0(state, ":", action, "_1"), "|",
                              group, ") + ", "week_lag")
@@ -2041,199 +2704,6 @@ create_RL_formula <- function(action, reward, state = NULL, lag = 1,
   return(as.formula(formula_string))
 }
 
-# Function to compute out-of-sample negative log-likelihood for logistic regression
-compute_nloglik_logit <- function(model, test_data, outcome_var) {
-  # Predicted probabilities
-  predicted_probs <- predict(model, newdata = test_data, type = "response",
-                             allow.new.levels = TRUE)
-  
-  # Actual binary outcomes
-  actual_outcomes <- test_data[[outcome_var]]
-  
-  # Compute log-likelihood
-  log_likelihood <- actual_outcomes * log(predicted_probs) + 
-                    (1 - actual_outcomes) * log(1 - predicted_probs)
-  
-  # Negative log-likelihood
-  nll <- -sum(log_likelihood, na.rm = TRUE)
-  
-  return(as.numeric(nll))
-}
-
-# Data and Variables
-actions <- c("Frobenius.NNDSVD_teacher", "Minutes.on.Zearn...Total")
-rewards <- c("Frobenius.NNDSVD_student")
-# rewards <- c("Active.Users...Total", "Sessions.per.Active.User",
-#              "Minutes.per.Active.User", "Badges.per.Active.User",
-#              "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion")
-columns <- colnames(
-  df %>% select(contains(c(actions, rewards)))
-)
-
-df_binary <- as.data.table(
-  df %>%
-    group_by(MDR.School.ID) %>%
-    mutate(across(contains(actions), ~ if_else(. > median(.), 1, 0))) %>%
-    ungroup()
-  )
-
-results_df_list <- list()
-# lags <- c(1:7)
-lags <- 2
-# n_comp = 3
-n_lags = max(lags)
-
-# Create lags
-for (col in columns) {
-  for (lag_period in 1:n_lags) {
-    df_binary <- get_lag_value(df_binary, col, lag_period)
-  }
-}
-
-# Create train and test datasets
-train_data <- df_binary[set == "train"]
-test_data <- df_binary[set == "test"]
-
-# Estimation
-params <- crossing(
-  act = columns[str_detect(columns, paste0(actions, collapse = "|"))],
-  lag = lags,
-  rwd = columns[str_detect(columns, paste0(rewards, collapse = "|"))],
-  st  = columns[str_detect(columns, paste0(rewards, collapse = "|"))]
-) %>%
-  filter(rwd != st) %>%
-  unique()
-
-cl <- makeCluster(detectCores())
-registerDoParallel(cl)
-results <- foreach(i = 1:nrow(params),
-                   .multicombine = TRUE,
-                   .noexport = c("formula", "model"),
-                   .export = ls(),
-                   .packages = "lme4") %dopar% {
-  act <- as.character(params$act[i])
-  lag <- params$lag[i]
-  rwd <- as.character(params$rwd[i])
-  st  <- as.character(params$st[i])
-  formula <- create_RL_formula(act, rwd, st, lag)
-  model <- tryCatch(
-    glmer(formula, data = train_data, family = binomial(link = "logit"),
-          control = glmerControl(boundary.tol = 1e-3)),
-    error = function(e) { return(NULL) }
-    )
-
-  # Return the results as a list
-  list(Action = act,
-       Reward = rwd,
-       State = st,
-       Lag = lag,
-       equation = as.character(formula),
-       nloglik = tryCatch(
-         compute_nloglik_logit(model, test_data, act),
-         error = function(e) { return(NULL) }
-         ),
-       bic = tryCatch(
-         as.numeric(summary(model)$AICtab["BIC"]),
-         error = function(e) { return(NULL) }
-         )
-       )
-}
-# Stop the cluster
-stopCluster(cl)
-rm(cl)
-
-save(results, file = "me-results.RData")
-
-```
-
-```{r}
-#| label: fig-RL-exploration
-#| fig-cap: ""
-
-# Wrangling the results data frame for plotting
-results_df <- map_dfr(results, ~as.data.frame(t(unlist(.))))
-# Convert variables to appropriate data types
-results_df <- results_df %>%
-  filter(Action != "Minutes.on.Zearn...Total") %>%
-  mutate(Action = as.factor(unlist(Action)),
-         Reward = as.factor(unlist(Reward)),
-         State = as.factor(unlist(State)),
-         Lag = as.numeric(unlist(Lag)),
-         nloglik = as.numeric(unlist(nloglik)),
-         bic = as.numeric(unlist(bic)),
-         # rsq = as.numeric(unlist(rsq)),
-         # formula = as.character(unlist(equation)),
-         across(dplyr::starts_with("coef"),
-                ~ as.numeric(unlist(.)))) %>%
-  mutate(Action = case_when(
-    Action == "Frobenius.NNDSVD_teacher1" ~ "Teacher NMF1",
-    Action == "Frobenius.NNDSVD_teacher2" ~ "Teacher NMF2",
-    Action == "Frobenius.NNDSVD_teacher3" ~ "Teacher NMF3",
-    Action == "Frobenius.NNDSVD_teacher4" ~ "Teacher NMF4",
-    Action == "Minutes.on.Zearn...Total" ~ "Teacher Minutes"
-    ),
-    across(c(Reward, State),
-           ~ case_when(
-             . == "Frobenius.NNDSVD_student1" ~ "Student NMF1",
-             . == "Frobenius.NNDSVD_student2" ~ "Student NMF2",
-             . == "Frobenius.NNDSVD_student3" ~ "Student NMF3",
-             . == "Frobenius.NNDSVD_student4" ~ "Student NMF4")
-    )) %>%
-  na.omit()
-  
-# Function to create a plot for a specific action
-plot_for_action <- function(action_var) {
-  ggplot(results_df[results_df$Action == action_var, ],
-         aes(x = nloglik, y = bic, color = Reward, shape = State)) +
-    geom_point() +
-    theme_minimal() +
-    labs(title = action_var,
-         x = "Out-of-sample Neg. Log-likelihood", y = "BIC") +
-    theme(legend.position = "none")
-}
-
-# Create individual plots for each action
-plots <- lapply(unique(results_df$Action),
-                plot_for_action)
-
-# Extract separate legends for color and shape
-legend_color_plot <- ggplot(
-  results_df, aes(x = nloglik, y = bic, color = Reward)
-  ) +
-  geom_point() +
-  theme_void() +
-  theme(legend.position = "bottom")
-
-legend_shape_plot <- ggplot(
-  results_df, aes(x = nloglik, y = bic, shape = State)
-  ) +
-  geom_point() +
-  theme_void() +
-  theme(legend.position = "bottom")
-
-legend_color <- ggplotGrob(legend_color_plot)$grobs[[
-  which(sapply(ggplotGrob(legend_color_plot)$grobs,
-               function(x) x$name) == "guide-box")
-  ]]
-legend_shape <- ggplotGrob(legend_shape_plot)$grobs[[
-  which(sapply(ggplotGrob(legend_shape_plot)$grobs,
-               function(x) x$name) == "guide-box")
-  ]]
-
-# Combine the color and shape legends vertically
-combined_legend <- arrangeGrob(legend_color, legend_shape, ncol = 1)
-
-# Combine the plots into a 2x2 panel with the combined legends at the bottom
-combined_plot <- grid.arrange(
-  grobs = c(plots, list(combined_legend)),
-  layout_matrix = rbind(c(1, 2),
-                        c(3, 4),
-                        c(5, 5))
-)
-
-```
-
-```{r re-estimation}
 
 # Estimation
 params <- params %>%
@@ -2241,9 +2711,9 @@ params <- params %>%
          grepl("1|2|4", rwd),
          act != "Minutes.on.Zearn...Total")
 
-cl <- makeCluster(min(detectCores() - 1, nrow(params)))
+cl <- makeCluster(min(detectCores(), nrow(params)))
 registerDoParallel(cl)
-top_results <- foreach(i = 1:nrow(params),
+top_results <- foreach(i = 1:(nrow(params)),
                    .multicombine = TRUE,
                    .noexport = c("formula", "model"),
                    .export = ls(),
@@ -2253,7 +2723,7 @@ top_results <- foreach(i = 1:nrow(params),
   rwd <- as.character(params$rwd[i])
   st  <- as.character(params$st[i])
   formula <- create_RL_formula(act, rwd, st, lag,
-                               group = "Teacher.User.ID/MDR.School.ID")
+                               group = "Teacher.User.ID")
 
   # Return the results as a list
   list(Action = act,
@@ -2262,7 +2732,8 @@ top_results <- foreach(i = 1:nrow(params),
        Lag = lag,
        equation = as.character(formula),
        model <- tryCatch(
-         glmer(formula, data = train_data, family = binomial(link = "logit")),
+         glmer(formula, data = train_data, family = binomial(link = "logit"),
+               control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e3))),
          error = function(e) { return(NULL) }
          )
        )
@@ -2275,8 +2746,80 @@ save(top_results, file = "me-top-results.RData")
 
 ```
 
+```{r}
+#| label: fig-RL-refined
+#| fig-cap: ""
 
+library(lme4)
 
+load("me-top-results.RData")
+
+# Function to create density plot
+create_density_plot <- function(data, cols, title) {
+  quantiles <- do.call(rbind, lapply(cols, function(col) {
+    quantile(data %>% filter(Term == col) %>% pull(Coefficient), c(0.05, 0.95))
+  }))
+  bounds <- range(quantiles, na.rm = TRUE)
+  
+  ggplot() +
+    geom_density(data = data,
+                 aes(x = Coefficient, fill = Term),
+                 alpha = 0.6,
+                 adjust = 2,
+                 bounds = bounds) +
+    theme_minimal() +
+    theme(
+      panel.grid = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.title.x = element_blank(),
+      legend.title = element_blank(),
+      plot.title = element_blank(),
+      legend.position = "none"
+    )
+}
+
+# Generating plots for each model
+plot_list <- lapply(top_results, function(object) {
+  model <- object[[6]]
+  
+  if (!is.null(model)) {
+    re <- ranef(model)$Teacher.User.ID
+    re <- re[,-1] # Remove the first column (Intercept)
+    
+    # Separate state and reward effects
+    state_cols <- grep(object$State, names(re), value = TRUE)
+    reward_cols <- setdiff(names(re), state_cols)
+    
+    # Reshape the data to a long format for plotting
+    re_long_state <- pivot_longer(re[,state_cols], 
+                                  cols = state_cols, 
+                                  names_to = "Term", 
+                                  values_to = "Coefficient")
+    re_long_reward <- pivot_longer(re[,reward_cols], 
+                                   cols = reward_cols, 
+                                   names_to = "Term", 
+                                   values_to = "Coefficient")
+    
+    # Create loess density plots
+    plot_state <- create_density_plot(re_long_state, state_cols, "State Effects")
+    plot_reward <- create_density_plot(re_long_reward, reward_cols, "Reward Effects")
+    
+    return(list(StatePlot = plot_state, RewardPlot = plot_reward))
+  }
+})
+
+names(plot_list) <- lapply(top_results, function(object) {
+  name <- paste(object$Action, " ~ ",
+                "R", object$Reward,
+                " S", object$State, sep = "")
+  name <- gsub("Frobenius.NNDSVD_", "", name)
+  name <- gsub("teacher", "IC", name)
+  name <- gsub("student", "", name)
+})
+
+```
 
 ```{r}
 #| label: fig-timelines
@@ -2476,16 +3019,11 @@ corrplot(cor_matrix, method = "circle")
 
 ```
 
-TO-DO: temporal analysis of teachers choices and a bunch of variables: 
-bayesian analysis of 
-<!-- Panel Regression of all variables and badges. -->
-<!-- Investigate the basic analysis of behavior and its structure over time. John: "Really try to dig into what the structure is between how teachers' choices are changing across weeks, and what factors might be related to those." -->
-<!-- Detailed Data Analysis by School and Classroom: how much do individual schools and classrooms vary. You might want to downsample schools in some way. -->
-<!-- Cooper: "What is going on in the data—school quality, what is changing over time, etc. just understand the statistics of all the data." -->
+TO-DO: temporal analysis of teachers choices and a bunch of variables: bayesian analysis of <!-- Panel Regression of all variables and badges. --> <!-- Investigate the basic analysis of behavior and its structure over time. John: "Really try to dig into what the structure is between how teachers' choices are changing across weeks, and what factors might be related to those." --> <!-- Detailed Data Analysis by School and Classroom: how much do individual schools and classrooms vary. You might want to downsample schools in some way. --> <!-- Cooper: "What is going on in the data—school quality, what is changing over time, etc. just understand the statistics of all the data." -->
 
 <!-- Temporal Changes in States and Rewards -->
-<!-- "Are these like behavioral metrics like Tower Alerts decreasing as a function of time? Is it a product of teacher interventions, or are the teachers, for some reason, acting less at the end of the 15 weeks?" -->
 
+<!-- "Are these like behavioral metrics like Tower Alerts decreasing as a function of time? Is it a product of teacher interventions, or are the teachers, for some reason, acting less at the end of the 15 weeks?" -->
 
 The trade-off between model complexity and predictive accuracy justifies including four lags. Including more lags would increase the complexity of the model, potentially leading to overfitting and poorer predictive performance. Conversely, including fewer lags might result in a model that fails to capture critical temporal dependencies in the data. The selection of four lags represents an inflection point in the BIC and NLL, indicating an optimal balance between model complexity and predictive accuracy.
 
@@ -2620,10 +3158,10 @@ colnames(table_df)[colnames(table_df) == "ModelType"] <- "Model"
 
 # To highlight the best value in the table
 table_df %>%
-  gt::gt() %>%
-  gt::tab_style(
-    style = gt::cell_fill(color = "lightgreen"),
-    locations = gt::cells_body(
+  gt() %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(
       columns = names(table_df)[colSums(table_df == min(table_df[,-1])) >= 1],
       rows = rowSums(table_df == min(table_df[,-1])) >= 1
     )
