@@ -56,3 +56,6 @@ py-zearn/
 /.quarto/
 
 /.luarc.json
+/CBM/Archive
+/CBM/zearn_results/comp_results
+/temp_files
