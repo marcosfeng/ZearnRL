@@ -1,10 +1,10 @@
 % Combine individual data into one struct
-Nsubj = 420;
+Nsubj = 295;
 % Initialize an empty cell array to hold the individual subject data
-data = cell(Nsubj, 1);  % Assuming you have 210 subjects
+data = cell(Nsubj, 1);
     
 % Loop through each subject's .mat file
-for i = 1:Nsubj  % Replace 210 with the actual number of subjects if different
+for i = 1:Nsubj
     % Create the full path to the individual .mat file
     filename = sprintf('individual/subj_%d.mat', i);
     
@@ -13,17 +13,8 @@ for i = 1:Nsubj  % Replace 210 with the actual number of subjects if different
         % Load the individual .mat file
         individual_data = load(filename);
         
-        % Create a struct to hold the loaded data
-        subj_struct = struct('actions', individual_data.actions, ...
-                             'activest', individual_data.activest, ...
-                             'minutes', individual_data.minutes, ...
-                             'badges', individual_data.badges, ...
-                             'boosts', individual_data.boosts, ...
-                             'alerts', individual_data.alerts, ...
-                             'simmed', individual_data.simmed);
-        
         % Add this struct to the cell array
-        data{i, 1} = subj_struct;
+        data{i, 1} = individual_data;
     else
         fprintf('File %s does not exist.\n', filename);
     end
@@ -31,3 +22,4 @@ end
 
 % Save the cell array to a new .mat file within the same folder
 save(sprintf('all_data.mat'), 'data');
+% rmdir("individual/","s")
