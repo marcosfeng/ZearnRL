@@ -101,7 +101,8 @@ function [loglik] = hybrid_ql_ac(parameters, subj)
     end
 
     %% Hybrid
-    weight = parameters(5);
+    nd_weight = parameters(5);
+    weight = 1 / (1 + exp(-nd_weight));
     pred_hybrid = weight * pred1 + (1 - weight) * pred2;
 
     % Calculate the log likelihood

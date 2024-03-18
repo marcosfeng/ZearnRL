@@ -70,7 +70,8 @@ function [loglik] = hybrid_ql_logit(parameters, subj)
     pred2 = 1 ./ (1 + exp(-linear_comb));
 
     %% Hybrid
-    weight = parameters(5);
+    nd_weight = parameters(5);
+    weight = 1 / (1 + exp(-nd_weight));
     pred_hybrid = weight * pred1 + (1 - weight) * pred2;
 
     % Calculate the log likelihood

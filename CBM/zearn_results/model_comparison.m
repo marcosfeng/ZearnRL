@@ -23,7 +23,8 @@ wrapper_function_2_ac = str2func('wrapper_function_2');
 wrapper_function_51_ac = str2func('wrapper_function_51');
 path(wrapperPath);
 
-fname_template = {'comp_results/lap_logit7_%d.mat', ...
+fname_template = {
+    'comp_results/lap_logit7_%d.mat', ...
     'comp_results/lap_logit1_%d.mat', ...
     'comp_results/lap_logit2_%d.mat', ...
     'comp_results/lap_logit51_%d.mat', ...
@@ -37,7 +38,8 @@ fname_template = {'comp_results/lap_logit7_%d.mat', ...
     'comp_results/lap_hybrid51_%d.mat', ... 
     'comp_results/lap_hybrid1_2_%d.mat', ... 
     'comp_results/lap_hybrid7_51_%d.mat'};
-models = {@logit_wrapper_7, ...
+models = {
+    @logit_wrapper_7, ...
     @logit_wrapper_1, ...
     @logit_wrapper_2, ...
     @logit_wrapper_51, ...
@@ -51,8 +53,9 @@ models = {@logit_wrapper_7, ...
     @hybrid_wrapper_51, ...
     @hybrid_wrapper_1_2, ...
     @hybrid_wrapper_7_51};
-num_parameters = [8 * ones(1,2), 10, 12, ...
-    4 * ones(1, 2), 7 * ones(1, 2), ...
+num_parameters = [
+    % 8 * ones(1,2), 10, 12, ...
+    % 4 * ones(1, 2), 7 * ones(1, 2), ...
     13 * ones(1, 2), 18, 20, 12 * ones(1, 2)];
 
 % Define the prior variance
@@ -71,20 +74,21 @@ pconfig.numinit_med = 1000;
 pconfig.numinit_up = 10000;
 pconfig.tolgrad = 1e-4;
 pconfig.tolgrad_liberal = 0.01;
-parfor i = 1:(length(num_parameters)*num_subjects)
-    model_idx = floor((i-1)/num_subjects) + 1;
-    subj_idx = mod(i-1, num_subjects) + 1;
-
-    % Construct filename for saving output
-    fname = sprintf(fname_template{model_idx}, subj_idx);
-    if exist(fname,"file") == 2
-        continue;
-    end
-
-    % Run the cbm_lap function for the current model and subject
-    cbm_lap(data(subj_idx), models{model_idx}, ...
-        priors{model_idx}, fname, pconfig);
-end
+% parfor i = 1:(length(num_parameters)*num_subjects)
+%     model_idx = floor((i-1)/num_subjects) + 1;
+%     subj_idx = mod(i-1, num_subjects) + 1;
+% 
+%     % Construct filename for saving output
+%     fname = sprintf(fname_template{model_idx}, subj_idx);
+%     % % if you need to re-run models
+%     % if exist(fname,"file") == 2
+%     %     continue;
+%     % end
+% 
+%     % Run the cbm_lap function for the current model and subject
+%     cbm_lap(data(subj_idx), models{model_idx}, ...
+%         priors{model_idx}, fname, pconfig);
+% end
 
 % Pre-allocate structures to store aggregated results
 fname_subjs = cell(num_subjects,length(models));
@@ -102,6 +106,7 @@ fname = {'comp_aggr_results/lap_logit7.mat', ...
     'comp_aggr_results/lap_hybrid51.mat', ... 
     'comp_aggr_results/lap_hybrid1_2.mat', ... 
     'comp_aggr_results/lap_hybrid7_51.mat'};
+
 for m = 1:length(models)
     % Aggregate results for each subject
     for subj = 1:num_subjects
@@ -123,17 +128,18 @@ for i = 1:length(fname)
         & imag(loaded_data.cbm.math.loglik) == 0 ...
         & imag(loaded_data.cbm.math.lme) == 0;
     % Calculate the mean and SD of logdetA for valid subjects
-    mean_loglik = mean(loaded_data.cbm.math.loglik(valid_subjects));
-    std_loglik = std(loaded_data.cbm.math.loglik(valid_subjects));
+    q25 = quantile(loaded_data.cbm.math.loglik(valid_subjects),0.25);
+    q75 = quantile(loaded_data.cbm.math.loglik(valid_subjects),0.75);
     % Add the condition for logdetA values within 3 SDs of the mean
     valid_subjects = valid_subjects & ...
-        (abs(loaded_data.cbm.math.loglik - mean_loglik) <= ...
-        3 * std_loglik);
+        loaded_data.cbm.math.loglik >= q25 - 1.5*(q75-q25) & ...
+        loaded_data.cbm.math.loglik <= q75 + 1.5*(q75-q25);
     valid_subj_all = valid_subj_all & valid_subjects;
 end
 
 % Aggregate only valid subjects
 filtered_data = data(valid_subj_all);
+if num_subjects == length(filtered_data), equilibrium = true; end
 num_subjects = length(filtered_data);
 fname_subjs = fname_subjs(valid_subj_all,:);
 for m = 1:length(models)
@@ -152,14 +158,8 @@ idx = [1,5,9,14;
     3,7,11,13;
     4,8,12,14];
 
-pconfig = struct();
-pconfig.verbose = 1;
-pconfig.parallel = 1;
-cbm_hbi(filtered_data, models(idx(i,4)), fname(idx(i,4)), 'hbi_compare_TEST.mat', pconfig)
 parfor i = 1:size(idx,1)
     cbm_hbi(filtered_data, models(idx(i,:)), fname(idx(i,:)), fname_hbi{i});
-end
-parfor i = 1:size(idx,1)
     cbm_hbi_null(filtered_data, fname_hbi{i});
 end
 
