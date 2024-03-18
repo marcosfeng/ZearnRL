@@ -54,8 +54,8 @@ models = {
     @hybrid_wrapper_1_2, ...
     @hybrid_wrapper_7_51};
 num_parameters = [
-    % 8 * ones(1,2), 10, 12, ...
-    % 4 * ones(1, 2), 7 * ones(1, 2), ...
+    8 * ones(1,2), 10, 12, ...
+    4 * ones(1, 2), 7 * ones(1, 2), ...
     13 * ones(1, 2), 18, 20, 12 * ones(1, 2)];
 
 % Define the prior variance
@@ -163,12 +163,20 @@ parfor i = 1:size(idx,1)
     cbm_hbi_null(filtered_data, fname_hbi{i});
 end
 
-% [p_sf,stats_sf] = cbm_hbi_ttest(fname_hbi,3,0,1);
+% Load the HBI results and store them
+for i = 1:size(idx,1)
+    fname_hbi_loaded = load(fname_hbi{i});
+    hbi_results = fname_hbi_loaded.cbm;
+    hbi_results.output
+end
 
-% param_names = {'\alpha','\gamma', '\tau', ...
-%     'c_1', 'c_2', 'c_3'};
-% transform = {'sigmoid','sigmoid','exp',...
-%     'exp','exp','exp'};
-% model_names = {'Logit', 'Kernel', 'Actor-Critic'};
-% % Load the HBI results and display them
-% cbm_hbi_plot(fname_hbi,model_names, param_names,transform,2);
+% [p_sf,stats_sf] = cbm_hbi_ttest(fname_hbi{1},3,0,1);
+model_names = {'Logit', 'Q-Learning', ...
+    'Hybrid Logit', 'Hybrid AC'};
+param_names = {'Intercept','R_{t-1}','R_{t-2}', ...
+    'A_{t-1}','A_{t-2}', ...
+    'R_{t-1}xA_{t-1}', 'R_{t-1}xA_{t-2}', 'R_{t-2}xA_{t-2}'}; 
+transform = {'none','none','none', ...
+    'none', 'none', ...
+    'none', 'none', 'none'};
+cbm_hbi_plot(fname_hbi{1}, model_names,param_names,transform);
