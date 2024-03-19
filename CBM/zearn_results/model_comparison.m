@@ -163,12 +163,39 @@ parfor i = 1:size(idx,1)
     cbm_hbi_null(filtered_data, fname_hbi{i});
 end
 
+top_idx = nan(1,length(idx));
 % Load the HBI results and store them
 for i = 1:size(idx,1)
     fname_hbi_loaded = load(fname_hbi{i});
     hbi_results = fname_hbi_loaded.cbm;
     hbi_results.output
+    % Top model
+    [~, j] = ...
+        max(hbi_results.output.protected_exceedance_prob);
+    top_idx(i) = idx(i,j);
 end
+
+% Which of the top models fit best
+cbm_hbi(filtered_data, models(top_idx), fname(top_idx), ...
+    'top_model_comp.mat');
+cbm_hbi_null(filtered_data, 'top_model_comp.mat');
+
+
+
+fname_hbi_loaded = load(fname_hbi{4});
+means = fname_hbi_loaded.cbm.output.group_mean{2};
+means(1:3) = 1./(1+exp(-means(1:3)));
+means([4,7]) = exp(means([4,7]));
+display(means)
+
+fname_hbi_loaded = load(fname_hbi{3});
+means = fname_hbi_loaded.cbm.output.group_mean{2};
+means(1:3) = 1./(1+exp(-means(1:3)));
+means([4,7]) = exp(means([4,7]));
+display(means)
+
+transform = {'sigmoid','sigmoid','sigmoid', ...
+    'exp', 'none', 'none', 'exp'};
 
 % [p_sf,stats_sf] = cbm_hbi_ttest(fname_hbi{1},3,0,1);
 model_names = {'Logit', 'Q-Learning', ...
