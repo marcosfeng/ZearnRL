@@ -169,6 +169,7 @@ end
 
 fname_hbi = 'hbi_QL4_refined.mat';
 cbm_hbi(filtered_data, models(top4_indices), filtered_name, fname_hbi);
+cbm_hbi_null(filtered_data, fname_hbi);
 
 % Load the HBI results and display them
 fname_hbi_loaded = load(fname_hbi);

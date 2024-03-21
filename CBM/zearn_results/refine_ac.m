@@ -170,6 +170,7 @@ for i = 1:5
 end
 fname_hbi = 'hbi_AC5_refined.mat';
 cbm_hbi(filtered_data, models(top5_indices), filtered_name, fname_hbi);
+cbm_hbi_null(filtered_data, fname_hbi);
 
 % Load the HBI results and display them
 fname_hbi_loaded = load(fname_hbi);

@@ -7,9 +7,6 @@ addpath(fullfile('..','codes'));
 addpath(fullfile('..','zearn_codes'));
 addpath(fullfile('..','zearn_codes','ql_wrappers'));
 
-% % Prechosen models
-% wrapper_nums = {1, 2, 3, 6, 7};
-
 % Load data
 fdata = load('../data/all_data.mat');
 data  = fdata.data;
