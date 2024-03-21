@@ -99,8 +99,10 @@ stan_data <- list(
   week = as.matrix(dcast(df,
                          Classroom.ID ~ row_n,
                          value.var = "week"))[,c(-1)],
-  number_teachers = length(unique(df$Teacher.User.ID))
+  number_teachers = length(unique(df$Teacher.User.ID)),
+  ID = unique(df$Classroom.ID)
 )
+# save(stan_data, file = "CBM/data/stan_data.RData")
 
 # Save as a .mat file for each subject
 for (i in 1:stan_data$N) {
@@ -116,3 +118,35 @@ for (i in 1:stan_data$N) {
                      NNDSVD_student4 = subj_data$all_vars[,4],
                      simmed = subj_data$simmed)
 }
+
+
+# # Define the directory containing the .mat files
+# data_dir <- "CBM/data/individual"
+# # List all .mat files in the directory
+# mat_files <- list.files(data_dir, pattern = "\\.mat$", full.names = TRUE)
+# # Initialize a list to hold matched Classroom.IDs
+# matched_classroom_ids <- vector("list", length(mat_files))
+# # Loop through each .mat file
+# for (i in seq_along(mat_files)) {
+#   # Read the .mat file
+#   mat_data <- readMat(mat_files[i])
+#
+#   # Find the matching Classroom.ID based on the unique identifier
+#   for (j in 1:stan_data$N) {
+#     if (stan_data$Tsubj[j] == length(mat_data[[1]])) {
+#       if (all(stan_data$choice[j,1:stan_data$Tsubj[j],1] == mat_data[[1]]) &
+#           all(stan_data$choice[j,1:stan_data$Tsubj[j],2] == mat_data[[2]]) &
+#           all(stan_data$choice[j,1:stan_data$Tsubj[j],3] == mat_data[[3]]) &
+#           all(stan_data$choice[j,1:stan_data$Tsubj[j],4] == mat_data[[4]]) &
+#           all(stan_data$all_vars[j,1:stan_data$Tsubj[j],1] == mat_data[[5]]) &
+#           all(stan_data$all_vars[j,1:stan_data$Tsubj[j],2] == mat_data[[6]]) &
+#           all(stan_data$all_vars[j,1:stan_data$Tsubj[j],3] == mat_data[[7]]) &
+#           all(stan_data$all_vars[j,1:stan_data$Tsubj[j],4] == mat_data[[8]])) {
+#         matched_classroom_ids[[i]] <- stan_data$ID[j]
+#         break
+#       }
+#     }
+#   }
+# }
+# classrooms <- data.frame(Classroom.ID = unlist(matched_classroom_ids))
+# save(classrooms, file = "CBM/data/classrooms.RData")
