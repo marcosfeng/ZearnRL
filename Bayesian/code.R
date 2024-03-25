@@ -175,13 +175,26 @@ fit <- my_model$sample(
 # Save the fit object
 fit$save_output_files(dir = "Bayesian/Results/")
 
-try(fit$draws(), silent = TRUE)
+draws_df <- fit$draws()
 try(fit$sampler_diagnostics(), silent = TRUE)
 loo1 <- fit$loo()
 sum1 <- fit$summary()
 qs::qsave(x = fit, file = "Bayesian/Results/ACfit.qs")
 qs::qsave(x = loo1, file = "Bayesian/Results/ACloo.qs")
-qs::qsave(x = sum1, file = "Bayesian/Results/ACloo.qs")
+qs::qsave(x = draws_df, file = "Bayesian/Results/ACdraws.qs")
+qs::qsave(x = sum1, file = "Bayesian/Results/ACsum.qs")
+
+
+files <- c(
+  "Bayesian/Results/Actor-Critic-hierarchical-202403251140-1-914436.csv",
+  "Bayesian/Results/Actor-Critic-hierarchical-202403251140-2-914436.csv",
+  "Bayesian/Results/Actor-Critic-hierarchical-202403251140-3-914436.csv",
+  "Bayesian/Results/Actor-Critic-hierarchical-202403251140-4-914436.csv"
+  )
+csv_contents <- as_cmdstan_fit(files)
+draws_df <- csv_contents$draws()
+sum1 <- csv_contents$summary()
+
 
 # Quick diagnostics -------------------------------------------------------
 
