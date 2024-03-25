@@ -1,0 +1,221 @@
+---
+title: "analysis_archive"
+format: pdf
+---
+
+# The Kernel Function
+
+The kernel function is a mathematical tool used to measure the similarity between different states or actions [@ormoneit2002; @domingues; @liu]. In the context of the Q-learning model with states and a kernel, the kernel function is used to compute a weighted average of the rewards obtained in similar state-action pairs in the past. This allows the model to generalize from past experience and to make more informed decisions about future actions.
+
+We anticipate that the reward associated with a given action may be delayed, reflecting the time it takes for the effects of an action to manifest. For instance, teachers might spend the first week of each month planning activities on the platform, with the rewards of these actions becoming apparent in subsequent weeks. To capture this temporal aspect of teacher behavior, we employ a kernel function that incorporates a measure of similarity between the current and past state-action pairs, modulated by a discount factor that accounts for the delay in reward. The kernel function is defined as the Jaccard similarity as follows:
+
+$$
+K(t, t') = 0.5 \cdot \text{I}(a_t = a_{t'}) \cdot \left[ 1 + \text{I}(s_t = s_{t'})\right]
+$$
+
+where:
+
+-   $K(t, t')$ is the kernel function,
+-   $t$ and $t'$ are the current and past time steps (weeks), respectively,
+-   $\text{I}(\cdot)$ is the indicator function, which equals 1 if the condition inside the parentheses is true and 0 otherwise,
+-   $a_t$ and $a_{t'}$ are the choices made at the current and past time steps, respectively,
+-   $s_t$ and $s_{t'}$ are the states at the current and past time steps, respectively.
+
+## Kernel-Based Reinforcement
+
+We use the kernel function to compute a weighted average of past rewards (kernel reward), which updates the Q-value for the current state-action pair. The kernel reward is:
+
+$$
+R_K = \frac{\sum_{t' = 1}^{T} K(t, t') \cdot \gamma^{(t - t')}  \text{Badges}_{t'}}{\sum_{t' = 1}^{T} K(t, t')}
+$$
+
+where:
+
+-   $R_K$ is the kernel reward,
+-   $\gamma$ is the discount rate,
+-   $\text{Badges}_{t'}$ is the number of badges earned at the past time step $t'$,
+-   $T$ is the number of lags in the kernel.
+
+Subsequently, the Q-value for the current state-action pair is updated:
+
+$$
+Q(s, a) = Q(s, a) + \alpha \left( R_K - \text{cost}(a) - Q(s, a) \right)
+$$
+
+
+# State-Based Q-Learning Model
+
+In this model, the state $s$ represents the current situation or context in which the teacher decides. The state could include factors such as the students' current performance levels. The state-dependent model is particularly relevant in teaching, where the effectiveness of a given strategy may depend on the specific circumstances of the class. Here, the Q-value for a given state $s$ and action $a$ is:
+
+$$ Q(s, a) = Q(s, a) + \alpha \left( \gamma (\text{Badges}_t - \text{cost}(a)) - Q(s, a) \right) $$
+
+where:
+
+-   $\alpha$ is the learning rate,
+-   $\gamma$ is the discount rate,
+-   $\text{Badges}_t$ is the immediate reward received after taking action $a$ in state $s$,
+-   $\text{cost}(a)$ is the cost associated with action $a$,
+-   $Q(s, a)$ is the current estimate of the Q-value for action $a$ in state $s$.
+
+Like the state-free model, the softmax function determines the probability of choosing a particular action.
+
+$$
+\begin{align*}
+\text{Action}_t =& \ \sum_{i=1}^{L} \left( \beta_{i} \text{Reward}_{t-i} + \gamma_i \text{Action}_{t-i} + \sum_{j=i}^{L} \delta_{ij} (\text{Reward}_{t-i} \times \text{Action}_{t-j}) \right) \\
+& + \phi \text{State}_t + \psi (\text{State}_t \times \text{Action}_{t-1}) + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t
+\end{align*}
+$$
+
+where $\text{Action}_t$ denotes the binary outcome at time $t$, $\text{Reward}_{t-i}$ and $\text{Action}_{t-i}$ represent the reward and action variables lagged by $i$ periods, and $L$ is the maximum lag considered. $\mu_{\text{Teacher}}$ and $\lambda_{\text{Week}}$ represent fixed effects for teachers and weeks, respectively.
+
+
+## Pooled Correlations between Components and Student Outcomes
+
+We meta-analyzed individual correlations within our dataset to reveal the pooled relationships between student outcomes (badges) and the components from the dimensionality reduction procedure. This approach, termed 'internal meta-analysis,' is advantageous when dealing with large datasets with hierarchical structures, as it allows for simultaneously considering multiple, potentially correlated outcomes.
+
+To conduct this internal meta-analysis, we first transformed the correlations using Fisher's z-transformation, ensuring a normal distribution of the correlations. We then ran a random effects model with each unique combination of "Teacher" and "School." This multivariate meta-analysis offers the advantage of modeling multiple, potentially correlated outcomes, providing a comprehensive estimate of the correlations for each outcome, considering the hierarchical structure of the data. The outcome of this process is a robust understanding of the relationships between different outcomes and the Badges across diverse schools and teachers. This approach provides a more resilient analysis than simple correlations, as it accounts for the inherent variability and dependencies within the data. @fig-meta-analysis displays the results and illustrates the pooled correlations between the components and student outcomes.
+
+```{r Meta-correlation prep}
+#| include: false
+# Clean environment
+rm(list = setdiff(ls(), c("df", "random_py")))
+# Importing results from Python
+results_list <- py$results
+gc(verbose = FALSE)
+```
+
+```{r}
+#| cache: true
+#| label: fig-meta-analysis
+#| fig-cap: "Results of the correlation meta-analysis."
+library(metafor)
+library(ppcor)
+
+n_comp <- 3
+method <- "FrobeniusNNDSVD"
+selected_cols <- c("Classroom.ID", "Teacher.User.ID",
+                   "MDR.School.ID", "District.Rollup.ID",
+                   "week", "date",
+                   # Main loadings of Components:
+                   "tch_min", "tch_min_1",
+                   paste0("FrobeniusNNDSVD", seq_len(n_comp)),
+                   paste0("FrobeniusNNDSVD", seq_len(n_comp), "_1"),
+                   "RD.optional_problem_sets",
+                   "Guided.Practice.Completed", "Tower.Completed",
+                   # Student Variables
+                   "Active.Users...Total", "Minutes.per.Active.User",
+                   "Badges.per.Active.User", "Boosts.per.Tower.Completion",
+                   "Tower.Alerts.per.Tower.Completion",
+                   # Classroom and Teacher Variables
+                   "teacher_number_classes", "Grade.Level",
+                   "Students...Total", "n_weeks",
+                   # School Variables
+                   "poverty", "income", "charter.school",
+                   "school.account", "zipcode")  # Column to select
+
+df_corr <- df %>%
+  ungroup() %>%
+  arrange(Classroom.ID, week) %>%
+  dplyr::select(all_of(selected_cols)) %>%
+  rename_with(~paste0("Frobenius", seq_len(n_comp)),
+              paste0("FrobeniusNNDSVD", seq_len(n_comp))) %>%
+  rename_with(~paste0("Frobenius", seq_len(n_comp), "_1"),
+              paste0("FrobeniusNNDSVD", seq_len(n_comp), "_1"))
+
+# Define a safe version of pcor.test that returns NA when there's an error
+safe_pcor <- possibly(~pcor.test(..1, ..2, ..3, method = "spearman")$estimate,
+                      otherwise = NA)
+df_corr <- df_corr %>%
+  group_by(Classroom.ID,Teacher.User.ID,MDR.School.ID,District.Rollup.ID) %>%
+  summarise(
+    n = n(),
+    Frobenius1 = safe_pcor(Frobenius1, Badges.per.Active.User, Frobenius1_1),
+    Frobenius2 = safe_pcor(Frobenius2, Badges.per.Active.User, Frobenius2_1),
+    Frobenius3 = safe_pcor(Frobenius3, Badges.per.Active.User, Frobenius3_1),
+    Minutes    = safe_pcor(tch_min, Badges.per.Active.User, tch_min_1),
+    n_weeks = mean(n_weeks),
+    teacher_number_classes = mean(teacher_number_classes),
+    poverty = first(poverty),
+    income = first(income),
+    school.account = mean(school.account)
+  ) %>%
+  filter(!is.na(Frobenius1) &
+           !is.na(Frobenius2) &
+           !is.na(Frobenius3))
+
+df_corr_sub <- df_corr %>%
+  as_tibble() %>%
+  slice_sample(prop = 0.1) %>%
+  mutate_at(vars(paste0("Frobenius", seq_len(n_comp)), "Minutes"),
+            list(~atanh(.))) %>%  # Fisher's z transformation
+  mutate_at(vars(paste0("Frobenius", seq_len(n_comp)), "Minutes"),
+            list(se = ~sqrt(1/(n - 2 - 2)))) %>%  # standard error sqrt(1/N−2−g)
+  gather(key = "outcome", value = "correlation",
+         c(paste0("Frobenius", seq_len(n_comp)), "Minutes")) %>%
+  gather(key = "outcome_se", value = "se",
+         c(paste0("Frobenius", seq_len(n_comp), "_se"), "Minutes_se")) %>%
+  filter(str_replace(outcome, "_se", "") == str_replace(outcome_se, "_se", "")) %>%
+  dplyr::select(-"outcome_se") %>%
+  filter(!is.na(se))
+
+# Run multivariate meta-analysis
+res <- rma.mv(yi = correlation,
+              V = se^2,
+              random = ~ 1 | Classroom.ID/Teacher.User.ID/MDR.School.ID/District.Rollup.ID,
+              mods = ~ -1 + outcome,
+              data = df_corr_sub)
+
+# Add columns for back-transformed effect sizes and their standard errors
+res_df <- data.frame(
+  estimate = coef(res),
+  outcome = str_replace(names(coef(res)), "outcome", ""),
+  # se = sqrt(diag(vcov(res)))
+  ci.lb = res$ci.lb,
+  ci.ub = res$ci.ub
+  ) %>%
+  mutate(
+    estimate_r = tanh(estimate),
+    ci.lb = tanh(ci.lb),
+    ci.ub = tanh(ci.ub)
+    # se_r = se / (1 - estimate^2)  # delta method for SE
+  )
+# Reverse the Fisher's Z transformation
+df_corr_sub <- df_corr_sub %>%
+  mutate(correlation = tanh(correlation))
+# Create the plot
+ggplot(df_corr_sub, aes(x = correlation, y = after_stat(density))) +
+  geom_histogram(binwidth = 0.1, fill = "lightblue") +
+  geom_density(aes(weight = weights(res)),
+               alpha = 0.5) +
+  geom_vline(data = res_df,
+             aes(xintercept = estimate_r,
+                 color = outcome),
+             linetype = "dashed") +
+  geom_segment(data = res_df,
+               aes(x = ci.lb,
+                   y = 0,
+                   xend = ci.ub,
+                   yend = 0,
+                   color = outcome),
+               linewidth = 1.5) +
+  geom_text(data = res_df,
+            aes(x = estimate_r,
+                y = 0.15,
+                label = sub('0\\.', '.', round(estimate_r, 2))),
+            color = "black",
+            size = 3.5,
+            check_overlap = TRUE) +
+  facet_wrap(~outcome, scales = "free",  ncol = 2) +
+  labs(x = "Correlation", y = "Density") +
+  theme_light() +
+  scale_color_discrete(name = "Pooled effects \n (with 95% C.I.)")
+  theme(legend.position = c(0.85, 0.24),
+        legend.direction = "vertical")  # Set legend position and direction
+
+```
+
+```{r meta-analysis summary}
+#| eval: false
+summary(res)
+```
+
