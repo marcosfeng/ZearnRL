@@ -50,7 +50,7 @@ library(brms)
 
 ```{r}
 set.seed(832399554)
-random_py <- import("random")
+random_py <- reticulate::import("random")
 random_py$seed(832399554)
 # https://www.random.org/integers/
 # Timestamp: 2023-05-17 16:18:28 UTC
@@ -348,7 +348,7 @@ df %>%
                                                max(df$Tsubj, na.rm = T) + 1,
                                                by = 2)) +
   geom_vline(xintercept = 17, color = "darkgray",
-             linetype = "dashed", size = 0.8) +
+             linetype = "dashed", linewidth = 0.8) +
   annotate("text", x = 10, y = 4000, label = "Excluded\nClassrooms",
            vjust = 1, color = "red") +
   labs(title = "Histogram of Total Number of Weeks",
@@ -628,7 +628,6 @@ ggplot(df_income, aes(x = Variable, y = Percentage)) +
 The raw data underwent rigorous preprocessing to ensure its suitability for analysis. This process included performing log transformations on our variables of interest (i.e., minutes, badges, and tower alerts) to normalize their distributions. Given the diverse user base of Zearn, we applied specific exclusion criteria to select teachers who most likely representat traditional classroom settings with consistent platform utilization. We selected virtual classrooms with at least five active students weekly, filtering out parents or tutors who may use Zearn outside the classroom setting. We removed teachers with more than four classrooms and those who logged in for less than 16 weeks. We excluded classrooms in the 6th to 8th grades, as those are a small proportion of our dataset. This deletion ensures a focus on traditional school settings and consistent platform usage, minimizing bias from teachers and schools that have not used Zearn consistently.
 
 ```{r preprocess data}
-#| include: false
 
 dt <- setDT(df)
 dt[, `:=`(
@@ -661,7 +660,7 @@ gc(verbose = FALSE)
 
 @tbl-summary-statistics summarizes the refined dataset, providing a snapshot of the key variables of interest. Their means and standard deviations (SD) are computed for each grade level and overall (across all grades).
 
-```{r}
+```{r, results='asis'}
 #| label: tbl-summary-statistics
 #| caption: "Means (SD) of classroom variables by grade level. Minutes and Badges are averaged per student. Tower Alerts are averaged per lesson completion. Teacher Minutes are divided by their number of classrooms."
 
@@ -816,47 +815,9 @@ These matrices can reveal underlying patterns of behaviors (from the basis matri
 
 ### Feature Selection
 
-In order to determine the number of lags in the kernel, we apply the Dynamic Analysis method, as proposed by [@lau2005]. The Dynamic Analysis method is based on the premise that both past reinforcers and past choices significantly influence an individual's choices on each trial. It is a powerful tool for understanding choice behavior in the context of reinforcement learning. This method is particularly useful in tasks where reinforcement contingencies vary within a session, as it allows for the analysis of behavior at a granular, response-by-response level while also providing insights into behavior averaged over multiple trials. It also implies that the ratio of responses to different alternatives matches the ratio of reinforcements obtained from these alternatives. The method allows for the prediction of response rate using weighted sums of past reinforcers, a technique that has been applied to predict choice allocation in concurrent schedules on both short (response-by-response) and longer (within and between sessions) time scales.
+In order to find the appropriate action, reward, and state variables, we used a panel logistic regression model inspired by dynamic analysis [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We followed four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
 
-Based on logistic regression, the model captures the linear combination of past reinforcers and choices on each trial, as defined by:
-
-$$
-\begin{aligned}\log \left(\frac{p_{R, i}}{p_{L, i}}\right)= & \sum_{j=1} \alpha_{ j}( r_{R, i-j}-r_{L, i-j}) \\& +\sum_{j=1} \beta_{j} (c_{R, i-j}-c_{L, i-j})+\gamma,\end{aligned}
-$$
-
-where $p$ is the probability of choice $c$ ($R$, right or $L$, left) at time $i$ as a function of the rewards, $r$, and choices for every time point $i-j$ in the history.
-
-A key aspect of Dynamic Analysis is its focus on local variations in behavior and how these relate to local variations in reinforcer history and behavioral history. This local focus allows for the identification of patterns and trends that may be obscured when looking at behavior on a larger scale. For example, the method can reveal a tendency to alternate between choices in the short term while also showing a longer-term tendency to persist with the more frequently chosen alternative.
-
-The Dynamic Analysis method also allows for the quantitative assessment of the relative effects of past reinforcers and choices. This is achieved by including covariates ($\alpha, \beta$) for past choices in the analysis, which can reveal patterns such as a fix-and-sample pattern of choice, where there is a tendency to persist on the rich alternative with brief visits to the lean alternative.
-
-In terms of the weighting of past reinforcers and choices, the Dynamic Analysis method suggests that the effects of these factors decay over time. This is represented by a decay function, which can take the form of an exponential or hyperbolic function, depending on the specific characteristics of the task and the behavior of the individual.
-
-In the context of the Zearn dataset, we implement the Dynamic Analysis method to understand the temporal dependencies and complex interactions between teacher actions, student outcomes, and the learning environment. The method is applied to a panel data model, which allows for the inclusion of both time-invariant and time-varying variables and accounts for individual-specific effects. The key variables in the model are the rewards and choices. In this context, the rewards are represented by Badges per active student in a given week. The choices are represented by Teacher Minutes or the components from our dimensionality reduction. The model also includes lagged versions of these variables, which capture the effects of past rewards and choices on current choices. The lag period ranges from 1 week to 8 weeks, allowing for the examination of the effects of past rewards and choices over different time horizons.
-
-The model can be represented by the following equation:
-
-$$
-y_{it} = \beta_0 + \sum_{j=1}^{L} \beta_{1j} y_{it-j} + \beta_2 x_{it} + \sum_{j=1}^{L} \beta_{3j} x_{it-j} + u_i + \epsilon_{it}
-$$
-
-where:
-
--   $y_{it}$ is the dependent variable (teacher minutes or method component) for individual $i$ at time $t$,
--   $y_{i t-j}$ is the dependent variable lagged by $j$ periods,
--   $x_{it}$ is the independent variable (badges per active user) for individual $i$ at time $t$,
--   $x_{i t-j}$ is the independent variable lagged by $j$ periods,
--   $u_i$ is the individual-specific effect,
--   $\epsilon_{it}$ is the error term, and
--   $L$ is the number of lag periods.
-
-The coefficients $\beta_1j$ and $\beta_3j$ capture the effects of past choices and rewards, respectively, lagged by $j$ periods, on current choices. The sum over $j$ from $1$ to $L$ represents the inclusion of lagged variables for all lag periods from 1 week to 8 weeks.
-
-The Dynamic Analysis method offers several advantages in the context of the Zearn dataset. First, it captures the temporal dependencies and complex interactions between teacher actions, student outcomes, and the learning environment. This allows for a more nuanced understanding of the factors that influence teacher behavior on the platform.
-
-Second, the method allows for the identification of a kernel that best describes the temporal dynamics of the data. This kernel, represented by the lagged variables in the model, captures how far back rewards and past actions matter. This can provide valuable insights into the temporal scope of the effects of rewards and actions and can inform strategies for influencing teacher behavior on the platform.
-
-We specified and estimated panel logistic regression models to capture the dynamics of actions influenced by lagged rewards and actions, including their interactions. The general model formulation for both state-free and state-based scenarios is presented as follows:
+Unlike [@lau2005], our model captures both the lagged effects of actions and rewards and their interactions alongside the contemporaneous influence of states on actions. The general model formulation for both state-free and state-based scenarios is as follows:
 
 #### State-Free Model
 
@@ -866,6 +827,7 @@ We specified and estimated panel logistic regression models to capture the dynam
 & + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t 
 \end{align*}
 ```
+
 #### State-Based Model
 
 ```{=tex}
@@ -874,9 +836,10 @@ We specified and estimated panel logistic regression models to capture the dynam
 & + \phi \text{State}_{t-1} + \psi (\text{State}_{t-1} \times \text{Action}_{t-2}) + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t
 \end{align*}
 ```
+
 where $\text{Action}_t$ denotes the binary outcome at time $t$, $\text{Reward}_{t-i}$ and $\text{Action}_{t-i}$ represent the reward and action variables lagged by $i$ periods, and $L$ is the maximum lag considered. $\mu_{\text{Teacher}}$ and $\lambda_{\text{Week}}$ represent fixed effects for teachers and weeks, respectively.
 
-Model performance was assessed using the area under the receiver operating characteristic curve (AUC) and Bayesian Information Criterion (BIC). Optimal lag structures were identified based on predictive accuracy and model parsimony.
+#### Varying Coefficients Model
 
 We used a varying coefficients model to capture individual teacher effects on the dynamics between rewards, actions, and states. The model is specified as follows:
 
@@ -886,9 +849,14 @@ We used a varying coefficients model to capture individual teacher effects on th
 & + \phi_k \text{State}_{kt} + \psi_k (\text{State}_{kt} \times \text{Action}_{k, t-1}) + \mu_k + \lambda_{\text{Week}} + \epsilon_{kt}
 \end{align*}
 ```
+
 where $\beta_{ki}$, $\gamma_{ki}$, and $\delta_{kij}$ represent the reward, action, and their interaction coefficients that vary by teacher; $\phi_k$ and $\psi_k$ are the fixed effects for the state and the interaction between state and lagged action, respectively; and $\mu_k$ and $\lambda_{\text{Week}}$ are fixed effects for teachers and weeks, respectively.
 
-To assess the model's predictive accuracy and generalizability, we used the out-of-sample AUC as a performance metric, calculated separately for each teacher.
+Herein, the interaction between lagged rewards and actions aimed to capture the reinforcement aspect (a), where prior rewards enhance the likelihood of repeating specific actions. Including current state variables addressed (b) and examining how present educational contexts inform action choices. The interaction between current states and lagged actions encapsulated (c) that actions are deliberately chosen to navigate towards or sustain preferable educational states. Lastly, considering lagged rewards alone, we sought to elucidate (d) the phenomenon where past successes influence future endeavors, indicative of a learning trajectory.
+
+To operationalize these models, we used the NMF components and constructed their lagged versions to capture temporal dynamics, extending up to six weeks to determine the optimal lag. This lag value captured how far back rewards and past actions matter in influencing teacher behavior on the platform.
+
+Two types of metrics anchored model selection. First, we evaluated model fit and predictive accuracy using the Bayesian Information Criterion (BIC) and the Out-of-Sample fit, gauged through the Area Under the Receiver Operating Characteristic curve (AUC). As such, we balanced model parsimony with predictive power. Second, we aimed to delineate which regression coefficients most closely embodied RL-like dynamics. We focused on 1) variables that consistently enhanced action probability in response to rewards (i.e., positive coefficient for the state-reward interaction), 2) actions that changed according to a given state, 3) actions chosen to achieve desired states (i.e., significant coefficient for the action-state interaction), and 4) demonstrate action auto-correlation.
 
 ### Reinforcement Learning Model Estimation
 
@@ -1011,7 +979,7 @@ gc(verbose = FALSE)
 ```
 
 ```{python load data}
-#| include: false
+
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA, NMF
@@ -1051,7 +1019,7 @@ silhouette = {}
 ```
 
 ```{python pca-nmf}
-
+#| cache: true
 # Function for NMF
 def nmf_method(n, method, initial, X_scaled, data_label, solv = 'mu', nomin = False):
   method_name = f"{method.title()} {initial.upper()}"
@@ -1107,7 +1075,7 @@ perform_pca_nmf(X_students, "students", min(X_students.shape))
 ```
 
 ```{python clean environment}
-#| include: false
+
 # get the names of all variables in the global namespace
 all_vars = list(globals().keys())
 
@@ -3023,7 +2991,8 @@ save(results, file = "me-results-restricted.RData")
 
 With a two-week lag established as optimal, we explored variability in model performance across teachers through a varying coefficients approach, which allows for individual slope estimations for each teacher. @tbl-RL-exploration shows pronounced variability, suggesting idiosyncratic pedagogical differences across teachers or diverse strategies tailored to classroom-specific needs. This finding highlights the need for hybrid models to accommodate teachers' diverse pedagogical approaches, strategies, and reinforcement patterns.
 
-```{r table-RL-exploration}
+```{r}
+#| label: table-RL-exploration
 
 library(gtExtras)
 load("me-subset-results.RData")
@@ -3839,208 +3808,6 @@ model_summary_long %>%
 
 
 
-```{r}
-#| label: tbl-school-characteristics
-#| eval: false
-
-library(fixest)
-
-school_df <- do.call(rbind, lapply(filtered_results, function(item) {
-  # Merge with badges data
-  temp <- item$coef %>%
-    right_join(badges_df, by = "Teacher.User.ID") %>%
-    mutate(auc_logit = log(auc_out/(1-auc_out))) %>%
-    select(Teacher.User.ID, MDR.School.ID, auc_logit, logLik_ind,
-           school.account, charter.school, income, poverty) %>%
-    mutate(state = ifelse(is.null(item$State), "None", item$State),
-           reward = item$Reward,
-           action = item$Method)
-})) %>%
-  mutate(across(c(state, reward, action), factor))
-
-reg_school <- feols(auc_logit ~ i(poverty, "40-75% (Mid-High)") +
-                      school.account + charter.school |
-                      state^reward^action,
-                 data = school_df)
-
-Xpower <- sapply(levels(school_df$income), 
-               function(x)ifelse(school_df$income==x, 1, 0))
-colnames(Xpower) <- c(levels(school_df$income))
-Xpower <- Xpower %*% contr.poly(length(levels(school_df$income)))[,1:3]
-colnames(Xpower) <- c("income.L", "income.Q", "income.C")
-school_df <- cbind(school_df, Xpower)
-reg_school <- feols(auc_logit ~ income.L + income.Q + income.C + 
-                      school.account + charter.school |
-                      state^reward^action,
-                 data = school_df)
-
-school_df <- school_df %>%
-  mutate(low_pov = if_else(poverty == "0-40% (Low)", 1, 0),
-         mid_pov = if_else(poverty == "40-75% (Mid-High)", 1, 0),
-         high_pov = if_else(poverty == "75-100% (High)", 1, 0))
-
-reg_school <- feols(auc_logit ~ i(low_pov, state:reward:action) +
-                      i(mid_pov, state:reward:action) +
-                      school.account + charter.school |
-                      state^reward^action,
-                 data = school_df)
-
-iplot(reg_school)
-
-```
-
-```{r re-estimation}
-#| eval: false
-
-create_RL_formula <- function(action, reward, state = NULL, lag = 1,
-                              group = "Teacher.User.ID") {
-  re_terms <- c()
-  
-  for (i in 1:lag) {
-    re_terms <- c(re_terms, paste0(reward, "_", i), paste0(action, "_", i))
-    # Add the interaction term for Reward_i * action_i
-    re_terms <- c(re_terms, paste0(reward, "_", i, ":", action, "_", i))
-    if (i != lag) {
-      for (j in (i + 1):lag) {
-        # Add the interaction for Reward_i * action_j when i < lag
-        re_terms <- c(re_terms, paste0(reward, "_", i, ":", action, "_", j))
-      }
-    }
-  }
-  if (is.null(state)) {
-    formula_string <- paste0(action, " ~ ",
-                             paste(re_terms, collapse = " + "), " + ",
-                             "(", paste(re_terms, collapse = " + "), "|",
-                             group, ") + ", "week_lag")
-    return(as.formula(formula_string))
-  } else {
-    formula_string <- paste0(action, " ~ ",
-                             paste(re_terms, collapse = " + "), " + ",
-                             "(", paste(re_terms, collapse = " + "), " + ",
-                             state, " + ", paste0(state, ":", action, "_1"), "|",
-                             group, ") + ", "week_lag")
-  }
-  
-  return(as.formula(formula_string))
-}
-
-
-# Estimation
-params <- params %>%
-  filter(st == "Frobenius.NNDSVD_student3",
-         grepl("1|2|4", rwd),
-         act != "Minutes.on.Zearn...Total")
-
-cl <- makeCluster(min(detectCores(), nrow(params)))
-registerDoParallel(cl)
-top_results <- foreach(i = 1:(nrow(params)),
-                   .multicombine = TRUE,
-                   .noexport = c("formula", "model"),
-                   .export = ls(),
-                   .packages = "lme4") %dopar% {
-  act <- as.character(params$act[i])
-  lag <- params$lag[i]
-  rwd <- as.character(params$rwd[i])
-  st  <- as.character(params$st[i])
-  formula <- create_RL_formula(act, rwd, st, lag,
-                               group = "Teacher.User.ID")
-
-  # Return the results as a list
-  list(Action = act,
-       Reward = rwd,
-       State = st,
-       Lag = lag,
-       equation = as.character(formula),
-       model <- tryCatch(
-         glmer(formula, data = train_data, family = binomial(link = "logit"),
-               control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e3))),
-         error = function(e) { return(NULL) }
-         )
-       )
-}
-# Stop the cluster
-stopCluster(cl)
-rm(cl)
-
-save(top_results, file = "me-top-results.RData")
-
-```
-
-```{r}
-#| label: fig-RL-refined
-#| fig-cap: ""
-#| eval: false
-
-library(lme4)
-
-load("me-top-results.RData")
-
-# Function to create density plot
-create_density_plot <- function(data, cols, title) {
-  quantiles <- do.call(rbind, lapply(cols, function(col) {
-    quantile(data %>% filter(Term == col) %>% pull(Coefficient), c(0.05, 0.95))
-  }))
-  bounds <- range(quantiles, na.rm = TRUE)
-  
-  ggplot() +
-    geom_density(data = data,
-                 aes(x = Coefficient, fill = Term),
-                 alpha = 0.6,
-                 adjust = 2,
-                 bounds = bounds) +
-    theme_minimal() +
-    theme(
-      panel.grid = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      axis.title.y = element_blank(),
-      axis.title.x = element_blank(),
-      legend.title = element_blank(),
-      plot.title = element_blank(),
-      legend.position = "none"
-    )
-}
-
-# Generating plots for each model
-plot_list <- lapply(results, function(object) {
-  model <- object[[6]]
-  
-  if (!is.null(model)) {
-    re <- ranef(model)$Teacher.User.ID
-    re <- re[,-1] # Remove the first column (Intercept)
-    
-    # Separate state and reward effects
-    state_cols <- grep(object$State, names(re), value = TRUE)
-    reward_cols <- setdiff(names(re), state_cols)
-    
-    # Reshape the data to a long format for plotting
-    re_long_state <- pivot_longer(re[,state_cols], 
-                                  cols = state_cols, 
-                                  names_to = "Term", 
-                                  values_to = "Coefficient")
-    re_long_reward <- pivot_longer(re[,reward_cols], 
-                                   cols = reward_cols, 
-                                   names_to = "Term", 
-                                   values_to = "Coefficient")
-    
-    # Create loess density plots
-    plot_state <- create_density_plot(re_long_state, state_cols, "State Effects")
-    plot_reward <- create_density_plot(re_long_reward, reward_cols, "Reward Effects")
-    
-    return(list(StatePlot = plot_state, RewardPlot = plot_reward))
-  }
-})
-
-names(plot_list) <- lapply(top_results, function(object) {
-  name <- paste(object$Action, " ~ ",
-                "R", object$Reward,
-                " S", object$State, sep = "")
-  name <- gsub("Frobenius.NNDSVD_", "", name)
-  name <- gsub("teacher", "IC", name)
-  name <- gsub("student", "", name)
-})
-
-```
 
 The trade-off between model complexity and predictive accuracy justifies including four lags. Including more lags would increase the complexity of the model, potentially leading to overfitting and poorer predictive performance. Conversely, including fewer lags might result in a model that fails to capture critical temporal dependencies in the data. The selection of four lags represents an inflection point in the BIC and NLL, indicating an optimal balance between model complexity and predictive accuracy.
 
