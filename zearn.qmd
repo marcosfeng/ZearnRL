@@ -854,7 +854,7 @@ where $\beta_{ki}$, $\gamma_{ki}$, and $\delta_{kij}$ represent the reward, acti
 
 Herein, the interaction between lagged rewards and actions aimed to capture the reinforcement aspect (a), where prior rewards enhance the likelihood of repeating specific actions. Including current state variables addressed (b) and examining how present educational contexts inform action choices. The interaction between current states and lagged actions encapsulated (c) that actions are deliberately chosen to navigate towards or sustain preferable educational states. Lastly, considering lagged rewards alone, we sought to elucidate (d) the phenomenon where past successes influence future endeavors, indicative of a learning trajectory.
 
-To operationalize these models, we used the NMF components and constructed their lagged versions to capture temporal dynamics, extending up to six weeks to determine the optimal lag. This lag value captured how far back rewards and past actions matter in influencing teacher behavior on the platform.
+To operationalize these models, we used the NMF components. Since our RL models have discrete actions, we split the teacher NMF components into a binary variable, with 1 for all positive values (note that NMF produces sparse components). We then, constructed the lagged versions of these variables to capture temporal dynamics, extending up to six weeks to determine the optimal lag. This lag value captured how far back rewards and past actions influenced teacher behavior.
 
 Two types of metrics anchored model selection. First, we evaluated model fit and predictive accuracy using the Bayesian Information Criterion (BIC) and the Out-of-Sample fit, gauged through the Area Under the Receiver Operating Characteristic curve (AUC). As such, we balanced model parsimony with predictive power. Second, we aimed to delineate which regression coefficients most closely embodied RL-like dynamics. We focused on 1) variables that consistently enhanced action probability in response to rewards (i.e., positive coefficient for the state-reward interaction), 2) actions that changed according to a given state, 3) actions chosen to achieve desired states (i.e., significant coefficient for the action-state interaction), and 4) demonstrate action auto-correlation.
 
@@ -862,12 +862,10 @@ Two types of metrics anchored model selection. First, we evaluated model fit and
 
 #### State-Free Q-Learning Model
 
-We use the Q-learning model to predict the actions of teachers based on their past actions and the rewards they received.
-
-The Q-value for a given state $s$ and action $a$ is updated based on the reward prediction error $\delta$:
+We use a state-free version of the Q-learning model to predict the actions of teachers based on their past actions and the rewards they received. Thus, the Q-value for action $a$ is updated based on the reward prediction error $\delta$:
 
 $$
-Q(a) = Q(a) + \alpha \left( \gamma (\text{Badges}_t - \text{cost}(a)) - Q(a) \right)
+Q_{t+1}(a) = Q_{t}(a) + \alpha \left( \gamma (\text{Reward}_t - \text{cost}(a)) - Q_{t}(a) \right)
 $$
 
 where
@@ -876,23 +874,20 @@ where
 -   $\gamma$ is the discount rate,
 -   $\text{Badges}_t$ is the immediate reward received after taking action $a$ in state $s$,
 -   $\text{cost}(a)$ is the cost associated with action $a$,
--   $Q(a)$ is the current estimate of the Q-value for action $a$.
+-   $Q_{t}(a)$ is the estimate of the Q-value for action $a$ at time $t$.
 
 The probability of choosing a particular action is determined by the softmax function and is defined as follows:
 
 $$
-P(a) = \frac{e^{Q(a)/\tau}}{\sum_{a'} e^{Q(a')/\tau}}
+P_{t}(a) = \frac{1}{1+e^{-Q_{t}(a)/\tau}}
 $$
 
 where:
 
--   $P(a)$ is the probability of choosing action $a$,
--   $Q(a)$ is the Q-value of action $a$,
--   $\tau$ is a parameter known as the temperature, which controls the level of exploration.
+-   $P_{t}(a)$ is the probability of choosing action $a$ at time $t$,
+-   $\tau$ is the temperature parameter.
 
-Note that the reward is assumed to be a linear function of the number of badges earned, with the learning rate $\alpha$ as the multiplier and the cost as the constant subtracted from the reward. We interpret each of these parameters as follows:
-
--   Reward: A linear function of the number of badges earned, indicating that the more badges a teacher earns, the higher the reward. The learning rate determines how quickly the teacher updates their Q-values in response to new information, while the cost represents the perceived effort or inconvenience associated with the action.
+We interpret each of these parameters as follows:
 
 -   Cost: The perceived effort or inconvenience associated with the action, such as the effort required to complete a particular task or the inconvenience of deviating from a preferred teaching method.
 
@@ -904,28 +899,36 @@ Note that the reward is assumed to be a linear function of the number of badges 
 
 #### The Actor-Critic Model
 
-In this model, we estimate several variables: the cost in badge-units for each component, the discount rate ($\gamma$), and step sizes ($\alpha_v$ and $\alpha_\pi$). These step sizes are similar to learning rates, as they determine the extent to which the model updates the weights for the value and policy functions, respectively.
-
-Our Actor-Critic model maintains two sets of parameters: the weights $w_a$ that parameterize the value function (the critic) and the parameters $\theta_a$ that define the policy (the actor). The weights and policy are updated based on the prediction error $\delta$. The equations for updating the weights and policy are as follows:
+In the Actor-Critic model, we update the value function, parameterized by weights $w$, and the policy function, defined by the parameter $\theta$. The model's update mechanism is minimizing the prediction error \(\delta\), which drives adjustments to both the actor and critic components. The equations for updating the weights and policy are as follows:
 
 $$
-w_a = w_a + \alpha_{v} \cdot \delta \cdot S \\
-\theta_a = \theta_a + \alpha_{\pi} \cdot \delta \cdot S
+w_{t+1} = w_{t} + \alpha_{v} \cdot \delta \cdot S_{t} \\
+\theta_{t+1} = \theta_{t} + \alpha_{\pi} \cdot \delta \cdot S_{t}
 $$
 
-where $w_a, \theta_a$ are the vectors of policy and value weights, respectively, for action $a$, and $S$ is a vector that characterizes the current state, defined as $S = \begin{bmatrix} 1 \\ \text{Tower Alerts}_t - \text{Tower Alerts}_{t-1} \end{bmatrix}$.
+where $w_{t}, \theta_{t}$ are the vectors of policy and value weights, respectively, for action $a$, and $S_{t}$ is a vector that characterizes the current state, defined as $S_{t} = \begin{bmatrix} 1 \\ \text{State Variable}_{t} \end{bmatrix}$.
 
-We define the parameterized policy as $\text{Prob}(a)=\text{Logit}^{-1}(\theta_a \cdot S)$, the values of each state as $v(S,a) = w_a \cdot S$, and prediction error $\delta$ as the difference between the actual outcome and the estimated value of the state-action pair:
+We define the parameterized policy as $\text{Prob}_{t}(a)=\text{Logit}^{-1}(\theta_{t} \cdot S_{t})$, the values of each state as $v(S_{t},a) = w_{t} \cdot S_{t}$, and prediction error $\delta$ as the difference between the actual outcome and the estimated value of the state-action pair:
 
 $$
-\delta = (\text{Badges}_{t} - \text{cost}(a)) - \left( \gamma v(S,a) - v(S',a) \right)
+\delta = (\text{Reward}_{t} - \text{cost}(a)) - \left( \gamma v(S_{t},a) - v(S_{t+1},a) \right)
 $$
 
 #### Hybrid Models
 
+The hybrid models maintain parallel estimations of two models (Logistic regression, Q-learning, or Actor-Critic), combining them to estimate action selection. This integration is achieved through a weighting scheme that balances the contributions of each model. Specifically, the probability of selecting action \(a\) at time \(t\), denoted \(P_{t}(a)\), is calculated by integrating the softmax outputs of the selected models. This integration uses a weighting parameter \(\lambda\), which adjusts the relative influence of each model and is formulated as:
+
+$$
+P_{t}(a) = \lambda P_{t}(a)_{\text{Model 1}} + (1-\lambda) P_{t}(a)_{\text{Model 2}},
+$$
+
 ## Statistical Analysis
 
+
+
 ## Model Evaluation
+
+
 
 # Results
 
@@ -3098,9 +3101,11 @@ top_fits_df %>%
   tab_spanner(
     label = "State-Based",
     columns = c(top_action_st, top_reward_st, top_state)
-  ) %>% gt::gtsave(filename = "tbl-RL-exploration.png")
+  ) %>% gt::gtsave(filename = "images/tbl-RL-exploration.png")
 
 ```
+
+![](images/tbl-RL-exploration.png){#tbl-RL-exploration}
 
 ### Model Selection and Interpretability
 
@@ -3801,6 +3806,146 @@ model_summary_long %>%
 ```
 
 
+# Estimating RL Models
+
+```{r}
+library(R.matlab)
+
+# Load the MATLAB files for the top QL and AC models
+top_model_ql <- readMat('CBM/zearn_results/hbi_QL4_refined.mat')
+top_model_ac <- readMat('CBM/zearn_results/hbi_AC5_refined.mat')
+
+# Extract the relevant data from each model
+model_freq_ql <- top_model_ql[["cbm"]][[5]][[5]]
+loglik_ql <- apply(top_model_ql[["cbm"]][[4]][[1]][[1]], 1, sum)
+
+model_freq_ac <- top_model_ac[["cbm"]][[5]][[5]]
+loglik_ac <- apply(top_model_ac[["cbm"]][[4]][[1]][[1]], 1, sum)
+
+
+# Create a data frame with each model
+top_models_table <- rbind(
+  data.frame(Statistic = "Frequency",
+             QL = model_freq_ql, 
+             AC = model_freq_ac),
+  data.frame(Statistic = "Log Likelihood",
+             QL = t(loglik_ql),
+             AC = t(loglik_ac))
+  )
+
+# Display the table
+gt(top_models_table) %>%
+  tab_spanner_delim(".") %>%
+  fmt_percent(rows = c(1), decimals = 1) %>%
+  fmt_number(rows = c(2), decimals = 1)
+
+```
+
+
+```{r}
+
+# Load the MATLAB files for the comparative models and the top model comparison
+comp_model_7 <- readMat('CBM/zearn_results/hbi_compare_7.mat')
+comp_model_1 <- readMat('CBM/zearn_results/hbi_compare_1.mat')
+comp_model_2 <- readMat('CBM/zearn_results/hbi_compare_2.mat')
+comp_model_51 <- readMat('CBM/zearn_results/hbi_compare_51.mat')
+
+# Extract model frequency data
+model_freq <- data.frame(rbind(
+  comp_model_7[["cbm"]][[5]][[5]],
+  comp_model_1[["cbm"]][[5]][[5]],
+  comp_model_2[["cbm"]][[5]][[5]],
+  comp_model_51[["cbm"]][[5]][[5]]
+  ))
+row.names(model_freq) <- 
+  c("Model 7", "Model 1", "Model 2", "Model 51")
+names(model_freq) <- c("Logit", "RL", "Logit-RL Hybrid", "QL-AC Hybrid")
+
+gt(model_freq, rownames_to_stub = T) %>%
+  fmt_percent(decimals = 1)
+
+```
+
+
+```{r}
+
+top_model_comp <- readMat('CBM/zearn_results/top_model_comp.mat')
+# Extract model frequency data
+model_freq <- data.frame(
+  top_model_comp[["cbm"]][[5]][[5]]
+  )
+names(model_freq) <- c("Logit 7", "Logit 1", "AC 2", "AC 51")
+
+gt(model_freq) %>%
+  fmt_percent(decimals = 1)
+```
+
+```{r}
+
+# Classify each teacher according to the best-fit model
+teacher_classification <- apply(top_model_comp[["cbm"]][[5]][[2]],
+                                1, which.max)
+teacher_params <- top_model_comp[["cbm"]][[5]][[1]][[3]][[1]]
+# Make min(teacher_classification) the baseline
+load("CBM/data/classrooms.RData")
+hetereogeneity <- classrooms %>%
+  cbind(
+    data.frame(
+      actorcritic = teacher_classification - min(teacher_classification)
+      )) %>%
+  cbind(teacher_params)
+names(hetereogeneity)[3:9] <- c(
+  "alpha_w", "alpha_theta", "gamma", "tau", "theta_init", "w_init", "cost"
+)
+hetereogeneity <- hetereogeneity %>%
+  mutate(across(c(alpha_w, alpha_theta, gamma), ~ 1/(1+exp(-.)))) %>%
+  mutate(across(c(tau, cost), ~ exp(.))) %>%
+  left_join(
+    df %>%
+      group_by(Classroom.ID, Teacher.User.ID) %>%
+      summarize(
+        across(c(charter.school, school.account),
+               \(x) mean(x, na.rm = TRUE)),
+        across(c(Frobenius.NNDSVD_teacher2,
+                 Frobenius.NNDSVD_student1, Frobenius.NNDSVD_student3,
+                 `Active.Users...Total`, Badges.per.Active.User,
+                 Tower.Alerts.per.Tower.Completion),
+               \(x) sum(x, na.rm = TRUE)),
+        across(c(income, poverty), ~ unique(.)),
+        n_weeks = n()
+        ), by = "Classroom.ID"
+    ) %>%
+  mutate(across(c(income, poverty), as.ordered))
+
+# T-tests for differences in means
+hetereogeneity %>%
+  select(actorcritic, charter.school, school.account, poverty, 
+         n_weeks,
+         `Active.Users...Total`, `Badges.per.Active.User`,
+         `Tower.Alerts.per.Tower.Completion`,
+         Frobenius.NNDSVD_teacher2,
+         Frobenius.NNDSVD_student1, Frobenius.NNDSVD_student3) %>%
+  tbl_summary(
+    by = actorcritic,  # Grouping variable
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no"
+  ) %>%
+  add_n() %>%
+  add_difference() %>%
+  add_q()
+
+```
+
+```{r}
+# Performance
+
+fit <- qs::qread("Bayesian/Results/ACfit.qs")
+loo1 <- qs::qread("Bayesian/Results/ACloo.qs")
+
+
+
+```
 
 
 
