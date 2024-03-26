@@ -922,11 +922,18 @@ $$
 P_{t}(a) = \lambda P_{t}(a)_{\text{Model 1}} + (1-\lambda) P_{t}(a)_{\text{Model 2}},
 $$
 
-## Statistical Analysis
-
-
-
 ## Model Evaluation
+
+### Laplace Approximations
+
+### Top Model Selection
+
+### Full Markov chain Monte Carlo (MCMC) Sampling
+
+
+
+## Hetereogeneity Analysis
+
 
 
 
@@ -3109,7 +3116,7 @@ top_fits_df %>%
 
 ### Model Selection and Interpretability
 
-#### Model Selection Part 1
+#### Model Performance
 
 We then refined our analysis to highlight models that demonstrated robustness and high predictive accuracy and provided meaningful insights into the interactions between rewards, actions, and states.
 
@@ -3360,7 +3367,7 @@ save(results, file = "me-standardized-coef.RData")
 
 ```
 
-#### Model Selection Part 2
+#### Model Interpretability
 
 We applied further scrutiny to the top models through re-estimation with scaled independent variables, enabling a direct comparison of coefficients. In this case, an increase of 1 unit in the independent variable represents an increase of one standard deviation. @tbl-re-estimation summarizes these results, revealing the standardized coefficients for reward and state variables and their interactions with lagged actions.
 
@@ -3806,9 +3813,19 @@ model_summary_long %>%
 ```
 
 
-# Estimating RL Models
+## Estimating RL Models
+
+### Laplace Approximations
+
+<!-- - Present the 4 models that stood out during the first estimation. -->
+
+<!-- - Discuss the HBI results and model comparison statistics. -->
+
+#### Top Q-Learning and Actor-Critic Models
 
 ```{r}
+#| label: tbl-CBM-first
+#| tbl-cap: "Top QL and AC Models"
 library(R.matlab)
 
 # Load the MATLAB files for the top QL and AC models
@@ -3841,8 +3858,11 @@ gt(top_models_table) %>%
 
 ```
 
+#### Hybrid Models Comparison
 
 ```{r}
+#| label: tbl-CBM-second
+#| tbl-cap: "Hybrid Models"
 
 # Load the MATLAB files for the comparative models and the top model comparison
 comp_model_7 <- readMat('CBM/zearn_results/hbi_compare_7.mat')
@@ -3866,8 +3886,11 @@ gt(model_freq, rownames_to_stub = T) %>%
 
 ```
 
+#### Top Model
 
 ```{r}
+#| label: tbl-CBM-final
+#| tbl-cap: "Top Model Comparison"
 
 top_model_comp <- readMat('CBM/zearn_results/top_model_comp.mat')
 # Extract model frequency data
@@ -3880,7 +3903,18 @@ gt(model_freq) %>%
   fmt_percent(decimals = 1)
 ```
 
+### Full Markov chain Monte Carlo (MCMC) Estimation
+
+## Heterogeneity Analyses
+
+
+
+<!--  ****************************************   -->
+
+
 ```{r}
+#| label: tbl-CBM-teachers
+#| tbl-cap: "Teacher Heterogeneity"
 
 # Classify each teacher according to the best-fit model
 teacher_classification <- apply(top_model_comp[["cbm"]][[5]][[2]],
@@ -4024,219 +4058,6 @@ do.call(grid.arrange, c(plots, ncol = 3))
 
 ```
 
-```{r temporal-variance}
-#| eval: false
-
-# Calculating variance over time for each teacher
-teacher_variance <- df %>%
-  mutate(poverty = factor(poverty, ordered = T),
-         income = factor(income, ordered = T),
-         across(c(FrobeniusNNDSVD1:FrobeniusNNDSVD3),
-                ~ ifelse(. > median(.), 1, 0))) %>%
-  group_by(Teacher.User.ID) %>%
-  summarise(
-    NMF1_sd = sd(FrobeniusNNDSVD1, na.rm = TRUE),
-    NMF2_sd = sd(FrobeniusNNDSVD2, na.rm = TRUE),
-    NMF3_sd = sd(FrobeniusNNDSVD3, na.rm = TRUE),
-    NMF1_var = var(FrobeniusNNDSVD1, na.rm = TRUE),
-    NMF2_var = var(FrobeniusNNDSVD2, na.rm = TRUE),
-    NMF3_var = var(FrobeniusNNDSVD3, na.rm = TRUE),
-    num_classes = median(teacher_number_classes),
-    num_students = sum(Students...Total),
-    poverty = first(poverty),
-    income = first(income),
-    charter.school = median(charter.school),
-    school.account = median(school.account),
-    n_weeks = mean(n_weeks)
-  ) %>%
-  # Remove teachers with no variance
-  filter(NMF1_var > 0 & NMF2_var > 0 & NMF3_var > 0) %>%
-  # Remove teachers with biased variance
-  filter(NMF1_var <= 0.25 & NMF2_var <= 0.25 & NMF3_var <= 0.25)
-
-# Calculating variance over time for each classroom
-classroom_variance <- df %>%
-  mutate(poverty = factor(poverty, ordered = T),
-         income = factor(income, ordered = T),
-         across(c(Active.Users...Total:Tower.Alerts.per.Tower.Completion),
-                ~ scale(.))) %>%
-  group_by(Classroom.ID) %>%
-  summarise(
-    Active_sd = sd(Active.Users...Total, na.rm = TRUE),
-    Minutes_sd = sd(Minutes.per.Active.User, na.rm = TRUE),
-    Badges_sd = sd(Badges.per.Active.User, na.rm = TRUE),
-    Boosts_sd = sd(Boosts.per.Tower.Completion, na.rm = TRUE),
-    Tower_sd = sd(Tower.Alerts.per.Tower.Completion, na.rm = TRUE),
-    num_classes = median(teacher_number_classes),
-    num_students = sum(Students...Total),
-    poverty = first(poverty),
-    income = first(income),
-    charter.school = median(charter.school),
-    school.account = median(school.account),
-    n_weeks = mean(n_weeks)
-  ) %>%
-  filter(Boosts_sd > 0 & Tower_sd > 0)
-
-# Density plot for teacher variables
-p1 <- ggplot(teacher_variance) +
-  geom_density(aes(x = NMF1_sd, fill = "NMF1_sd"), alpha = 0.5) +
-  geom_density(aes(x = NMF2_sd, fill = "NMF2_sd"), alpha = 0.5) +
-  geom_density(aes(x = NMF3_sd, fill = "NMF3_sd"), alpha = 0.5) +
-  scale_fill_brewer(palette = "Dark2") +
-  labs(title = "Density Plot of Teacher Variables", x = "St Dev", y = "Density") +
-  theme_minimal() +
-  theme(legend.title = element_blank())
-
-# Density plot for student variables
-p2 <- ggplot(classroom_variance) +
-  geom_density(aes(x = Active_sd, fill = "Active_sd"), alpha = 0.5) +
-  geom_density(aes(x = Minutes_sd, fill = "Minutes_sd"), alpha = 0.5) +
-  geom_density(aes(x = Badges_sd, fill = "Badges_sd"), alpha = 0.5) +
-  # geom_density(aes(x = Boosts_sd, fill = "Boosts_sd"), alpha = 0.5) +
-  geom_density(aes(x = Tower_sd, fill = "Tower_sd"), alpha = 0.5) +
-  scale_fill_brewer(palette = "Dark2") +
-  labs(title = "Density Plot of Student Variables", x = "St Dev", y = "Density") +
-  theme_minimal() +
-  theme(legend.title = element_blank())
-
-# Combine plots side by side
-grid.arrange(p1, p2, ncol = 2)
-
-# Fitting the model using brm function
-fit_mv_model <- brm(NMF1_var ~ num_students, 
-                    data = teacher_variance, 
-                    family = Beta(), 
-                    chains = 8,
-                    cores = 8,
-                    iter = 2000,
-                    warmup = 1000, 
-                    backend = "cmdstanr")
-fit_mv_model2 <- brm(NMF2_sd ~ n_weeks + num_classes +
-                       school.account + n_weeks, 
-                    data = teacher_variance, 
-                    family = Beta(), 
-                    chains = 6,
-                    cores = 6,
-                    iter = 3000,
-                    warmup = 1500, 
-                    silent = 2,
-                    backend = "cmdstanr")
-fit_mv_model <- brm(mvbind(NMF1_sd, NMF3_sd) ~ n_weeks + num_classes +
-                       school.account + n_weeks,
-                    data = teacher_variance, 
-                    family = Beta(), 
-                    chains = 6,
-                    cores = 6,
-                    iter = 3000,
-                    warmup = 1500,
-                    backend = "cmdstanr")
-
-# Preparing data for correlogram
-chart.Correlation(teacher_variance %>%
-                    mutate(poverty = as.integer(poverty),
-                           income = as.integer(income)) %>%
-                    select(NMF1_sd, NMF2_sd, NMF3_sd,
-                           num_students, poverty, income,
-                           charter.school, school.account, n_weeks),
-                  histogram = TRUE, method = "spearman")
-                           
-
-
-chart.Correlation(classroom_variance %>%
-                    select(NMF1_var, NMF2_1_var, NMF3_1_var,
-                           
-                           Active_sd, Minutes_sd, Badges_sd, Boosts_sd, Tower_sd,
-                           num_classes, num_students,
-                           poverty, income, charter.school, school.account, n_weeks), histogram = TRUE, method = "spearman",
-                  pch = 20, cex = 0.5, col = rgb(0, 0, 1, 0.5))
-cor_data <- teacher_variance %>%
-  select(NMF1_var, NMF2_1_var, NMF3_1_var, num_classes, num_students, poverty, income, charter.school, school.account, n_weeks)
-
-# Calculate correlation matrix
-cor_matrix <- cor(cor_data, use = "complete.obs")
-
-# Correlogram
-corrplot(cor_matrix, method = "circle")
-
-```
-
-```{r}
-#| eval: false
-#| label: fig-lags
-#| fig-cap: "The estimated coefficients of the lagged variables in the random effects models. The lines represent different variables, and the shaded areas indicate the standard errors of the coefficients. The grey line and shaded area represent the coefficients for the lagged Badges per Student."
-
-# Extract coefficients from models
-lag_period = 3
-col = "FrobeniusNNDSVD"
-select_model <- function(model) {
-  model[["Method"]] == col & model[["Lag"]] == lag_period
-}
-model_coeffs <- Filter(select_model, results)
-
-extract_coeffs <- function(model) {
-  coef_df <- data.frame(coeff_value_estimate = model$coef[,1],
-                        coeff_value_se = model$coef[,2])
-  coef_df$Coefficient_Name <- rownames(model$coef)
-  # Add other model properties
-  coef_df$Method <- model$Method
-  coef_df$Component <- model$Component
-  return(coef_df)
-}
-df_estimates <- do.call(rbind, lapply(model_coeffs, extract_coeffs)) %>%
-  filter(Coefficient_Name != "(Intercept)" &
-           Coefficient_Name != "week_lag") %>%
-  mutate(Lag = as.numeric(str_extract(Coefficient_Name, "\\d+$")),
-         Coefficient_Name = case_when(
-           grepl("FrobeniusNNDSVD1", Coefficient_Name) ~ "Frobenius 1",
-           grepl("FrobeniusNNDSVD2", Coefficient_Name) ~ "Frobenius 2",
-           grepl("FrobeniusNNDSVD3", Coefficient_Name) ~ "Frobenius 3",
-           grepl("Badges.per.Active.User", Coefficient_Name) ~ "Badges",
-           
-           TRUE ~ "Other"),
-         Lag = case_when(is.na(Lag) ~ 1,
-                         Coefficient_Name == "Badges" ~ Lag + 1,
-                         .default = Lag),
-         Coefficient_Name = case_when(Coefficient_Name == "Badges" ~ 
-                                 paste0(Coefficient_Name, " ", Component),
-                               .default = Coefficient_Name))
-
-plot_comp <- ggplot(df_estimates %>% filter(!grepl("Badges", Coefficient_Name)),
-       aes(x = Lag,
-           y = coeff_value_estimate,
-           color = Component,
-           group = Component)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = coeff_value_estimate - coeff_value_se,
-                  ymax = coeff_value_estimate + coeff_value_se),
-              alpha = 0.1) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "black", size = 0.2) +
-  facet_wrap(~Coefficient_Name, scales = "free_y") +
-  labs(x = "Lag", y = "Coefficient", linetype = "") +
-  theme_light() +
-  theme(legend.position = "none")
-plot_badge <- ggplot(data = df_estimates %>% filter(grepl("Badges", Coefficient_Name)),
-            aes(x = Lag,
-                y = coeff_value_estimate,
-                group = Component,
-                linetype = "Badges")) +
-  geom_line(color = "black") +
-  geom_ribbon(aes(ymin = coeff_value_estimate - coeff_value_se,
-                  ymax = coeff_value_estimate + coeff_value_se),
-              alpha = 0.1,
-              fill = "grey",
-              color = "grey") +  # set color to gray
-  geom_hline(yintercept = 0, linetype = "dashed", color = "black", size = 0.2) +
-  facet_wrap(~Coefficient_Name, scales = "free_y") +
-  labs(x = "Lag", y = "Coefficient", linetype = "") +
-  theme_light() +
-  theme(legend.position = "none")
-
-grid.arrange(plot_comp, plot_badge)
-
-```
-
-## Optimal Model Selection
-
 In our pursuit to identify the most parsimonious model that optimally fits the data, we conducted a comparative analysis of the out-of-sample negative likelihood (NLL) across four distinct reinforcement learning models: State-Based Q-Learning, Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. We evaluated these models using three different methods for non-negative matrix factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and Kullback-Leibler. Each cell in @fig-panel-bic represents the median negative log-likelihood of a model given a specific method, with lower values signifying a superior model fit.
 
 Our analysis reveals that the Kernalized Q-Learning model, when evaluated using the Frobenius (NNDSVD) method, provides the most optimal fit to the data, as evidenced by its lowest negative log-likelihood value. As a result, we select this combination of model and method for our remaining analyses.
@@ -4299,8 +4120,6 @@ table_df %>%
 
 ```
 
-## Model Comparison: Reinforcement Learning and Logistic Regression
-
 We compared our base models, which used logistic regression, and our top-performing reinforcement learning (RL) model, which employed kernelized Q-learning, to identify which best fit the data. @tbl-RL-logit-comp presents the Leave-One-Out Information Criterion (LOOIC) estimates for these models, with lower values indicative of superior model performance.
 
 Our analysis revealed that the hierarchical Q-learning model outperformed the others, as evidenced by its lowest LOOIC value. This finding suggests that reinforcement learning provides a more accurate representation of teacher behavior on Zearn when individual parameters are fitted. The hierarchical logistic regression model followed closely, demonstrating competitive performance. However, the models that did not incorporate a hierarchical structure yielded higher LOOIC values, indicating a lesser fit to the data. These findings highlight the significant heterogeneity in the data and emphasize the value of reinforcement learning models, particularly those with a hierarchical structure, in accurately capturing the dynamics of teacher behavior on Zearn.
@@ -4355,14 +4174,6 @@ df_looic %>%
 gt(df_looic)
 
 ```
-
-## Feature Selection
-
-<!-- - Present the 4 models that stood out during the first estimation. -->
-
-<!-- - Discuss the HBI results and model comparison statistics. -->
-
-## Model Fit
 
 We compared the hierarchical model's predictions and the original choice data, representing a distinct action. We averaged the model predictions across teachers weekly and overlayed them with the average action from the choice data. We also calculated the standard error around these averages accounting for missing data, which provided a measure of uncertainty around these values.
 
@@ -4532,6 +4343,9 @@ p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
 print(p)
 
 ```
+
+
+
 
 ## Optimality
 
@@ -4864,6 +4678,12 @@ ggplot(coef_matrix_long, aes(x = response, y = term, fill = as.numeric(estimate)
   labs(x = NULL, y = NULL, title = NULL)
 
 ```
+
+
+
+
+
+
 
 # Discussion
 
