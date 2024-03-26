@@ -68,8 +68,213 @@ $$
 
 where $\text{Action}_t$ denotes the binary outcome at time $t$, $\text{Reward}_{t-i}$ and $\text{Action}_{t-i}$ represent the reward and action variables lagged by $i$ periods, and $L$ is the maximum lag considered. $\mu_{\text{Teacher}}$ and $\lambda_{\text{Week}}$ represent fixed effects for teachers and weeks, respectively.
 
+# Regression Analysis of Teacher Characteristics
 
-## Pooled Correlations between Components and Student Outcomes
+```{r}
+#| label: tbl-school-characteristics
+#| eval: false
+
+library(fixest)
+
+school_df <- do.call(rbind, lapply(filtered_results, function(item) {
+  # Merge with badges data
+  temp <- item$coef %>%
+    right_join(badges_df, by = "Teacher.User.ID") %>%
+    mutate(auc_logit = log(auc_out/(1-auc_out))) %>%
+    select(Teacher.User.ID, MDR.School.ID, auc_logit, logLik_ind,
+           school.account, charter.school, income, poverty) %>%
+    mutate(state = ifelse(is.null(item$State), "None", item$State),
+           reward = item$Reward,
+           action = item$Method)
+})) %>%
+  mutate(across(c(state, reward, action), factor))
+
+reg_school <- feols(auc_logit ~ i(poverty, "40-75% (Mid-High)") +
+                      school.account + charter.school |
+                      state^reward^action,
+                 data = school_df)
+
+Xpower <- sapply(levels(school_df$income), 
+               function(x)ifelse(school_df$income==x, 1, 0))
+colnames(Xpower) <- c(levels(school_df$income))
+Xpower <- Xpower %*% contr.poly(length(levels(school_df$income)))[,1:3]
+colnames(Xpower) <- c("income.L", "income.Q", "income.C")
+school_df <- cbind(school_df, Xpower)
+reg_school <- feols(auc_logit ~ income.L + income.Q + income.C + 
+                      school.account + charter.school |
+                      state^reward^action,
+                 data = school_df)
+
+school_df <- school_df %>%
+  mutate(low_pov = if_else(poverty == "0-40% (Low)", 1, 0),
+         mid_pov = if_else(poverty == "40-75% (Mid-High)", 1, 0),
+         high_pov = if_else(poverty == "75-100% (High)", 1, 0))
+
+reg_school <- feols(auc_logit ~ i(low_pov, state:reward:action) +
+                      i(mid_pov, state:reward:action) +
+                      school.account + charter.school |
+                      state^reward^action,
+                 data = school_df)
+
+iplot(reg_school)
+
+```
+
+```{r re-estimation}
+#| eval: false
+
+create_RL_formula <- function(action, reward, state = NULL, lag = 1,
+                              group = "Teacher.User.ID") {
+  re_terms <- c()
+  
+  for (i in 1:lag) {
+    re_terms <- c(re_terms, paste0(reward, "_", i), paste0(action, "_", i))
+    # Add the interaction term for Reward_i * action_i
+    re_terms <- c(re_terms, paste0(reward, "_", i, ":", action, "_", i))
+    if (i != lag) {
+      for (j in (i + 1):lag) {
+        # Add the interaction for Reward_i * action_j when i < lag
+        re_terms <- c(re_terms, paste0(reward, "_", i, ":", action, "_", j))
+      }
+    }
+  }
+  if (is.null(state)) {
+    formula_string <- paste0(action, " ~ ",
+                             paste(re_terms, collapse = " + "), " + ",
+                             "(", paste(re_terms, collapse = " + "), "|",
+                             group, ") + ", "week_lag")
+    return(as.formula(formula_string))
+  } else {
+    formula_string <- paste0(action, " ~ ",
+                             paste(re_terms, collapse = " + "), " + ",
+                             "(", paste(re_terms, collapse = " + "), " + ",
+                             state, " + ", paste0(state, ":", action, "_1"), "|",
+                             group, ") + ", "week_lag")
+  }
+  
+  return(as.formula(formula_string))
+}
+
+
+# Estimation
+params <- params %>%
+  filter(st == "Frobenius.NNDSVD_student3",
+         grepl("1|2|4", rwd),
+         act != "Minutes.on.Zearn...Total")
+
+cl <- makeCluster(min(detectCores(), nrow(params)))
+registerDoParallel(cl)
+top_results <- foreach(i = 1:(nrow(params)),
+                   .multicombine = TRUE,
+                   .noexport = c("formula", "model"),
+                   .export = ls(),
+                   .packages = "lme4") %dopar% {
+  act <- as.character(params$act[i])
+  lag <- params$lag[i]
+  rwd <- as.character(params$rwd[i])
+  st  <- as.character(params$st[i])
+  formula <- create_RL_formula(act, rwd, st, lag,
+                               group = "Teacher.User.ID")
+
+  # Return the results as a list
+  list(Action = act,
+       Reward = rwd,
+       State = st,
+       Lag = lag,
+       equation = as.character(formula),
+       model <- tryCatch(
+         glmer(formula, data = train_data, family = binomial(link = "logit"),
+               control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e3))),
+         error = function(e) { return(NULL) }
+         )
+       )
+}
+# Stop the cluster
+stopCluster(cl)
+rm(cl)
+
+save(top_results, file = "me-top-results.RData")
+
+```
+
+```{r}
+#| label: fig-RL-refined
+#| fig-cap: ""
+#| eval: false
+
+library(lme4)
+
+load("me-top-results.RData")
+
+# Function to create density plot
+create_density_plot <- function(data, cols, title) {
+  quantiles <- do.call(rbind, lapply(cols, function(col) {
+    quantile(data %>% filter(Term == col) %>% pull(Coefficient), c(0.05, 0.95))
+  }))
+  bounds <- range(quantiles, na.rm = TRUE)
+  
+  ggplot() +
+    geom_density(data = data,
+                 aes(x = Coefficient, fill = Term),
+                 alpha = 0.6,
+                 adjust = 2,
+                 bounds = bounds) +
+    theme_minimal() +
+    theme(
+      panel.grid = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.title.x = element_blank(),
+      legend.title = element_blank(),
+      plot.title = element_blank(),
+      legend.position = "none"
+    )
+}
+
+# Generating plots for each model
+plot_list <- lapply(results, function(object) {
+  model <- object[[6]]
+  
+  if (!is.null(model)) {
+    re <- ranef(model)$Teacher.User.ID
+    re <- re[,-1] # Remove the first column (Intercept)
+    
+    # Separate state and reward effects
+    state_cols <- grep(object$State, names(re), value = TRUE)
+    reward_cols <- setdiff(names(re), state_cols)
+    
+    # Reshape the data to a long format for plotting
+    re_long_state <- pivot_longer(re[,state_cols], 
+                                  cols = state_cols, 
+                                  names_to = "Term", 
+                                  values_to = "Coefficient")
+    re_long_reward <- pivot_longer(re[,reward_cols], 
+                                   cols = reward_cols, 
+                                   names_to = "Term", 
+                                   values_to = "Coefficient")
+    
+    # Create loess density plots
+    plot_state <- create_density_plot(re_long_state, state_cols, "State Effects")
+    plot_reward <- create_density_plot(re_long_reward, reward_cols, "Reward Effects")
+    
+    return(list(StatePlot = plot_state, RewardPlot = plot_reward))
+  }
+})
+
+names(plot_list) <- lapply(top_results, function(object) {
+  name <- paste(object$Action, " ~ ",
+                "R", object$Reward,
+                " S", object$State, sep = "")
+  name <- gsub("Frobenius.NNDSVD_", "", name)
+  name <- gsub("teacher", "IC", name)
+  name <- gsub("student", "", name)
+})
+
+```
+
+
+# Pooled Correlations between Components and Student Outcomes
 
 We meta-analyzed individual correlations within our dataset to reveal the pooled relationships between student outcomes (badges) and the components from the dimensionality reduction procedure. This approach, termed 'internal meta-analysis,' is advantageous when dealing with large datasets with hierarchical structures, as it allows for simultaneously considering multiple, potentially correlated outcomes.
 
