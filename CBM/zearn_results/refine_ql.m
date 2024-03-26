@@ -10,7 +10,7 @@ addpath(fullfile('ql_subj_results'));
 
 % Load prechosen models and common data
 load("ranked_ql.mat");
-fdata = load('../data/all_data.mat');
+fdata = load('../data/sample_data.mat');
 data = fdata.data;
 
 %% Re-estimate top models with more precision
@@ -167,7 +167,7 @@ for i = 1:4
     save(filtered_name{i}, '-struct', 'loaded_data');
 end
 
-fname_hbi = 'hbi_QL4_refined.mat';
+fname_hbi = 'ql_refine/hbi_QL4_refined.mat';
 cbm_hbi(filtered_data, models(top4_indices), filtered_name, fname_hbi);
 cbm_hbi_null(filtered_data, fname_hbi);
 

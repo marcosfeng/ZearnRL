@@ -8,7 +8,7 @@ addpath(fullfile('..','zearn_codes'));
 addpath(fullfile('..','zearn_codes','ql_wrappers'));
 
 % Load data
-fdata = load('../data/all_data.mat');
+fdata = load('../data/sample_data.mat');
 data  = fdata.data;
 
 % Initialize models and fcbm_maps arrays

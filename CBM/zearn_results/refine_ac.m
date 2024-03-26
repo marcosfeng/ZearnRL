@@ -10,7 +10,7 @@ addpath(fullfile('ac_subj_results'));
 
 % Load the common data for all datasets
 load("top10_ac.mat");
-fdata = load('../data/all_data.mat');
+fdata = load('../data/sample_data.mat');
 data  = fdata.data;
 
 %% Re-estimate top models with more precision
@@ -295,7 +295,7 @@ for i = 1:3
     filtered_name{i} = sprintf('ac_refine/filtered_ac_%d.mat', top10_indices(top5_indices(top3_indices(i))));
     save(filtered_name{i}, '-struct', 'loaded_data');
 end
-fname_hbi = 'hbi_AC3_refined.mat';
+fname_hbi = 'ac_refine/hbi_AC3_refined.mat';
 cbm_hbi(filtered_data, top_models, filtered_name, fname_hbi);
 
 % Load the HBI results and store them

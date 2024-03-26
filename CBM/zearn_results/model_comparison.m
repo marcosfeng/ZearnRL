@@ -8,7 +8,7 @@ addpath(fullfile('..','zearn_codes'));
 addpath(fullfile('..','zearn_codes','hybrid_wrappers'));
 
 % Load the common data for all datasets
-fdata = load('../data/all_data.mat');
+fdata = load('../data/sample_data.mat');
 data  = fdata.data;
 
 %% Estimate Models
@@ -149,10 +149,10 @@ end
 
 %% Model comparison (with top AC)
 
-fname_hbi = {'hbi_compare_7.mat', ...
-    'hbi_compare_1.mat', ...
-    'hbi_compare_2.mat', ...
-    'hbi_compare_51.mat'};
+fname_hbi = {'comp_aggr_results/hbi_compare_7.mat', ...
+    'comp_aggr_results/hbi_compare_1.mat', ...
+    'comp_aggr_results/hbi_compare_2.mat', ...
+    'comp_aggr_results/hbi_compare_51.mat'};
 idx = [1,5,9,14;
     2,6,10,13;
     3,7,11,13;
@@ -177,8 +177,8 @@ end
 
 % Which of the top models fit best
 cbm_hbi(filtered_data, models(top_idx), fname(top_idx), ...
-    'top_model_comp.mat');
-cbm_hbi_null(filtered_data, 'top_model_comp.mat');
+    'comp_aggr_results/top_model_comp.mat');
+cbm_hbi_null(filtered_data, 'comp_aggr_results/top_model_comp.mat');
 
 
 

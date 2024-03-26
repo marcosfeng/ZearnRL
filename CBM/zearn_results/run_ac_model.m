@@ -16,7 +16,7 @@ num_parameters = 7;
 prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
 % Load the common data for all datasets
-fdata = load('../data/all_data.mat');
+fdata = load('../data/sample_data.mat');
 data  = fdata.data;
 
 % Initialize models and fcbm_maps arrays
