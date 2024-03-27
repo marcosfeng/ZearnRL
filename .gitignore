@@ -8,6 +8,7 @@
 
 # User-specific files
 .Ruserdata
+.DS_Store
 
 # Example code in package build process
 *-Ex.R
@@ -31,6 +32,8 @@ vignettes/*.pdf
 # knitr and R markdown default cache directories
 *_cache/
 /cache/
+/temp_files
+/.luarc.json
 
 # Temporary files created by R markdown
 *.utf8.md
@@ -48,17 +51,15 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 .quarto/
+/.quarto/
 
 # Python Virtual Environment
 py-zearn/
 
 
-/.quarto/
-
-/.luarc.json
-/CBM/Archive
-/CBM/zearn_results/comp_results
-/temp_files
+# CBM subject files
 /CBM/data/individual_all
+/CBM/zearn_results/comp_results
 /CBM/zearn_results/top_results/ac
-.DS_Store
+/CBM/Archive
+*filtered*.mat
