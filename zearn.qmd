@@ -140,7 +140,7 @@ The analytical capabilities of RL extend to identifying variations in teacher le
 
 The Q-learning algorithm is the first class of models we employ to elucidate decision-making dynamics within an interactive environment. Q-learning involves the iterative refinement of Q-value functions, which map an agent's actions in a given state to evolving expectations of future rewards (analogous to subjective value or utility). This methodological approach is closely related to the classic "multi-armed bandit" problem, wherein the agent faces a finite set of choices (e.g., slot machines), each linked to a specific reward schedule, and aims to identify the optimal action that maximizes returns. Learning in this model depends on adjusting expectations to reduce the impact of prediction errors (the "surprise level," or the difference between expected and realized outcomes), using the Bellman equation to update Q-values iteratively [@rummery]. Through this iterative process, the equation calculates the value of each state-action pair by combining the immediate reward with the discounted value of subsequent optimal state-action configurations. This model frames decision-making as a result of accumulated experience and the anticipation of future rewards. Note that this framework is considered a model-free reinforcement learning algorithm, because it does not require a model of an environment's stochastic transitions to approximate expected rewards [@watkins1992].
 
-The Q-function, $Q(s, a)$, is defined for all state-action pairs $(s, a)$, where $s$ is the state and $a$ is the action. The Q-function represents the expected return or future reward for taking action $a$ in state $s$ following a certain policy $\pi = P(a)$. The Q-function is updated iteratively using the Bellman equation as follows:
+The Q-function, $Q(s, a)$, is defined for all state-action pairs $(s, a)$, where $s$ is the state and $a$ is the action. The Q-function represents the expected return or future reward for taking action $a$ in state $s$ following a certain policy $\pi = \Pr(a)$. The Q-function is updated iteratively using the Bellman equation as follows:
 
 $$
 Q_\text{new}(s, a) = Q(s, a) + \alpha \delta
@@ -173,12 +173,12 @@ where:
 The Q-learning algorithm uses this update rule to learn the Q-function and, hence, the optimal policy. The agent starts with an initial Q-function (which can be arbitrary) and then updates the Q-values based on the experiences it gathers from interactions with the environment. The update rule is applied every time the agent transitions from a state $s$ to a state $s'$ by taking an action $a$ and receiving a reward $r$. The agent selects actions based on a policy function of the Q-values. A common choice is the softmax action selection method, which which chooses actions probabilistically based on their Q-values. The probability of choosing a particular action is defined as follows:
 
 $$
-P(a) = \frac{e^{Q(s, a)/\tau}}{\sum_{a'} e^{Q(s, a')/\tau}}
+\Pr(a) = \frac{e^{Q(s, a)/\tau}}{\sum_{a'} e^{Q(s, a')/\tau}}
 $$ {#eq-softmax}
 
 where:
 
--   $P(a)$ is the probability of choosing action $a$,
+-   $\Pr(a)$ is the probability of choosing action $a$,
 
 -   $Q(s, a)$ is the Q-value of action $a$ in state $s$,
 
@@ -252,21 +252,21 @@ Mathematically mapping the agent-environment interaction is flexible, with many 
 
 To accurately capture the intricate dynamics present within our data, we explored a large set of candidate models, progressively escalating in complexity, as shown in @tbl-methods. This methodological triangulation enabled us to refine our data processing, analysis, and interpretation methods, effectively addressing the drawbacks of relying solely on one analytical approach. Through this rigorous methodology, our goal was to strengthen the reliability of our findings and offer a detailed understanding of the underlying behavioral patterns.
 
-+--------------------------+-----------------------------------------------------------------------------+---------------------------------------------------------------+
-| **Step**                 | **Method**                                                                  | **Software/Tools**                                            |
-+==========================+=============================================================================+===============================================================+
-| Data Preprocessing       | Cleaning, normalization                                                     | R                                                             |
-+--------------------------+-----------------------------------------------------------------------------+---------------------------------------------------------------+
-| Dimensionality Reduction | Principal Component Analysis (PCA), Non-negative Matrix Factorization (NMF) | Python (`scikit-learn`)                                       |
-+--------------------------+-----------------------------------------------------------------------------+---------------------------------------------------------------+
-| Feature Selection        | Regression analysis                                                         | R (`fixest` package)                                          |
-+--------------------------+-----------------------------------------------------------------------------+---------------------------------------------------------------+
-| Analytical Methods       | Q-learning, Actor-Critic Model Estimation                                   | R, Matlab (`CBM` package for Laplace approximation)           |
-+--------------------------+-----------------------------------------------------------------------------+---------------------------------------------------------------+
-| Statistical Analysis     | Hierarchical Bayesian Inference                                             | Matlab (`CBM` package for expectation-maximization algorithm) |
-+--------------------------+-----------------------------------------------------------------------------+---------------------------------------------------------------+
-| Model Evaluation         | Hetereogeneity analyses of model performance across teachers                | R                                                             |
-+--------------------------+-----------------------------------------------------------------------------+---------------------------------------------------------------+
++--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
+| **Step**                 | **Method**                                                                  | **Software/Tools**                                               |
++==========================+=============================================================================+==================================================================+
+| Data Preprocessing       | Cleaning, normalization                                                     | R [@rcoreteam2024]                                               |
++--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
+| Dimensionality Reduction | Principal Component Analysis (PCA), Non-negative Matrix Factorization (NMF) | Python (`scikit-learn`) [@pedregosa2011]                         |
++--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
+| Feature Selection        | Regression analysis                                                         | R (`fixest` package) [@berge2018]                                |
++--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
+| Analytical Methods       | Q-learning, Actor-Critic Model Estimation                                   | R, Matlab (`CBM` package for Laplace approximation) [@piray2019] |
++--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
+| Statistical Analysis     | Hierarchical Bayesian Inference                                             | Matlab (`CBM` package for expectation-maximization algorithm)    |
++--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
+| Model Evaluation         | Hetereogeneity analyses of model performance across teachers                | R                                                                |
++--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
 
 : Analytical steps employed in the study. For detailed information on software and tools, please refer to @sec-software-tools. {#tbl-methods}
 
@@ -324,165 +324,9 @@ df <- df %>%
 
 Zearn provided administrative data for teachers and students. Teacher activity is time-stamped to the second and includes the time spent on the platform and specific actions taken. On the other hand, student data is aggregated at the classroom-week level due to data privacy considerations. This aggregation included a variety of potentially interesting variables capturing student achievement (e.g., student lesson completion or "badges") and level of student struggle (e.g., tower alerts). These variables offer a comprehensive view of the dynamics of teacher-student interactions on the Zearn platform.
 
-The dataset includes `r length(unique(df$Classroom.ID))` classrooms and `r length(unique(df$Teacher.User.ID))` educators, with an average of `r round(mean(df$Students...Total, na.rm = T), 1)` students per classroom. @tbl-summary provides a snapshot of the schools' characteristics and reveals a broad spectrum of Zearn's user demographics including the average number of teachers, students, and weeks of data per school. The bimodal distribution of weekly data per classroom, as showcased in @fig-classroom-weeks, reveals that some classrooms have less than 3 to 4 months of data. The classrooms with less than 16 weeks of data are color-coded in red. The pattern of student logins over time, particularly around significant holidays, as seen in @fig-logins-week, underscore the temporal fluctuations in platform engagement.
-
-```{r}
-#| label: fig-classroom-weeks
-#| fig-cap: "Histogram of number of weeks of data per classroom. A bimodal distribution highlights the majority of classrooms with data spanning over 50 weeks. A smaller but significant subset of classrooms have less than 18 weeks of data. The dashed line acts as a threshold that excludes a notable segment of classrooms from further analysis. The lack of data between these two peaks suggests distinct patterns of usage—some classrooms consistently use the platform throughout the academic year, while others show sporadic engagement, possibly reflecting trial periods or intermittent usage."
-
-# Create the histogram
-df %>%
-  group_by(Classroom.ID) %>%
-  summarize(Tsubj = n()) %>%
-  mutate(Tsubj_category = if_else(Tsubj < 18, "less than 18", "18 or more")) %>%
-  ggplot(aes(x = Tsubj, fill = Tsubj_category)) +
-  geom_histogram(color = "black", breaks = seq(min(df$Tsubj, na.rm = T),
-                                               max(df$Tsubj, na.rm = T) + 1,
-                                               by = 2)) +
-  geom_vline(xintercept = 17, color = "darkgray",
-             linetype = "dashed", linewidth = 0.8) +
-  annotate("text", x = 10, y = 4000, label = "Excluded\nClassrooms",
-           vjust = 1, color = "red") +
-  labs(x = "Total Number of Weeks",
-       y = "Frequency (Classrooms)") +
-  scale_fill_manual(values = c("less than 18" = "red",
-                               "18 or more" = "steelblue")) +
-  theme_minimal() +
-  theme(legend.position = "none") +
-  scale_x_continuous(breaks = c(1, seq(5, max(df$Tsubj, na.rm = T), by = 5)))
-
-```
-
-```{r}
-#| label: fig-logins-week
-#| fig-cap: "Total number of student logins over time. The chart depicts the connection between academic schedules and platform engagement. Each bar represents a week, revealing peaks coinciding with active school weeks and troughs aligning with holiday periods (e.g., Thanksgiving and Christmas)."
-
-# Calculate the sum of login values by date and Teacher.User.ID
-login_data <- df %>%
-  group_by(date, Teacher.User.ID) %>%
-  summarize(tch_login = max(tch_login),
-            st_login  = max(st_login)) %>%
-  group_by(date) %>%
-  summarize(tch_logins = sum(tch_login),
-            st_logins  = sum(st_login))
-# Create bar plot
-bar_plot <- ggplot() +
-  geom_bar(data = login_data, aes(x = date, y = st_logins), stat = "identity") +
-  # geom_point(data = login_data, aes(x = date, y = tch_logins), color = "blue") +
-  labs(
-    x = "Week",
-    y = "Total Logins"
-  ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
-  scale_x_date(date_breaks = "3 week", date_labels = "%Y-%m-%d")
-
-# Add labels for Christmas and Thanksgiving
-bar_plot +
-  geom_text(aes(x = as.Date("2019-12-25"), y = 1250, label = "Christmas"),
-            size = 4, angle = 90, hjust = 0.5, vjust = 0.5,
-            color = "red") +
-  geom_text(aes(x = as.Date("2019-11-25"), y = 1250, label = "Thanksgiving"),
-            size = 4, angle = 90, hjust = 0.5, vjust = 0.5,
-            color = "darkorange")
-
-```
-
-### Geographic Context and Distribution
-
-Our investigation encompasses a diverse range of Louisiana schools. This region presents a distinct educational landscape and widespread adoption of the Zearn platform across its schools. @fig-teachers-map maps the distribution of teachers engaged with Zearn across Louisiana's parishes, highlighting areas with pronounced clusters of active teachers. The map also marks the top five cities leading in Zearn adoption among teachers.
-
-To enhance our analysis, we have included the socioeconomic profile detailed in @fig-income-dist. The distributions of median poverty and income levels highlight the heterogeneity in our data and the potential for understanding the impact of socioeconomic factors on the educational landscape.
-
-```{r}
-#| cache: true
-#| label: fig-teachers-map
-#| fig-cap: "Geographical distribution of teachers across various parishes in Louisiana, and the top 5 cities with the highest number of teachers."
-
-library(sf)
-library(tidygeocoder)
-library(tigris)
-library(furrr)
-
-# Batch geocoding
-# Sys.setenv(GEOCODIO_API_KEY = "")
-# Set the library path to where proj.db is located
-# Sys.setenv(PROJ_LIB = "")
-unique_zipcodes <- unique(dt$zipcode) %>%
-  as.list()
-plan(strategy = "multisession", workers = availableCores())
-address_geodata <- furrr::future_map_dfr(.x = unique_zipcodes, 
-                               ~ geo(postalcode = .x,
-                                     country = "United States",
-                                     method = 'geocodio',
-                                     full_results = TRUE,
-                                     progress_bar = FALSE)) %>%
-  select(postalcode,
-         address_components.city,
-         address_components.county,
-         lat, long) %>%
-  rename(
-    city = address_components.city,
-    county = address_components.county
-  ) %>%
-  mutate(
-    postalcode = as.integer(postalcode)
-  )
-
-# Merge the geocoding results back into the original data.table
-dt <- merge(dt, address_geodata,
-            by.x = "zipcode",
-            by.y = "postalcode",
-            all.x = TRUE)
-
-# Aggregate the data to get the number of teachers in each county
-dt_map <- dt[, .(
-  num_teachers = n_distinct(Teacher.User.ID)
-), by = .(county)]
-
-# Get the top 5 cities by number of teachers
-# Aggregate the data to get the number of teachers in each city
-top_cities <- dt[, .(
-  num_teachers = n_distinct(Teacher.User.ID),
-  lat = mean(lat),
-  long = mean(long)
-), by = .(city, county)]
-# Get the top 5 cities with the most teachers
-top_cities <- top_cities[order(-num_teachers)][1:5,]
-
-# Get the Louisiana county map data
-df_map <- tigris::counties(cb = TRUE,
-                           resolution = "20m",
-                           class = "sf",
-                           state = "LA",
-                           progress_bar = FALSE) %>%
-  # sf::st_set_crs(4326) %>%
-  left_join(
-    as.data.frame(dt_map),
-    by = c("NAMELSAD" = "county")
-  ) %>%
-  sf::st_as_sf()
-
-ggplot() +
-  geom_sf(data = df_map, aes(fill = num_teachers)) +
-  scale_fill_continuous(name = "Number of Teachers", low = "white", high = "red", na.value = "gray90") +
-  labs(
-    title = "Number of Teachers by Parish in Louisiana"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "bottom",
-    panel.grid = element_blank(),
-    axis.text = element_blank(),
-    axis.title = element_blank()
-  ) +
-  geom_point(data = top_cities, aes(x = long, y = lat)) +
-  geom_text_repel(data = top_cities, aes(x = long, y = lat, label = city), size = 3, color = "black")
-```
-
 ```{r}
 #| label: tbl-summary
-#| tbl-cap: "Summary statistics for the schools"
+#| tbl-cap: "Summary statistics by school, detailing the number of teachers, total students, and weeks of active engagement."
 
 df_summary <- df %>%
   group_by(MDR.School.ID) %>%
@@ -562,7 +406,8 @@ df_proportions <- df %>%
   add_row(Variable = "Other", Percentage = "", .before = 23)
 
 # Summary statistics table
-gt_summary <- df_summary %>%
+gt_school_sum <- df_summary %>%
+  mutate(Variable = gsub("_Total", "", Variable)) %>%
   gt(rowname_col = "Variable") %>%
   cols_label(Mean = "Mean", SD = "Standard Deviation",
              Min = "Minimum", Max = "Maximum") %>%
@@ -574,12 +419,170 @@ gt_summary <- df_summary %>%
     columns = c("Min","Max"),
     decimals = 0
   )
-gt_summary
+gt_school_sum
+
+```
+
+The dataset includes `r length(unique(df$Classroom.ID))` classrooms and `r length(unique(df$Teacher.User.ID))` educators, with an average of `r round(mean(df$Students...Total, na.rm = T), 1)` students per classroom. @tbl-summary provides a snapshot of the schools' characteristics and reveals a broad spectrum of Zearn's user demographics including the average number of teachers, students, and weeks of data per school. The bimodal distribution of weekly data per classroom, as showcased in @fig-classroom-weeks, reveals that some classrooms have less than 3 to 4 months of data. The classrooms with less than 16 weeks of data are color-coded in red. The pattern of student logins over time, particularly around significant holidays, as seen in @fig-logins-week, underscore the temporal fluctuations in platform engagement.
+
+```{r}
+#| label: fig-classroom-weeks
+#| fig-cap: "Histogram of number of weeks of data per classroom. A bimodal distribution highlights the majority of classrooms with data spanning over 50 weeks. A smaller but significant subset of classrooms have less than 18 weeks of data. The dashed line acts as a threshold that excludes a notable segment of classrooms from further analysis. The lack of data between these two peaks suggests distinct patterns of usage—some classrooms consistently use the platform throughout the academic year, while others show sporadic engagement, possibly reflecting trial periods or intermittent usage."
+
+# Create the histogram
+df %>%
+  group_by(Classroom.ID) %>%
+  summarize(Tsubj = n()) %>%
+  mutate(Tsubj_category = if_else(Tsubj < 18, "less than 18", "18 or more")) %>%
+  ggplot(aes(x = Tsubj, fill = Tsubj_category)) +
+  geom_histogram(color = "black", breaks = seq(min(df$Tsubj, na.rm = T),
+                                               max(df$Tsubj, na.rm = T) + 1,
+                                               by = 2)) +
+  geom_vline(xintercept = 17, color = "darkgray",
+             linetype = "dashed", linewidth = 0.8) +
+  annotate("text", x = 10, y = 4000, label = "Excluded\nClassrooms",
+           vjust = 1, color = "red") +
+  labs(x = "Total Number of Weeks",
+       y = "Frequency (Classrooms)") +
+  scale_fill_manual(values = c("less than 18" = "red",
+                               "18 or more" = "steelblue")) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_x_continuous(breaks = c(1, seq(5, max(df$Tsubj, na.rm = T), by = 5)))
+
 ```
 
 ```{r}
+#| label: fig-logins-week
+#| fig-cap: "Total number of student logins over time. The chart depicts the connection between academic schedules and platform engagement. Each bar represents a week, revealing peaks coinciding with active school weeks and troughs aligning with holiday periods (e.g., Thanksgiving and Christmas)."
+
+# Calculate the sum of login values by date and Teacher.User.ID
+login_data <- df %>%
+  group_by(date, Teacher.User.ID) %>%
+  summarize(tch_login = max(tch_login),
+            st_login  = max(st_login)) %>%
+  group_by(date) %>%
+  summarize(tch_logins = sum(tch_login),
+            st_logins  = sum(st_login))
+# Create bar plot
+bar_plot <- ggplot() +
+  geom_bar(data = login_data, aes(x = date, y = st_logins), stat = "identity") +
+  # geom_point(data = login_data, aes(x = date, y = tch_logins), color = "blue") +
+  labs(
+    x = "Week",
+    y = "Total Logins"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12)) +
+  scale_x_date(date_breaks = "3 week", date_labels = "%Y-%m-%d")
+
+# Add labels for Christmas and Thanksgiving
+bar_plot +
+  geom_text(aes(x = as.Date("2019-12-25"), y = 1250, label = "Christmas"),
+            size = 4, angle = 90, hjust = 0.5, vjust = 0.5,
+            color = "red") +
+  geom_text(aes(x = as.Date("2019-11-25"), y = 1250, label = "Thanksgiving"),
+            size = 4, angle = 90, hjust = 0.5, vjust = 0.5,
+            color = "darkorange")
+
+```
+
+### Geographic Context and Distribution
+
+Our investigation encompasses a diverse range of Louisiana schools. This region presents a distinct educational landscape and widespread adoption of the Zearn platform across its schools. @fig-teachers-map maps the distribution of teachers engaged with Zearn across Louisiana's parishes, highlighting areas with pronounced clusters of active teachers. The map also marks the top five cities leading in Zearn adoption among teachers.
+
+```{r}
+#| cache: true
+#| label: fig-teachers-map
+#| fig-cap: "Geographic distribution of Zearn teachers across Lousiana parishes. The color gradient indicates the density of teachers, with darker hues representing a greater number of educators using Zearn. The top five cities where Zearn is most prominent are identified and labeled."
+
+library(sf)
+library(tidygeocoder)
+library(tigris)
+library(furrr)
+
+# Batch geocoding
+# Sys.setenv(GEOCODIO_API_KEY = "")
+# Set the library path to where proj.db is located
+# Sys.setenv(PROJ_LIB = "")
+unique_zipcodes <- unique(dt$zipcode) %>%
+  as.list()
+plan(strategy = "multisession", workers = availableCores())
+address_geodata <- furrr::future_map_dfr(.x = unique_zipcodes, 
+                               ~ geo(postalcode = .x,
+                                     country = "United States",
+                                     method = 'geocodio',
+                                     full_results = TRUE,
+                                     progress_bar = FALSE)) %>%
+  select(postalcode,
+         address_components.city,
+         address_components.county,
+         lat, long) %>%
+  rename(
+    city = address_components.city,
+    county = address_components.county
+  ) %>%
+  mutate(
+    postalcode = as.integer(postalcode)
+  )
+
+# Merge the geocoding results back into the original data.table
+dt <- merge(dt, address_geodata,
+            by.x = "zipcode",
+            by.y = "postalcode",
+            all.x = TRUE)
+
+# Aggregate the data to get the number of teachers in each county
+dt_map <- dt[, .(
+  num_teachers = n_distinct(Teacher.User.ID)
+), by = .(county)]
+
+# Get the top 5 cities by number of teachers
+# Aggregate the data to get the number of teachers in each city
+top_cities <- dt[, .(
+  num_teachers = n_distinct(Teacher.User.ID),
+  lat = mean(lat),
+  long = mean(long)
+), by = .(city, county)]
+# Get the top 5 cities with the most teachers
+top_cities <- top_cities[order(-num_teachers)][1:5,]
+
+# Get the Louisiana county map data
+df_map <- tigris::counties(cb = TRUE,
+                           resolution = "20m",
+                           class = "sf",
+                           state = "LA",
+                           progress_bar = FALSE) %>%
+  # sf::st_set_crs(4326) %>%
+  left_join(
+    as.data.frame(dt_map),
+    by = c("NAMELSAD" = "county")
+  ) %>%
+  sf::st_as_sf()
+
+ggplot() +
+  geom_sf(data = df_map, aes(fill = num_teachers)) +
+  scale_fill_continuous(name = "Number of Teachers", low = "white", high = "red", na.value = "gray90") +
+  theme_minimal() +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank()
+  ) +
+  geom_point(data = top_cities, aes(x = long, y = lat)) +
+  geom_text_repel(data = top_cities, aes(x = long, y = lat, label = city), size = 3, color = "black")
+```
+
+To enhance our analysis, we have included the socioeconomic profile detailed in @fig-income-dist. The distributions of median poverty and income levels highlight the heterogeneity in our data and the potential for understanding the impact of socioeconomic factors on the educational landscape.
+
+```{r}
 #| label: fig-income-dist
-#| tbl-cap: ""
+#| fig-cap: "Distributions of School Socioeconomic Profiles. The first graph shows school poverty levels based on the eligibility for free or reduced-price lunch (FRPL), a proxy for low-income student concentration. Schools are categorized by the percentage of eligible students: low-poverty (0-40%), mid-poverty (40-75%), and high-poverty (over 75%). The second graph depicts the median income distribution within the school districts."
+#| fig-subcap: 
+#|   - "School Poverty Distribution"
+#|   - "Median Income Distribution"
+#| layout-ncol: 2
 
 # Splitting df_proportions into different categories for pie charts
 df_poverty <- df_proportions[2:4,]
@@ -592,8 +595,7 @@ df_poverty$Percentage <- as.numeric(gsub("%", "", df_poverty$Percentage))/100
 ggplot(df_poverty, aes(x = Variable, y = Percentage)) +
   geom_bar(stat = "identity", show.legend = FALSE) +
   scale_y_continuous(labels = scales::percent_format()) +
-  labs(title = "Poverty Level Distribution",
-       x = "Poverty Level",
+  labs(x = "Poverty Level",
        y = "Percentage") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -605,8 +607,7 @@ df_income$Percentage <- as.numeric(gsub("%", "", df_income$Percentage))/100
 ggplot(df_income, aes(x = Variable, y = Percentage)) +
   geom_bar(stat = "identity", show.legend = FALSE) +
   scale_y_continuous(labels = scales::percent_format()) +
-  labs(title = "Income Distribution",
-       x = "Income Range",
+  labs(x = "Income Range",
        y = "Percentage") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -615,11 +616,10 @@ ggplot(df_income, aes(x = Variable, y = Percentage)) +
 
 ### Preprocessing and Exclusion criteria
 
-In order to model interesting behavioral patterns, we focus our analysis on the teachers who most likely take advantage of a wide range of resources on the platform. Thus, we select teachers who consistently use the platform and work in traditional school settings.
-
-As such, the raw data underwent rigorous preprocessing to ensure its suitability for analysis. This process included performing log transformations on our variables of interest (i.e., minutes, badges, and tower alerts) to normalize their distributions. Given the diverse user base of Zearn, we applied specific exclusion criteria to select teachers who most likely representat traditional classroom settings with consistent platform utilization. We selected virtual classrooms with at least five active students weekly, filtering out parents or tutors who may use Zearn outside the classroom setting. We removed teachers with more than four classrooms and those who logged in for less than 16 weeks. We excluded classrooms in the 6th to 8th grades, as those are a small proportion of our dataset. This deletion ensures a focus on traditional school settings, minimizing bias from teachers and schools that have not used Zearn consistently.
+In order to model interesting behavioral patterns, we focus our analysis on the teachers who most likely take advantage of a wide range of resources on the platform. Thus, we select teachers who consistently use the platform and work in traditional school settings. To achieve this, the raw data underwent rigorous preprocessing to ensure its suitability for analysis. This process included performing log transformations on our variables of interest (i.e., minutes, badges, and tower alerts) to normalize their distributions. Given the diverse user base of Zearn, we applied specific exclusion criteria to select teachers who most likely representat traditional classroom settings with consistent platform utilization. We selected virtual classrooms with at least five active students weekly, filtering out parents or tutors who may use Zearn outside the classroom setting. We removed teachers with more than four classrooms and those who logged in for less than 16 weeks. We excluded classrooms in the 6th to 8th grades, as they represent only a small proportion of our dataset. This deletion ensures a focus on traditional school settings, minimizing bias from teachers and schools that have not used Zearn consistently.
 
 ```{r preprocess data}
+#| include: false
 
 dt <- setDT(df)
 dt[, `:=`(
@@ -650,11 +650,11 @@ gc(verbose = FALSE)
 
 ```
 
-@tbl-summary-statistics summarizes the refined dataset, providing a snapshot of the key variables of interest. Their means and standard deviations (SD) are computed for each grade level and overall (across all grades).
+@tbl-classroom-summary summarizes the refined dataset, providing a snapshot of the key variables of interest. Their means and standard deviations (SD) are computed for each grade level and overall (across all grades).
 
 ```{r, results='asis'}
-#| label: tbl-summary-statistics
-#| caption: "Means (SD) of classroom variables by grade level. Minutes and Badges are averaged per student. Tower Alerts are averaged per lesson completion. Teacher Minutes are divided by their number of classrooms."
+#| label: tbl-classroom-summary
+#| tbl-cap: "Classroom engagement by grade level. Means (standard deviations) of minutes and badges per student, Tower Alerts per lesson completion, and teacher engagement minutes."
 
 create_summary <- function(var_name, var_label, type = "continuous") {
   summary_stat <- df %>%
@@ -683,133 +683,151 @@ summaries_list <- list(
   create_summary("Minutes.on.Zearn...Total", "Minutes per Teacher")
 )
 
-summary_table <- bind_rows(summaries_list) %>%
+school_summary <- bind_rows(summaries_list) %>%
   select(-c(9:11)) %>% t() %>% as.data.frame()
-colnames(summary_table) <- summary_table[1,]
+colnames(school_summary) <- school_summary[1,]
 # Remove the first row and set row names
-summary_table <- summary_table[-1, ]
-summary_table$`Grade Level` <- rownames(summary_table)
+school_summary <- school_summary[-1, ]
+school_summary$`Grade Level` <- rownames(school_summary)
 
 # Create a gt table
-gt_table <- gt(summary_table,
-               rowname_col = "Grade Level") %>%
+gt_classroom_sum <- school_summary %>%
+  mutate(`Grade Level` = gsub("\\*\\*", "", `Grade Level`)) %>%
+  gt(rowname_col = "Grade Level") %>%
   cols_label(
     `Minutes per Student` = "Minutes",
     `Badges per Student` = "Badges",
     `Tower Alerts per Lesson Completion` = "Tower Alerts",
     `Minutes per Teacher` = "Teacher Minutes"
-  ) %>%
-  as_latex()
+  )
 
 # Display the table
-gt_table
+gt_classroom_sum
 
 ```
 
-### Variables of interest
+### Operationalizing Actions, Rewards, and States
 
-In analyzing time-series data from Zearn, spanning approximately 40 weeks of an academic year, we aim to elucidate the relationship between teacher effort and student achievement. This endeavor requires the delineation of an input (action), an output (reward), and, optionally, state variables for the deployment of Reinforcement Learning (RL) models. This structure is pivotal for the practical application of Reinforcement Learning (RL) models of how teacher behaviors (actions) influence student outcomes (rewards) within the evolving educational context (states).
+In analyzing Zearn data spanning an entire academic year, we must establish a framework for input (actions), output (rewards), and, optionally, state variables for state-based RL models. In this framework, teacher activities drive the educational process, student achievements result from these efforts, and the constantly changing educational environment represents the states. The following sections will further explore potential actions, rewards, and states in our dataset.
 
 #### Teacher Actions
 
-Teacher actions encompass a broad spectrum, from platform log-ins to resource downloads and specific instructional activities. Simultaneously, student engagement is captured through metrics such as lesson completions (badges earned) and time spent logged in. provides a list of the actions available in the data.
+Teacher actions encompass a broad spectrum, from platform log-ins to resource downloads and specific instructional activities. Simultaneously, student engagement is captured through metrics such as lesson completions (badges earned) and time spent logged in. @tbl-teacher-variables provides a list of the actions available in the data.
 
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| **Variable**                            | **Description**                                                                           |
-+=========================================+===========================================================================================+
-| Course Guide Download                   | Provides a comprehensive overview, objectives, and structure of Zearn's PD courses.       |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Curriculum Map Download                 | A detailed map outlining learning objectives and content across grade levels.             |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Assessments Download                    | Includes assessments to evaluate student understanding of the material.                   |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Assessments Answer Key Download         | Key solutions for assessments, aiding in efficient grading and feedback.                  |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Course Notes Download                   | Notes from Zearn's professional development courses, offering insights and strategies.    |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Elementary Schedule Download            | A schedule outlining elementary-level Zearn curriculum activities.                        |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Grade Level Overview Download           | Provides a summary of the curriculum and learning goals for specific grade levels.        |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Kindergarten Schedule Download          | Detailed schedules for Kindergarten, supporting structured instruction planning.          |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Kindergarten Mission Download           | Describes specific learning objectives and activities in the Kindergarten curriculum.     |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Mission Overview Download               | Overview of particular learning missions within Zearn, guiding student learning paths.    |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Optional Homework Download              | Assignments for additional practice, enhancing student learning outside of class.         |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Optional Problem Sets Download          | Sets of problems for extra practice, tailored to reinforce lesson concepts.               |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Small Group Lesson Download             | Lessons designed for small-group engagement, promoting personalized learning.             |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Student Notes and Exit Tickets Download | Collection of lesson notes and quick assessments to gauge student understanding.          |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Teaching and Learning Approach Download | Resources outlining Zearn's pedagogical methods, supporting effective teaching.           |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Whole Group Fluency Download            | Fluency practice activities designed for whole-class participation.                       |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Whole Group Word Problems Download      | Word problem-solving activities intended for collaborative, whole-class engagement.       |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Fluency Completed                       | Indicates the completion of fluency activities, focusing on arithmetic skills.            |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Guided Practice Completed               | Signifies the completion of guided practice segments in lessons, reinforcing learning.    |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Kindergarten Activity Completed         | Marks the completion of specific activities within the Kindergarten curriculum.           |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Number Gym Activity Completed           | Completion of Number Gym activities, aimed at building numerical understanding.           |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Tower Completed                         | Completion of the "Tower of Power" activity, emphasizing mastery in lesson objectives.    |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Tower Stage Failed                      | Tracks instances where a student fails a stage in the "Tower of Power" activity.          |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
-| Tower Struggled                         | Identifies challenges or struggles students encounter within "Tower of Power" activities. |
-+-----------------------------------------+-------------------------------------------------------------------------------------------+
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| **Variable**                                               | **Description**                                                                                                                                                                                                                 |
++============================================================+=================================================================================================================================================================================================================================+
+| PD Course Guide Download [@zearnaa; @zearnab]              | Detailed agenda for Professional Development (PD) courses focusing on classroom implementation, leadership, supporting diverse learners,using data to inform teaching practices, and accelerating student learning.             |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| PD Course Notes Download [@zearnaa; @zearnab]              | Professional development session notes offering insights into effectively using Zearn's curriculum.                                                                                                                             |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Curriculum Map Download [@zearna]                          | Detailed outline of learning objectives and content. Presents a sequence of interconnected math concepts across grades, aligning with states' instructional requirements.                                                       |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Assessments Download [@zearnb]                             | Assessments to evaluate student understanding of the material, including ongoing formative assessments, digital daily checks, and paper-based unit assessments.                                                                 |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Assessments Answer Key Download [@zearnc]                  | Solutions for assessments to aid in grading and feedback. Provides detailed rubrics for mission-level assessments.                                                                                                              |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Elementary Schedule Download [@zearne]                     | A recommended schedule for elementary school-level Zearn curriculum activities to guide daily and weekly instructional planning, ensuring comprehensive coverage of curriculum content.                                         |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Grade Level Overview Download [@zearnf]                    | Provides a summary of learning objectives, pacing guidance, key grade-level terminology, a list of required materials, and details on the standards covered by each lesson.                                                     |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Kindergarten Schedule Download [@zearng]                   | Recommended schedules for Kindergarten, supporting structured instruction planning.                                                                                                                                             |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Kindergarten Mission Download [@zearnh]                    | Details interactive activities focused on kindergarten-level concepts and their learning objectives.                                                                                                                            |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Mission Overview Download [@zearnf]                        | Outlines a mission's (i.e., learning module) flow of topics, lessons, and assessments; highlights foundational concepts introduced earlier; lists recently introduced terms and required materials for teacher-led instruction. |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Optional Homework Download [@zearnj]                       | Assignments for additional practice, enhancing student learning outside of class.                                                                                                                                               |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Optional Problem Sets Download [@zearnk]                   | Exercises for extra practice, tailored to reinforce lesson concepts.                                                                                                                                                            |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Small Group Lesson Download [@zearnl]                      | Lessons designed for small-group engagement.                                                                                                                                                                                    |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Student Notes and Exit Tickets Download [@zearnz; @zearny] | Student notes supplement digital lessons with paper-and-pencil activities. Exit tickets are lesson-level assessments for teachers to monitor daily learning.                                                                    |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Teaching and Learning Approach Download [@zearnn]          | Resources outlining Zearn's pedagogical methods.                                                                                                                                                                                |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Whole Group Fluency Download [@zearno]                     | Lesson-aligned practice activities to build math fluency through whole-class engagement.                                                                                                                                        |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Whole Group Word Problems Download [@zearnl]               | Word problem-solving activities intended for collaborative, whole-class engagement.                                                                                                                                             |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Fluency Completed [@lesson-a]                              | Indicates teacher completed a fluency activity, typically given to students before their daily digital lessons.                                                                                                                 |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Guided Practice Completed [@zearnr]                        | Indicates teacher completed a guided practice segment, where students learn new concepts. These include videos with on-screen teachers, interactive activities, and paper-and-pencil Student Notes.                             |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Kindergarten Activity Completed [@zearns]                  | Indicates teacher completed an activity within the Kindergarten curriculum.                                                                                                                                                     |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Number Gym Activity Completed [@zearnt]                    | Indicates teacher completed a Number Gym, an individually adaptive activity that builds number sense, reinforces previously learned skills, and addresses areas of unfinished learning.                                         |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Tower Completed [@zearnu]                                  | Indicates teacher completed a Tower of Power, an activity that requires full mastery of lesson objectives and that students must complete independently.                                                                        |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Tower Struggled [@zearnac]                                 | Indicates teacher committed a mistake when engaging with the Tower of Power activity in a student role, triggering a "boost" (scaffolding remediation).                                                                         |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Tower Stage Failed [@zearnad]                              | Indicates teacher received three consecutive "boosts" due to repeated errors when engaging with the Tower of Power in a student role.                                                                                           |
++------------------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-: List of Teacher Actions
+: Catalog of Teacher Activities. This table presents teachers' actions, including curriculum engagement, downloads of pedagogical materials, and completion of various interactive components within the Zearn educational platform. {#tbl-teacher-variables}
 
-#### State Variables
+#### Reward and State Variables
 
-For this paper's second class of Reinforcement Learning models, we require variables that can determine the state space of each week. Experienced teachers suggest that they strongly focus on measures of the level of difficulty encountered during the lessons. The Zearn platform provides some measures of this kind, such as "Tower Alerts." If a student is struggling in a given lesson, the platform automatically provides scaffolded remediation (i.e., breaking the problems step by step), and if they struggle multiple times in that same lesson, a "Tower Alert" is generated for their teacher. Effectively, we assume that the value of a given state (i.e., the week at hand) is a function of the previous week's state variable.
+Reward and state variables in Reinforcement Learning (RL) models capture the dynamics of the environment in which learning and actions occur. The Zearn platform captures these variables from student activity and performance data, providing a quantifiable snapshot of classroom engagement and learning challenges. The student variables in our data are:
+
+1.  "Active Students" directly measures classroom engagement, representing the number of students actively logging in to complete digital lessons within a given week [@zearn2022].
+
+2.  "Student Logins" functions as an attendance roster, tallying the frequency of students entering the platform, potentially serving as an engagement metric [@zearnaf].
+
+3.  "Badges (on grade)" and "Badges" per active user metrics offer insights into the level of curriculum mastery. They reflect the number of new lessons completed weekly at students' grade level and in general. Accumulating badges can serve as a reward signal in an RL model, indicating students' progress and pace through the curriculum [@zearnae].
+
+4.  "Minutes per active student" variable measures students' time on the platform, potentially correlating with their focus and learning progress. Once routines are established, teachers can use this metric to monitor whether students meet their expected weekly minutes [@zearn2022].
+
+5.  "Tower Alerts" signal instances when students repeatedly encounter difficulties within the same lesson, prompting the platform to notify teachers. In the context of RL models, Tower Alerts could be viewed as a negative reinforcement signal, highlighting areas where students may require additional support or intervention to improve learning outcomes [@zearnad].
+
+### Dimensionality Reduction
 
 While comprehensive, directly using the available variables presents certain challenges:
 
 1.  **Complexity**: The sheer number of available variables complicates the identification of meaningful patterns and relationships.
-2.  **Dimensionality**: The high-dimensional nature of the data risks diluting important signals due to the "curse of dimensionality."
+2.  **Dimensionality**: The high-dimensional nature of the data risks diluting important signals due to the "curse of dimensionality."[^1]
 3.  **Interpretability**: Directly interpreting the impact of specific actions or behaviors on outcomes can be obscured by the intertwined nature of the data.
+
+[^1]: Richard Bellman coined this phrase to describe the challenge of optimizing a control process by searching over a discrete multidimensional grid, where the number of grid points increases exponentially with the number of dimensions. He wrote: “In view of all that we have said in the foregoing sections, the many obstacles we appear to have surmounted, what casts the pall over our victory celebration? It is the curse of dimensionality, a malediction that has plagued the scientist from the earliest days” [@bellman2015adaptive].
 
 Given these considerations, we avoid relying solely on single, discrete variables and employ dimensionality reduction techniques.
 
-### Dimensionality Reduction
+By reducing the data to a manageable number of components, we can more readily identify underlying patterns of behavior and interaction. Components generated through this technique provide a distilled representation of the data, where each one reflects a combination of behaviors or activities with a potential thematic linkage. To achieve this, we applied Principal Component Analysis (PCA) and Nonnegative Matrix Factorization (NMF) techniques. We then used the results to define action, reward, and state variables rather than using individual metrics.
 
-By reducing the data to a manageable number of components, we can more readily identify underlying patterns of behavior and interaction. Components generated through this technique provide a distilled representation of the data, where each component reflects a combination of behaviors or activities with a potential thematic linkage. To achieve this, we applied Principal Component Analysis (PCA) and Nonnegative Matrix Factorization (NMF) techniques. We then used the results to define action, reward, and state variables as components rather than individual metrics, facilitating a clearer understanding of their roles within the educational process.
+PCA is our first methodological choice. It is widely utilized but assumes data normality [@jolliffe2016] and maximizes variance explained, potentially overlooking subtle relationships between variables. Consequently, we also employ NMF, which, by contrast, imposes a non-negativity constraint and is more closely related to clustering algorithms, creating a more interpretable, sparse representation of behaviors [@ding2005; @lee1999]. This technique is particularly advantageous for data representing counts or frequencies. By trying different techniques, we can explore these trade-offs and discover the reduced-dimension representation best suited to our specific dataset and research questions.
 
-PCA is our first methodological choice. While widely utilized, it assumes data normality [@jolliffe2016] and maximizes variance explained, potentially overlooking subtle relationships between variables. Consequently, we also employ NMF, which, by contrast, imposes a non-negativity constraint and is more closely related to clustering algorithms, creating a more interpretable, sparse representation of behaviors [@ding2005; @lee1999]. This technique is particularly advantageous for data representing counts or frequencies. By trying different techniques, we can explore these trade-offs and discover the reduced-dimension representation best suited to our specific dataset and research questions.
+First, we standardized the dataset by z-scoring the variables of interest at the school level (using school-wide means and standard deviations). We performed PCA and NMF, and we evaluated the data's reconstruction accuracy and cluster separation using, respectively, the sum of squared residuals (a measure of the difference between the original data and the reconstructed data) and silhouette scores (a measure of how similar an object is to its cluster compared to other clusters [@rousseeuw1987]).
 
-We performed these estimations with the `scikit-learn` library in python [@pedregosa2011]. First, we standardized the dataset by z-scoring the variables of interest at the school level (using school-wide means and standard deviations) and split it into training (80%) and testing (20%) subsets to produce an out-of-sample model evaluation. We performed PCA and evaluated the data's reconstruction accuracy and cluster separation using the sum of squared residuals (a measure of the difference between the original data and the data reconstructed from the PCA) and silhouette scores (a measure of how similar an object is to its cluster compared to other clusters). The silhouette score ranges from -1 to 1, with a high value indicating that the object is well-matched to its cluster and poorly matched to neighboring clusters.
+We calculate the silhouette score with the formula $(b - a) / \max(a, b)$, where $a$ is the average distance within a cluster and $b$ is the average distance to the nearest neighboring cluster. This score ranges from -1 to 1, with higher values indicating a data point is well-matched to its cluster and poorly matched to neighboring clusters.
 
-We performed the Nonnegative Matrix Factorization (NMF) as follows:
+Note that our chosen RL models require discreet action variables. Thus, we choose to split teacher actions into binary variables, following a median split.
 
-The original matrix ($\mathbf{V}$) is a detailed description of all the teachers' (or students') behaviors. Each row in the matrix represents a unique teacher (or classroom), and each column represents a specific behavior or action. The entry in a specific row and column corresponds to the frequency of that behavior for that particular teacher (or classroom). We then estimate $\mathbf{V} \simeq \mathbf{W}\mathbf{H}$, such that
+#### Nonnegative Matrix Factorization (NMF) Methodology
+
+Let the original matrix ($\mathbf{V}$) be a detailed description of all the teachers' (or students') behaviors. Each row in the matrix represents a unique teacher-week (or classroom-week), and each column represents a specific behavior or action. The entry in a specific row and column corresponds to the frequency of that behavior for that particular teacher-week (or classroom-week). We then estimate $\mathbf{V} \simeq \mathbf{W}\mathbf{H}$, such that we minimize the following:
 
 $$
-\left\| \mathbf{V} - \mathbf{W}\mathbf{H} \right\|, \mathbf{W} \geq 0, \mathbf{H} \geq 0.
+\left\| \mathbf{V} - \mathbf{W}\mathbf{H} \right\| , \mathbf{W} \geq 0, \mathbf{H} \geq 0.
 $$
 
 We used two different loss functions (Frobenius norm and Kullback-Leibler divergence) and two different initialization methods (nonnegative double singular value decomposition (NNDSVD) and NNDSVD with zeros filled with the average of the input matrix (NNDSVDA)). The resulting matrices are:
 
 1.  Basis Matrix ($\mathbf{W}$): This matrix represents underlying behavior patterns. Each column is a "meta-behavior" or a group of behaviors occurring together.
-2.  Mixture Matrix ($\mathbf{H}$): This matrix shows the extent to which each "meta-behavior" is present in each teacher (or classroom). Each entry in this matrix represents the contribution of a "meta-behavior" to a particular behavior present in the data.
+2.  Mixture Matrix ($\mathbf{H}$): This matrix shows the extent to which each "meta-behavior" is present in each teacher-week (or classroom-week). Each entry in this matrix represents the contribution of a "meta-behavior" to a particular behavior present in the data.
 
-These matrices can reveal underlying patterns of behaviors (from the basis matrix) and how these patterns are mixed and matched in different teachers (from the mixture matrix). This methodology allowed us to assess the method's performance under varying configurations, again using the sum of squared residuals and silhouette scores for comparison.
+These matrices can reveal underlying patterns of behaviors (from the basis matrix) and how these patterns are mixed and matched in different teachers (from the mixture matrix). It allows us to assess the method's performance under varying configurations, with the sum of squared residuals and silhouette scores for comparison.
+
+One desirable feature of NMF is that it produces sparse components. In most cases, a median split is equivalent to giving a value of 1 to any positive entry. This sparsity makes the results more interpretable.
 
 ## Analytical Methods
 
 ### Feature Selection
 
-In order to find the appropriate action, reward, and state variables, we used a panel logistic regression model inspired by dynamic analysis [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We followed four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
+In order to pre-select the most appropriate action, reward, and state variables, we used a panel logistic regression model inspired by dynamic analysis [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We followed four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
 
-Unlike [@lau2005], our model captures both the lagged effects of actions and rewards and their interactions alongside the contemporaneous influence of states on actions. The general model formulation for both state-free and state-based scenarios is as follows:
+Unlike @lau2005, our model is not limited to the lagged effects of actions and rewards. We also capture action-reward interactions and the contemporaneous influence of states on actions. The general model formulation for state-free and state-based scenarios is as follows:
 
 #### State-Free Model
 
@@ -839,13 +857,13 @@ We used a varying coefficients model to capture individual teacher effects on th
 & + \phi_k \text{State}_{kt} + \psi_k (\text{State}_{kt} \times \text{Action}_{k, t-1}) + \mu_k + \lambda_{\text{Week}} + \epsilon_{kt}
 \end{align*}
 ```
-where $\beta_{ki}$, $\gamma_{ki}$, and $\delta_{kij}$ represent the reward, action, and their interaction coefficients that vary by teacher; $\phi_k$ and $\psi_k$ are the fixed effects for the state and the interaction between state and lagged action, respectively; and $\mu_k$ and $\lambda_{\text{Week}}$ are fixed effects for teachers and weeks, respectively.
+where $\beta_{ki}$, $\gamma_{ki}$, and $\delta_{kij}$ represent the reward, action, and their interaction coefficients that vary by teacher; $\phi_k$ and $\psi_k$ are the effects for the state and the interaction between state and lagged action, respectively; and $\mu_k$ and $\lambda_{\text{Week}}$ are fixed effects for teachers and weeks, respectively.
 
 Herein, the interaction between lagged rewards and actions aimed to capture the reinforcement aspect (a), where prior rewards enhance the likelihood of repeating specific actions. Including current state variables addressed (b) and examining how present educational contexts inform action choices. The interaction between current states and lagged actions encapsulated (c) that actions are deliberately chosen to navigate towards or sustain preferable educational states. Lastly, considering lagged rewards alone, we sought to elucidate (d) the phenomenon where past successes influence future endeavors, indicative of a learning trajectory.
 
-To operationalize these models, we used the NMF components. Since our RL models have discrete actions, we split the teacher NMF components into a binary variable, with 1 for all positive values (note that NMF produces sparse components). We then, constructed the lagged versions of these variables to capture temporal dynamics, extending up to six weeks to determine the optimal lag. This lag value captured how far back rewards and past actions influenced teacher behavior.
+To operationalize these models, we constructed lagged versions of the variables, extending up to six weeks to determine the optimal lag. This lag value captured how far back rewards and past actions influenced teacher behavior.
 
-Two types of metrics anchored model selection. First, we evaluated model fit and predictive accuracy using the Bayesian Information Criterion (BIC) and the Out-of-Sample fit, gauged through the Area Under the Receiver Operating Characteristic curve (AUC). As such, we balanced model parsimony with predictive power. Second, we aimed to delineate which regression coefficients most closely embodied RL-like dynamics. We focused on 1) variables that consistently enhanced action probability in response to rewards (i.e., positive coefficient for the state-reward interaction), 2) actions that changed according to a given state, 3) actions chosen to achieve desired states (i.e., significant coefficient for the action-state interaction), and 4) demonstrate action auto-correlation.
+Two types of metrics anchored model selection. First, we split the data into training (80%) and testing (20%) subsets. Then, we evaluated model fit and predictive accuracy using the Bayesian Information Criterion (BIC) and the Out-of-Sample fit, gauged through the Area Under the Receiver Operating Characteristic curve (AUC). As such, we balanced model parsimony with predictive power. Second, we aimed to delineate which regression coefficients most closely embodied RL-like dynamics. We focused on a) variables that consistently enhanced action probability in response to rewards (i.e., positive coefficient for the state-reward interaction), b) actions that changed according to a given state, c) actions chosen to achieve desired states (i.e., significant coefficient for the action-state interaction), and d) demonstrate action auto-correlation.
 
 ### Reinforcement Learning Model Estimation
 
@@ -862,18 +880,18 @@ where
 -   $\alpha$ is the learning rate,
 -   $\gamma$ is the discount rate,
 -   $\text{Badges}_t$ is the immediate reward received after taking action $a$ in state $s$,
--   $\text{cost}(a)$ is the cost associated with action $a$,
+-   $\text{cost}(a)$ is the estimated cost associated with action $a$,
 -   $Q_{t}(a)$ is the estimate of the Q-value for action $a$ at time $t$.
 
 The probability of choosing a particular action is determined by the softmax function and is defined as follows:
 
 $$
-P_{t}(a) = \frac{1}{1+e^{-Q_{t}(a)/\tau}}
+\Pr_t(a) = \frac{1}{1+e^{-\tau Q_{t}(a)}}
 $$
 
 where:
 
--   $P_{t}(a)$ is the probability of choosing action $a$ at time $t$,
+-   $\Pr_{t}(a)$ is the probability of choosing action $a$ at time $t$,
 -   $\tau$ is the temperature parameter.
 
 We interpret each of these parameters as follows:
@@ -888,16 +906,19 @@ We interpret each of these parameters as follows:
 
 #### The Actor-Critic Model
 
-In the Actor-Critic model, we update the value function, parameterized by weights $w$, and the policy function, defined by the parameter $\theta$. The model's update mechanism is minimizing the prediction error (\delta), which drives adjustments to both the actor and critic components. The equations for updating the weights and policy are as follows:
+In the Actor-Critic model, we update the value function, parameterized by weights $w$, and the policy function, defined by the parameter $\theta$. The model's update mechanism is minimizing the prediction error ($\delta$), which drives adjustments to both the actor and critic components. The equations for updating the weights and policy are as follows:
 
 $$
-w_{t+1} = w_{t} + \alpha_{v} \cdot \delta \cdot S_{t} \\
+w_{t+1} = w_{t} + \alpha_{v} \cdot \delta \cdot S_{t}
+$$
+
+$$
 \theta_{t+1} = \theta_{t} + \alpha_{\pi} \cdot \delta \cdot S_{t}
 $$
 
 where $w_{t}, \theta_{t}$ are the vectors of policy and value weights, respectively, for action $a$, and $S_{t}$ is a vector that characterizes the current state, defined as $S_{t} = \begin{bmatrix} 1 \\ \text{State Variable}_{t} \end{bmatrix}$.
 
-We define the parameterized policy as $\text{Prob}_{t}(a)=\text{Logit}^{-1}(\theta_{t} \cdot S_{t})$, the values of each state as $v(S_{t},a) = w_{t} \cdot S_{t}$, and prediction error $\delta$ as the difference between the actual outcome and the estimated value of the state-action pair:
+We define the parameterized policy as $\Pr_{t}(a)=\text{Logit}^{-1}(\theta_{t} \cdot S_{t})$, the values of each state as $v(S_{t},a) = w_{t} \cdot S_{t}$, and prediction error $\delta$ as the difference between the actual outcome and the estimated value of the state-action pair:
 
 $$
 \delta = (\text{Reward}_{t} - \text{cost}(a)) - \left( \gamma v(S_{t},a) - v(S_{t+1},a) \right)
@@ -905,53 +926,65 @@ $$
 
 #### Hybrid Models
 
-The hybrid models maintain parallel estimations of two models (Logistic regression, Q-learning, or Actor-Critic), combining them to estimate action selection. This integration is achieved through a weighting scheme that balances the contributions of each model. Specifically, the probability of selecting action (a) at time (t), denoted (P\_{t}(a)), is calculated by integrating the softmax outputs of the selected models. This integration uses a weighting parameter (\lambda), which adjusts the relative influence of each model and is formulated as:
+The hybrid models maintain parallel estimations of two models (Logistic regression, Q-learning, or Actor-Critic), combining them to estimate action selection. This integration is achieved through a weighting scheme that balances the contributions of each model. Specifically, the probability of selecting action ($a$) at time ($t$), denoted ($\Pr_t(a)$), is calculated through a linear combination of the softmax outputs of the selected models. This integration uses a weighting parameter ($\lambda$), which adjusts the relative influence of each model and is formulated as:
 
 $$
-P_{t}(a) = \lambda P_{t}(a)_{\text{Model 1}} + (1-\lambda) P_{t}(a)_{\text{Model 2}},
+\Pr_t(a) = \lambda \Pr_t(a)_{\text{Model 1}} + (1-\lambda) \Pr_t(a)_{\text{Model 2}},
 $$
 
-## Model Evaluation
+## Model Estimation
 
-We use the Hierarchical Bayesian Inference (HBI) framework, as described by Piray et al. (2019), to assess the fitness of our RL models and estimate their respective parameters across subjects. This approach leverages population-level distributions to inform individual parameter variation. This method leverages Laplace approximations for efficient computation of model evidence and parameter estimation by approximating the integrals involved in Bayesian inference. For a given model $k$ and subject $n$, we assume that individual parameters ($h_{k,n}$) follow a normal distributionwithin the population, i.e., $p(h_{k,n}) = N(h_{k,n} | \mu_k, V_k)$, where $\mu_k$ and $V_k$ represent the mean and variance of the prior distribution over $h_{k,n}$, respectively.
+We adopt the Hierarchical Bayesian Inference (HBI) framework, as described by @piray2019a, to assess the fitness of our RL models and estimate their respective parameters across subjects. This approach uses Laplace approximations for efficient computation of posteriors by approximating the integrals involved in Bayesian inference. Subsequently, it leverages population-level distributions to refine individual parameter variation. Within this framework, we assume that for any given model $k$ and subject $n$, the individual parameters ($h_{k,n}$) are normally distributed across the population with $p(h_{k,n}) = N(h_{k,n} | \mu_k, V_k)$, where $\mu_k$ and $V_k$ represent the mean and variance of the prior distribution over $h_{k,n}$, respectively.
 
-We then use an expectation-maximization algorithm, iteratively performing two critical steps:
+We use an expectation-maximization algorithm, iteratively performing the following two steps:
 
-1.  Expectation Step: Individual parameters ($h_{k,n}$) are estimated considering the group-level distribution.
-2.  Maximization Step: Group parameters ($\mu_k$ and $V_k$) are updated based on current individual parameter estimates. The update for $\mu_k$ is exemplified by the average of subject-level mean estimates ($\theta_{k,n}$) across all subjects, adhering to the formula: $\mu_k = \frac{1}{N}\sum_{n}\theta_{k,n}$, where $N$ is the total number of subjects.
+1.  Expectation Step: The algorithm calculates a posteriori estimates of the individual parameters ($h_{k,n}$) based on the existing group-level distributions.
+2.  Maximization Step: The algorithm refines the group-level parameters ($\mu_k$ and $V_k$) using current individual parameter estimates. The updated mean group parameter $\mu_k$ is computed as the average of subject-level mean estimates ($\theta_{k,n}$) across all subjects, conforming to $\mu_k = \frac{1}{N}\sum_{n}\theta_{k,n}$, where $N$ is the total number of subjects.
 
-With this approach, we can estimate the log-likelihood for each subject's data, given the proposed models, and the following model parameters:
+With this approach, we can estimate the log-likelihood for each subject's data, given the proposed models and parameter estimates. Recognizing the constraint of normality, we transform constrained parameters (e.g., the learning rate and discount factor in the Q-learning model). For parameters within a (0,1) interval, we use the inverse logit function, $\text{Logit}^{-1}$. Parameters like temperature and costs, which are intrinsically non-negative, undergo an exponential transformation to accord with the presumed normality in their logarithmic space.
+
+The parameters estimated for each model are as follows:
 
 1.  Q-learning:
-    -   Learning Rate: $\sigma(\alpha)$
-    -   Discount Rate: $\sigma(\gamma)$
+    -   Learning Rate: $\text{Logit}^{-1}(\alpha)$
+    -   Discount Rate: $\text{Logit}^{-1}(\gamma)$
     -   Temperature: $\exp(\tau)$
     -   Cost: $\exp(\text{cost})$
 2.  Actor-Critic:
     -   Weights $w$ and $\theta$: $\exp(w)$, $\exp(\theta)$
-    -   Learning rates ($\alpha_w$, $\alpha_\theta$): $\sigma(\alpha_w)$, $\sigma(\alpha_\theta)$
-    -   Discount Factor: $\sigma(\gamma)$
+    -   Learning rates ($\alpha_w$, $\alpha_\theta$): $\text{Logit}^{-1}(\alpha_w)$, $\text{Logit}^{-1}(\alpha_\theta)$
+    -   Discount Factor: $\text{Logit}^{-1}(\gamma)$
     -   Temperature: $\exp(\tau)$
     -   Initial Values: $\exp(\theta_{\text{init}})$, $\exp(w_{\text{init}})$
     -   Costs: $\exp(\text{cost})$
-3.  **Logistic Regression Model**:
+3.  Logistic Regression Model:
     -   Parameters: $\beta$
 
 #### Top Model Selection
 
-We select the top models based on model evidence calculated through the exceedance probability (i.e., the likelihood that one model is more probable than others in explaining the data) and the protected exceedance probability (i.e., the exceedance probability adjusted for the chance that observed differences in model evidence are due to random fluctuations).
+We used a Bayesian model comparison technique from @piray2019a to determine the best-fit model from our set of candidates by considering the exceedance probability (i.e., the likelihood that one model is more probable than others in explaining the data) and the protected exceedance probability (i.e., the exceedance probability adjusted for the chance that observed differences in model evidence are due to random fluctuations).
+
+The model evidence $\Pr(D | M_k)$ for model $k$ represents the likelihood of the observed data $D$ given the model $M_k$, and is given by $\Pr(D|M_k) = \int_{\Theta} \Pr(D|\theta, M_k) \Pr(\theta|M_k) d\theta$ for all possible parameters $\theta \in \Theta$. This value allows us to assess the models' overall fit across the entire parameter space.
+
+We then calculated the likelihood of each model being the best fit for the data. We do so by first computing the posterior probabilities
+$$
+\Pr(M_k|D) = \frac{\Pr(D|M_k)\Pr(M_k)}{\Pr(D)},
+$$
+where $\Pr(D) = \sum_{k=1}^K \Pr(D|M_k)\Pr(M_k)$ serves as a normalizing constant. We then proceeded to compute the exceedance probabilities, $EP_k = \Pr(\Pr(M_k|D) > \Pr(M_j|D) \text{ for all } j \neq k)$. In simple terms, it is the likelihood of model $k$ having a posterior probability higher than any other model in our comparison.
+
+Finally, to account for false positives, we estimated the protected exceedance probability $PEP_k = EP_k(1 - P_0) + P_0/K$, where $P_0 = 1/(1 + \exp(L - L_0))$, and $L$ and $L_0$ represent the log-likelihoods under the alternative and null hypotheses (i.e., the models are equally likely). The $PEP$ helps prevent overconfident selection of a model when the evidence is not sufficiently robust to distinguish model performance reliably.
 
 ### Heterogeneity Analysis
 
 We explore the heterogeneity across schools and teachers by analyzing individual and group-level parameters as follows:
 
--   Classification of Individual Responses: Each subject is classified according to their best-fit model, accounting for individual variation from the hierarchical Bayesian framework.
+- Classification of Individual Responses: Using the hierarchical Bayesian framework, we assign each teacher to the model that best captures their behavior, recognizing the individual differences that emerge from our population-level analysis.
 
--   Parameter Estimation Across Models: We also use the parameter estimates for each subject.
+- Parameter Estimation Across Models: We estimate individual-specific parameters for each teacher and use them as a behavioral profile.
 
--   Exploration of Group-Level Trends: We aggregate teacher data by their respective schools and test for overarching trends across groups.
+- Analysis of Group-Level Trends: By aggregating the teacher data at the school level, we identify patterns and trends beyond individual variation. This aggregation allows us to investigate the influence of collective attributes (e.g., school income levels and classroom size) on educational outcomes and teacher performance.
 
--   Variables of interest: We test the effect of school income levels, classroom size, etc., on teacher classification and parameter estimates.
+- Investigation of Influential Variables: We are particularly interested in how socioeconomic factors, such as zipcode median income, may impact the models' ability to describe teacher behavior. These variables provide insights into the heterogeneity in teacher classification and parameter estimates, offering a deeper understanding of the complex interplay between educational resources and pedagogical success.
 
 # Results
 
@@ -1005,7 +1038,7 @@ gc(verbose = FALSE)
 ```
 
 ```{python load data}
-
+#| include: false
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA, NMF
@@ -1046,6 +1079,8 @@ silhouette = {}
 
 ```{python pca-nmf}
 #| cache: true
+#| include: false
+
 # Function for NMF
 def nmf_method(n, method, initial, X_scaled, data_label, solv = 'mu', nomin = False):
   method_name = f"{method.title()} {initial.upper()}"
@@ -1123,9 +1158,10 @@ gc.collect()
 ```
 
 ```{r}
-#| cache: true
 #| label: fig-nmf-pca-comparison
 #| fig-cap: "Comparison of residuals and silhouette scores for PCA, Frobenius, and Kullback-Leibler methods."
+#| cache: true
+
 # Importing from Python
 residuals_list <- py$residuals
 silhouette_list <- py$silhouette
@@ -4689,7 +4725,7 @@ Our findings indicated that teachers exhibiting a higher learning rate, a marker
 
 Similarly, teachers who effectively balanced exploration and exploitation had students with superior outcomes. [@morrison2019] noted that teachers exhibited varied levels of preparedness for implementing the Zearn Math curriculum, with just under half of the teachers reporting feeling adequately prepared for implementation. This lack of preparation could influence how effectively teachers navigate the exploration-exploitation trade-off, impacting student outcomes.
 
-Our results also highlight the complex dynamics underlying teacher behaviors and their implications for student outcomes. For instance, [@knudsen2020], found that veteran teachers with strong PCK leaned heavily on traditional teaching methods, reducing their engagement with the novel practices proposed by Zearn Math. Conversely, new teachers exhibited a blend of traditional and innovative practices, despite their initial resistance to Zearn Math, underscoring their learning curve with the new curriculum.
+Our results also highlight the complex dynamics underlying teacher behaviors and their implications for student outcomes. For instance, @knudsen2020 found that veteran teachers with strong PCK leaned heavily on traditional teaching methods, reducing their engagement with the novel practices proposed by Zearn Math. Conversely, new teachers exhibited a blend of traditional and innovative practices, despite their initial resistance to Zearn Math, underscoring their learning curve with the new curriculum.
 
 Our findings point to the potential of RL parameters to provide valuable insights into teacher behaviors and their subsequent effects on student achievement. Understanding and leveraging these parameters could enhance teacher training programs and interventions, ultimately improving student outcomes. By incorporating insights from our study into such initiatives, we can help foster a more adaptive and effective teaching landscape that better supports student learning and achievement.
 
