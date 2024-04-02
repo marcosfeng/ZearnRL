@@ -43,6 +43,203 @@ Q(s, a) = Q(s, a) + \alpha \left( R_K - \text{cost}(a) - Q(s, a) \right)
 $$
 
 
+
+
+## Autoencoder
+
+```{python train autoencoder}
+#| eval: false
+import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from keras.models import Model
+from keras.layers import Input, Dense
+from kerastuner.tuners import Hyperband
+from kerastuner.engine.hyperparameters import HyperParameters
+from keras.constraints import NonNeg
+from keras.callbacks import EarlyStopping
+from keras.regularizers import l1, l2
+
+# Create training and testing data frames
+train_df = dfpca_py[dfpca_py['set'] == 'train']
+test_df = dfpca_py[dfpca_py['set'] == 'test']
+
+# Predictors
+X_train = train_df.drop([
+  'Badges.per.Active.User', 'Classroom.ID', 'MDR.School.ID',
+  'set', 'week'
+  ], axis=1)
+X_test = test_df.drop([
+  'Badges.per.Active.User', 'Classroom.ID', 'MDR.School.ID',
+  'set', 'week'
+  ], axis=1)
+
+X_train = pd.DataFrame(X_train, columns=X_cols)
+X_test = pd.DataFrame(X_test, columns=X_cols)
+
+# Get the target variable
+Y = dfpca_py[['Badges.per.Active.User']]
+Y_train = train_df[['Badges.per.Active.User']]
+Y_test = test_df[['Badges.per.Active.User']]
+
+# Define the number of components and features
+n_features = X_scaled.shape[1]
+n_labels = 1  # For regression, we usually have just one output node
+
+# Determine loss weights according to the data structure:
+decoding_weight = Y.std() / (Y.std() + X_scaled.std(numeric_only=True).mean())
+prediction_weight = 1 - decoding_weight
+def build_model(hp):
+  # Define the input layer
+  input_data = Input(shape=(n_features,))
+  
+  # Define the encoding layer(s)
+  n_layers = hp.Int('n_layers', min_value=1, max_value=4, step=1)
+  n_units = [
+    hp.Choice('units_' + str(i), values=[8, 16, 32, 64, 128, 256, 512])
+    for i in range(n_layers)
+  ]
+  encoded = input_data
+  for i in range(n_layers):
+      encoded = Dense(
+        units=n_units[i],
+        kernel_regularizer=l2(0.001),
+        activation='relu')(encoded)
+        
+  # Generate the latent vector
+  latent_dim = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
+  l1_value = hp.Float('l1_value', min_value=0.0001, max_value=0.001, default=0.0005, step=0.0001)
+  latent = Dense(
+    units=latent_dim,
+    activation='linear',
+    # activity_regularizer= L1(l1=l1_value),
+    kernel_constraint=NonNeg(),
+    name='latent')(encoded)      
+
+  # Decoder
+  decoded = latent
+  for i in range(n_layers):
+      decoded = Dense(
+        units=n_units[n_layers - i - 1],
+        activation='relu')(decoded)
+  decoded = Dense(n_features, activation='sigmoid', name='decoded')(decoded)
+  
+  # Define the label output layer
+  label_output = Dense(n_labels, activation='linear', name='label_output')(latent)
+
+  # Define the autoencoder model
+  autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
+  # Compile the model
+  autoencoder.compile(optimizer='adadelta',
+                  loss={
+                    'decoded': 'mean_squared_error',
+                    'label_output': 'mean_squared_error'
+                  },
+                  loss_weights={
+                    'decoded': decoding_weight,
+                    'label_output': prediction_weight
+                  })
+                  
+  return autoencoder
+
+# Set up hyperparameter tuner
+tuner = Hyperband(build_model,
+                  objective='val_loss',
+                  max_epochs=20,
+                  directory='autoencoder_tuning',
+                  project_name='autoencoder_3rd_tuning')
+
+# Perform hyperparameter search
+early_stopping_callback = EarlyStopping(monitor='val_loss', patience=5)
+tuner.search(x=X_train,
+            y=[X_train, Y_train],
+            epochs=50,
+            validation_data=(X_test, [X_test, Y_test]),
+            callbacks=[early_stopping_callback])
+# tuner.results_summary()
+# Get the optimal hyperparameters
+best_hyperparameters = tuner.get_best_hyperparameters(num_trials=2)[1]
+model = tuner.hypermodel.build(best_hyperparameters)
+history = model.fit(x=X_train, 
+                    y=[X_train, Y_train],
+                    epochs=2_000,
+                    validation_data=(X_test, [X_test, Y_test]),
+                    callbacks=[early_stopping_callback])
+best_model = model
+
+
+# Function to get encoded representation and components
+def get_encoded_representation_and_components(best_model, X):
+    # Get index of encoding layer
+    encoding_layer_index = next(
+      i for i,
+      layer in enumerate(best_model.layers) if layer.name == 'latent'
+    )
+    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
+    input_data = Input(shape=(n_features,))
+    x = input_data
+    for layer in encoder_layers[1:]:
+      x = layer(x)
+    encoder = Model(input_data, x)
+    
+    # Copy weights for each layer from the best model
+    for i, layer in enumerate(encoder.layers):
+      layer.set_weights(best_model.layers[i].get_weights())
+    
+    X_encoded = encoder.predict(X)
+    X_hat = best_model.predict(X)[0]
+    res = ((X - X_hat)**2).sum().sum()
+    n_components = X_encoded.shape[1]
+    
+    results.setdefault("Autoencoder", {})[n_components] = X_encoded
+    residuals.setdefault("Autoencoder", {})[n_components] = res
+
+# Get encoded representation and components
+get_encoded_representation_and_components(best_model, X_scaled)
+
+# save the model
+model.save('./autoencoder_tuning/final_model.h5')
+
+```
+
+```{python load autoencoder}
+#| eval: false
+from tensorflow.keras.models import load_model
+from keras.models import Model
+from keras.layers import Input
+
+# Function to get encoded representation and components
+loaded_model = load_model('./autoencoder_tuning/final_model.h5')
+def get_encoded_representation_and_components(best_model, X):
+    # Get index of encoding layer
+    encoding_layer_index = next(
+      i for i,
+      layer in enumerate(best_model.layers) if layer.name == 'latent'
+    )
+    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
+    input_data = Input(shape=(n_features,))
+    x = input_data
+    for layer in encoder_layers[1:]:
+      x = layer(x)
+    encoder = Model(input_data, x)
+    
+    # Copy weights for each layer from the best model
+    for i, layer in enumerate(encoder.layers):
+      layer.set_weights(best_model.layers[i].get_weights())
+    
+    X_encoded = encoder.predict(X)
+    X_hat = best_model.predict(X)[0]
+    res = ((X - X_hat)**2).sum().sum()
+    n_components = X_encoded.shape[1]
+    
+    results.setdefault("Autoencoder", {})[n_components] = X_encoded
+    residuals.setdefault("Autoencoder", {})[n_components] = res
+
+n_features = X_scaled.shape[1]
+# Get encoded representation and components
+get_encoded_representation_and_components(loaded_model, X_scaled)
+```
+
+
 # State-Based Q-Learning Model
 
 In this model, the state $s$ represents the current situation or context in which the teacher decides. The state could include factors such as the students' current performance levels. The state-dependent model is particularly relevant in teaching, where the effectiveness of a given strategy may depend on the specific circumstances of the class. Here, the Q-value for a given state $s$ and action $a$ is:

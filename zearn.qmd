@@ -36,6 +36,7 @@ library(tidyverse)
 library(ggpubr)
 library(ggforce)
 library(ggrepel)
+library(RColorBrewer)
 library(gridExtra)
 library(scales)
 library(gtsummary)
@@ -268,7 +269,7 @@ To accurately capture the intricate dynamics present within our data, we explore
 | Model Evaluation         | Hetereogeneity analyses of model performance across teachers                | R                                                                |
 +--------------------------+-----------------------------------------------------------------------------+------------------------------------------------------------------+
 
-: Analytical steps employed in the study. For detailed information on software and tools, please refer to @sec-software-tools. {#tbl-methods}
+: Analytical steps employed in the study. {#tbl-methods}
 
 ## Data
 
@@ -966,11 +967,9 @@ We used a Bayesian model comparison technique from @piray2019a to determine the 
 
 The model evidence $\Pr(D | M_k)$ for model $k$ represents the likelihood of the observed data $D$ given the model $M_k$, and is given by $\Pr(D|M_k) = \int_{\Theta} \Pr(D|\theta, M_k) \Pr(\theta|M_k) d\theta$ for all possible parameters $\theta \in \Theta$. This value allows us to assess the models' overall fit across the entire parameter space.
 
-We then calculated the likelihood of each model being the best fit for the data. We do so by first computing the posterior probabilities
-$$
+We then calculated the likelihood of each model being the best fit for the data. We do so by first computing the posterior probabilities $$
 \Pr(M_k|D) = \frac{\Pr(D|M_k)\Pr(M_k)}{\Pr(D)},
-$$
-where $\Pr(D) = \sum_{k=1}^K \Pr(D|M_k)\Pr(M_k)$ serves as a normalizing constant. We then proceeded to compute the exceedance probabilities, $EP_k = \Pr(\Pr(M_k|D) > \Pr(M_j|D) \text{ for all } j \neq k)$. In simple terms, it is the likelihood of model $k$ having a posterior probability higher than any other model in our comparison.
+$$ where $\Pr(D) = \sum_{k=1}^K \Pr(D|M_k)\Pr(M_k)$ serves as a normalizing constant. We then proceeded to compute the exceedance probabilities, $EP_k = \Pr(\Pr(M_k|D) > \Pr(M_j|D) \text{ for all } j \neq k)$. In simple terms, it is the likelihood of model $k$ having a posterior probability higher than any other model in our comparison.
 
 Finally, to account for false positives, we estimated the protected exceedance probability $PEP_k = EP_k(1 - P_0) + P_0/K$, where $P_0 = 1/(1 + \exp(L - L_0))$, and $L$ and $L_0$ represent the log-likelihoods under the alternative and null hypotheses (i.e., the models are equally likely). The $PEP$ helps prevent overconfident selection of a model when the evidence is not sufficiently robust to distinguish model performance reliably.
 
@@ -978,19 +977,21 @@ Finally, to account for false positives, we estimated the protected exceedance p
 
 We explore the heterogeneity across schools and teachers by analyzing individual and group-level parameters as follows:
 
-- Classification of Individual Responses: Using the hierarchical Bayesian framework, we assign each teacher to the model that best captures their behavior, recognizing the individual differences that emerge from our population-level analysis.
+-   Classification of Individual Responses: Using the hierarchical Bayesian framework, we assign each teacher to the model that best captures their behavior, recognizing the individual differences that emerge from our population-level analysis.
 
-- Parameter Estimation Across Models: We estimate individual-specific parameters for each teacher and use them as a behavioral profile.
+-   Parameter Estimation Across Models: We estimate individual-specific parameters for each teacher and use them as a behavioral profile.
 
-- Analysis of Group-Level Trends: By aggregating the teacher data at the school level, we identify patterns and trends beyond individual variation. This aggregation allows us to investigate the influence of collective attributes (e.g., school income levels and classroom size) on educational outcomes and teacher performance.
+-   Analysis of Group-Level Trends: By aggregating the teacher data at the school level, we identify patterns and trends beyond individual variation. This aggregation allows us to investigate the influence of collective attributes (e.g., school income levels and classroom size) on educational outcomes and teacher performance.
 
-- Investigation of Influential Variables: We are particularly interested in how socioeconomic factors, such as zipcode median income, may impact the models' ability to describe teacher behavior. These variables provide insights into the heterogeneity in teacher classification and parameter estimates, offering a deeper understanding of the complex interplay between educational resources and pedagogical success.
+-   Investigation of Influential Variables: We are particularly interested in how socioeconomic factors, such as zipcode median income, may impact the models' ability to describe teacher behavior. These variables provide insights into the heterogeneity in teacher classification and parameter estimates, offering a deeper understanding of the complex interplay between educational resources and pedagogical success.
 
 # Results
 
+In this section, we present the results of our analysis, as outlined in @tbl-methods.
+
 ## Dimensionality Reduction
 
-We compare the PCA and NMF results by plotting the sum of squared residuals and silhouette scores for each method and the number of components used. @fig-nmf-pca-comparison visually compares the performance of the different methods and allows us to choose the one that provides the best balance between reconstruction accuracy (as measured by the sum of squared residuals) and cluster separation (as measured by the silhouette score). As such, we select the NMF with three components as our preferred method.
+To simplify the complexity of our data, we first conducted a dimensionality reduction exercise, comparing different methods to identify the most essential features. After carefully balancing reconstruction accuracy with clustering clarity, we ultimately selected Non-negative Matrix Factorization (NMF) with four components. We chose this configuration after carefully considering the Reconstruction $R^2$ and Silhouette Scores, as shown in @fig-nmf-pca-comparison. Although PCA provided a simple approach, NMF, particularly the Frobenius variant, outperformed it with superior silhouette scores (i.e., clustering) for teacher and student data.
 
 ```{r pca nmf data-prep}
 #| include: false
@@ -1159,7 +1160,11 @@ gc.collect()
 
 ```{r}
 #| label: fig-nmf-pca-comparison
-#| fig-cap: "Comparison of residuals and silhouette scores for PCA, Frobenius, and Kullback-Leibler methods."
+#| fig-cap: "Comparison of Dimensionality Reduction Techniques. This figure juxtaposes the performance of PCA against NMF variants characterized by Frobenius and Kullback-Leibler divergences across teacher and student datasets. The comparison is predicated on the reconstruction quality, depicted by R-squared residuals, and the clarity of data structuring, indicated by silhouette scores, for a range of component numbers."
+#| fig-subcap: 
+#| - "Teacher Data"
+#| - "Student Data"
+#| layout-ncol: 1
 #| cache: true
 
 # Importing from Python
@@ -1295,18 +1300,36 @@ comparison_plot2
 
 #### Interpreting Components
 
-@fig-nmf-heatmap shows the loadings of the NMF components using a heatmap, depicting how each original feature contributes to each component. In other words, each component combines the original features to explain a substantial portion of the variance, potentially improving the efficiency and interpretability of the reinforcement learning models. Given the loadings, we interpret the components as follows:
+After analyzing the NMF data, we identified four significant components for teachers and students. @fig-nmf-heatmap displays these components as heatmaps, offering insight into the underlying behavioral structures. Given the loadings, we interpret the components as follows:
 
-1.  **Component 1 (Teacher Engagement)**: This component seems to be heavily influenced by the variable "Teacher Minutes," suggesting teacher engagement with the Zearn platform. The higher the value in this component, the more time teachers are spending on the platform, which could indicate a higher level of engagement with the curriculum and resources. High values in this component suggest that teachers are actively using the platform, spending time reviewing reports and possibly engaging with other features [@morrison2019].
+##### Teachers Components
 
-2.  **Component 2 (Resource Utilization)**: This component has high weights for variables related to different resources available on the Zearn platform, such as "Optional Problem Sets," "Student Notes and Exit Tickets," and "Mission Overview". High values in this component suggest that teachers are downloading and possibly using a variety of resources in their teaching. This pattern is consistent with the findings from [@knudsen2020] that teachers reported learning from a variety of Zearn Math resources and that the curriculum materials and their implementation are important sources of learning.
+**Component 1 (Assessments)**: This component has substantial weights on supplemental assessment materials, such as "Optional Problem Sets Download," "Optional Homework Download," and "Student Notes and Exit Tickets Download," indicating a proactive approach to evaluating and supporting student learning progress. It could also reflect a proactive approach to monitoring student understanding and providing feedback.
 
-3.  **Component 3 (Pedagogical Content Knowledge)**: This component has high weights for variables related to student activities, such as "Guided Practice Completed," "Tower Completed," and "Fluency Completed," suggesting that teachers may be engaged in acquiring subject-matter-specific pedagogy, learning to scaffold and to explain concepts in a variety of ways. This finding aligns with [@morrison2019], where teachers were most likely to report using Independent Digital Lessons, student notes and workbooks, small-group lessons, and paper Exit Tickets frequently or very frequently.
+**Component 2 (Pedagogical Knowledge)**: The high weights on "Guided Practice Completed," "Tower Completed," "Tower Stage Failed," and "Fluency Completed" suggest that this component reflects when teachers are engaged in acquiring subject-matter-specific pedagogy, learning to scaffold and explain concepts in various ways.
+
+**Component 3 (Group Instruction)**: This component, with prominent weights on "Small Group Lesson Download," "Whole Group Word Problems Download," and "Whole Group Fluency Download," suggests a pedagogical approach focused on fostering interactive and comprehensive classroom instruction. It implies engagement in activities that promote group learning dynamics and collective problem-solving skills.
+
+**Component 4 (Curriculum Planning)**: The dominance of "Mission Overview Download" and "Grade Level Overview Download" in this component suggests that teachers are highly involved in strategic planning and curriculum mapping. It involves organizing the curriculum content and structuring lesson plans to align with grade-level objectives and mission overviews.
+
+##### Student Components
+
+**Component 1 (Badges)**: This component emphasizes "On-grade Badges" and "Badges," indicating that it measures students' overall engagement and advancement through the curriculum.
+
+**Component 2 (Struggles)**: This component, which heavily weights "Boosts" and "Tower Alerts," seems to capture the frequency of occasions when students require additional scaffolding and assistance.
+
+**Component 3 (Number of Students)**: This component mainly consists of "Active Students," which provides insight into what proportion of students regularly log in to complete Digital Lessons.
+
+**Component 4 (Activity)**: Dominated by "Student Minutes" and "Student Logins," this component highlights the amount of time students invest in and the frequency of their interactions with Zearn.
 
 ```{r}
 #| cache: true
 #| label: fig-nmf-heatmap
-#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for Zearn data. Each row represents a variable, and each column represents a component. The color intensity indicates the weight of each variable in each component, with darker colors indicating higher weights. Component 1 represents Teacher Engagement, Component 2 represents Resource Utilization, and Component 3 represents Pedagogical Content Knowledge."
+#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for the Zearn data. The rows represent the original variables, and the columns represent the individual components. The varying colors from light to dark indicate the increasing weights of variables within each component."
+#| fig-subcap:
+#| - "Teacher Data. Component 1 (Assessments) focuses on using supplemental materials for student evaluation; Component 2 (Pedagogical Knowledge) emphasizes developing subject-specific teaching strategies; Component 3 (Group Instruction) centers on collaborative and whole-class teaching methods; Component 4 (Curriculum Planning) highlights planning and lesson preparation."
+#| - "Student Data. Component 1 (Badges) measures curriculum engagement and progression; Component 2 (Struggles) indicates the need for additional academic support; Component 3 (Number of Students) tracks student participation within the platform; Component 4 (Activity) reflects the overall time spent and frequency of platform usage."
+#| layout-ncol: 1
 
 library(pheatmap)
 library(grDevices)
@@ -1609,7 +1632,7 @@ results <- foreach(i = 1:nrow(params),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "fe-results.RData")
+save(results, file = "Regressions/fe-results.RData")
 
 ```
 
@@ -1697,7 +1720,7 @@ results <- foreach(i = 1:nrow(params),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "fe-state-results.RData")
+save(results, file = "Regressions/fe-state-results.RData")
 
 ```
 
@@ -1705,15 +1728,17 @@ We first explore reinforcement learning (RL)-like characteristics within the tea
 
 ## Model Fit and Performance
 
-In order to capture the temporal dynamics of actions influenced by lagged rewards and states, we employed panel logistic regression models across different combinations of variables and lags. We incorporate lagged variables (ranging from one to six weeks) into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. We applied reward and state structures extracted from classroom data via non-negative matrix factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD), and actions derived similarly from teacher data. We evaluate these models on the Bayesian Information Criterion (BIC) for model complexity and fit and the Area Under the Receiver Operating Characteristic curve (AUC) for predictive accuracy.
+In order to capture the temporal dynamics of actions influenced by lagged rewards and states, we employed panel logistic regression models across different combinations of variables and lags. We incorporate lagged variables (ranging from one to six weeks) into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. We applied reward and state structures extracted from classroom data via non-negative matrix factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) and actions derived similarly from teacher data. We evaluate these models using the Bayesian Information Criterion (BIC) for model complexity and fit and the Area Under the Receiver Operating Characteristic curve (AUC) for predictive accuracy.
+
+More specifically, we select one teacher component as the action and one student component as the reward. When constructing state-based models, we incorporate an additional student component as the state variable. In total, this choice yields 16 state-free models and 48 state-based models.
 
 ### Temporal Dynamics
 
-Our investigation into temporal dynamics confirmed the impact of lagged rewards and actions on decision-making, embodying a foundational RL principle: shaping future decisions by past experiences. @fig-panel-bic illustrates this relationship, showcasing the predictive accuracy and model fit across different lag models, with a clear preference for a lag of two periods as optimal, based on the "elbow" in the AUC curves and the minima in BIC curves. This finding underscores the significance of immediate and preceding influences on future actions, aligning with the delayed reinforcement principle in RL.
+Our investigation into temporal dynamics confirmed the impact of lagged rewards and actions on decision-making: shaping future decisions by past experiences. @fig-panel-bic illustrates this relationship, showcasing the predictive accuracy and model fit across fixed-effects models with different lags, with BIC and AUC scores for the models with one week lags as the baseline. The results suggest a preference for a lag of two periods as optimal, based on the "elbow" in the AUC curves and the minima in BIC curves.
 
 ```{r}
 #| label: fig-panel-bic
-#| fig-cap: "Average BIC and AUC across Lags"
+#| fig-cap: "BIC and AUC variations across lags for fixed-effects panel logistic regression models. The plot shows model prediction accuracy and fit for different lag periods, with one-week lag as the baseline. The optimal lag period is determined based on the 'elbow' in the AUC curves and the minima in the BIC curves."
 #| fig-subcap: 
 #|   - "BIC state-free"
 #|   - "AUC state-free"
@@ -1721,7 +1746,7 @@ Our investigation into temporal dynamics confirmed the impact of lagged rewards 
 #|   - "AUC state-dependent"
 #| layout-ncol: 2
 
-load("fe-results.RData")
+load("Regressions/fe-results.RData")
 
 fe_results_df <- do.call(rbind, lapply(results, function(x) {
   data.frame(
@@ -1752,9 +1777,11 @@ results_df <- do.call(rbind, lapply(results, function(x) {
 })) %>%
   group_by(Method, Reward) %>%
   mutate(bic_base = bic[which(Lag == 1)],
-         bic = bic - bic_base,
+         # bic = bic - bic_base,
+         bic = bic/bic_base - 1,
          auc_base = auc[which(Lag == 1)],
-         auc = auc - auc_base) %>%
+         # auc = auc - auc_base,
+         auc = auc/auc_base - 1) %>%
   ungroup()
 
 results_df_se <- results_df %>%
@@ -1766,8 +1793,8 @@ results_df_se <- results_df %>%
 
 generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
   y_label <- switch(metric_name,
-                    "bic" = "BIC",
-                    "auc" = "AUC")
+                    "bic" = "Percent Change in BIC",
+                    "auc" = "Percent Change in AUC")
   
   plot <- ggplot() +
     geom_line(data = data, aes(x = Lag, y = !!sym(metric_name),
@@ -1784,7 +1811,8 @@ generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
               linewidth = 1, color = "blue") +
     theme_minimal() +
     labs(y = y_label, x = "Lag") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+    scale_y_continuous(labels = percent_format()) +
+    theme(axis.text.x = element_text(hjust = 1),
           legend.title = element_blank(),
           legend.position = "none")
   return(plot)
@@ -1796,7 +1824,7 @@ auc_plot_se <- generate_plots_with_se(results_df, results_df_se, "auc", "se_auc"
 
 #------------------
 
-load("fe-state-results.RData")
+load("Regressions/fe-state-results.RData")
 
 fe_results_df <- fe_results_df %>%
   rbind(
@@ -1832,9 +1860,11 @@ results_df <- do.call(rbind, lapply(results, function(x) {
 })) %>%
   group_by(Method, Reward, State) %>%
   mutate(bic_base = bic[which(Lag == 1)],
-         bic = bic - bic_base,
+         # bic = bic - bic_base,
+         bic = bic/bic_base - 1,
          auc_base = auc[which(Lag == 1)],
-         auc = auc - auc_base) %>%
+         # auc = auc - auc_base,
+         auc = auc/auc_base - 1) %>%
   ungroup()
 
 results_df_se <- results_df %>%
@@ -1846,8 +1876,8 @@ results_df_se <- results_df %>%
 
 generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
   y_label <- switch(metric_name,
-                    "bic" = "BIC",
-                    "auc" = "AUC")
+                    "bic" = "Percent Change in BIC",
+                    "auc" = "Percent Change in AUC")
   
   plot <- ggplot() +
     geom_line(data = data, aes(x = Lag, y = !!sym(metric_name),
@@ -1863,7 +1893,8 @@ generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
               linewidth = 1, color = "blue") +
     theme_minimal() +
     labs(y = y_label, x = "Lag") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+    scale_y_continuous(labels = percent_format()) +
+    theme(axis.text.x = element_text(hjust = 1),
           legend.title = element_blank(),
           legend.position = "none")
   return(plot)
@@ -1881,6 +1912,8 @@ bic_plot_se_st
 auc_plot_se_st
 
 ```
+
+### Model Selection and Interpretability
 
 ```{r panel-model-subset}
 #| eval: false
@@ -2006,7 +2039,7 @@ results <- foreach(i = 1:nrow(params),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "fe-subset-results.RData")
+save(results, file = "Regressions/fe-subset-results.RData")
 
 ```
 
@@ -2097,7 +2130,7 @@ results <- foreach(i = 1:nrow(params),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "fe-state-subset-results.RData")
+save(results, file = "Regressions/fe-state-subset-results.RData")
 
 ```
 
@@ -2221,161 +2254,14 @@ results <- foreach(i = 1:nrow(params),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "fe-restricted-results.RData")
+save(results, file = "Regressions/fe-restricted-results.RData")
 
 ```
 
-```{=tex}
-\newpage
-\KOMAoptions{paper=landscape,pagesize}
-\recalctypearea
-{\areaset[current]{\dimexpr\textwidth\relax}{\textheight}
-\setlength{\marginparwidth}{0pt}
-\scriptsize
-```
-```{r}
-#| label: tbl-fe-results-statefree
-#| tbl-cap: "State-Free Panel Logistic Regression Results"
+This section delves into the performance of our model within the framework of fixed effects (FE) and varying coefficients. Our analysis reveals the complexities and variations in the Zearn data on predicting teacher behavior based on previous student performances. @tbl-RL-exploration synthesizes our model performance scores, revealing that the fixed-effect area under the receiver operating characteristic curve (FE AUC) averages 0.81. We found that "Assessments" emerged as the most influential action and "Number of Students" as the leading reward in the state-free context. The Fixed Effects Bayesian Information Criterion (FE BIC) also reflects a mean of approximately 93.06 x 10^3. The lowest BIC values correspond with "Scaffolding" as a pivotal action and "Struggle" as a salient reward variable in the state-free approach.
 
-# Load the results from both subset and restricted analyses
-load("fe-subset-results.RData")
-original_results <- results
-load("fe-restricted-results.RData")
-restricted_results <- results
+Furthermore, the average teacher-specific AUC, a metric derived from the varying coefficient models, is 0.70. Notably, "Scaffolding" continues to be a consistent influencing factor for both state-free and state-based models, with "Number of Sessions" as the corresponding reward. The average out-of-sample teacher-specific log-likelihood, also derived from varying coefficients, shows an average of -262.63. In the state-based scenario, "Planning Guides" and "Activities" are the top-performing actions, aligning with "Struggle" and "Completion" as state variables.
 
-# Combine the model stats from original and restricted results for comparison
-original_models <- do.call(rbind, lapply(original_results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  data.frame(
-    Action = x$Method,
-    Reward = x$Reward,
-    AUC = x$AUC,
-    BIC = x$bic,
-    Type = "Original"
-  )
-}))
-
-# Select top 2 AUC models and top 2 BIC models for both original and restricted
-top_models <- original_models %>%
-  arrange(desc(AUC)) %>%
-  slice_head(n = 2)
-top_models <- original_models %>%
-  arrange(BIC) %>%
-  slice_head(n = 2) %>%
-  bind_rows(top_models)
-
-# Prepare the results from selected top models for the table
-tidy_fe_results <- lapply(original_results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  if (!(paste(x$Method, x$Reward) %in%
-        paste(top_models$Action, top_models$Reward))) return(NULL)
-  temp <- as.data.frame(x$fecoef) %>%
-    rownames_to_column(var = "Term") %>%
-    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
-                  as.numeric)) %>%
-    filter(Term != "(Intercept)" & Term != "week_lag")
-  
-  return(list(
-    Model = paste(x$Method, x$Reward,"Full"),
-    Data  = temp,
-    BIC   = x$bic,
-    N     = length(x$recoef$Teacher.User.ID)))
-})
-tidy_fe_results <- tidy_fe_results[!sapply(tidy_fe_results, is.null)]
-tidy_fe_results_restrict <- lapply(restricted_results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  if (!(paste(x$Method, x$Reward) %in%
-        paste(top_models$Action, top_models$Reward))) return(NULL)
-  temp <- as.data.frame(x$fecoef) %>%
-    rownames_to_column(var = "Term") %>%
-    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
-                  as.numeric)) %>%
-    filter(Term != "(Intercept)" & Term != "week_lag")
-  
-  return(list(
-    Model = paste(x$Method, x$Reward,"Restricted"),
-    Data  = temp,
-    BIC   = x$bic,
-    N     = length(x$recoef$Teacher.User.ID)))
-})
-tidy_fe_results_restrict <- 
-  tidy_fe_results_restrict[!sapply(tidy_fe_results_restrict, is.null)]
-tidy_fe_results <- c(tidy_fe_results, tidy_fe_results_restrict)
-
-# Combine all model summaries into one dataframe
-model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
-  x_name <- unlist(strsplit(x[[1]], " "))
-  x_data <- x$Data %>%
-    rename(Coefficient = Estimate,
-           Std_Error = `Std. Error`) %>%
-    mutate(
-      Significance = case_when(
-        `Pr(>|z|)` < .001 ~ "***",
-        `Pr(>|z|)` < .01 ~ "**",
-        `Pr(>|z|)` < .05 ~ "*",
-        TRUE ~ ""),
-      Term = gsub(x_name[1], "lag", Term),
-      Term = gsub(x_name[2], "rwd", Term),
-      Term = gsub("_", "",  Term),
-      Term = gsub(":", "_",  Term)) %>%
-    add_row(Term = "BIC", Coefficient = x[[3]]) %>%
-    add_row(Term = "N", Coefficient = x[[4]])
-  x_data$Model <- x[[1]]
-
-  x_data
-})) %>% select(Model, Term, Coefficient, Std_Error, Significance) %>%
-  mutate(Model = gsub(" ", "&", Model),
-         Model = gsub("Frobenius.NNDSVD_student1", "Completion", Model),
-         Model = gsub("Frobenius.NNDSVD_student2", "Struggle", Model),
-         Model = gsub("Frobenius.NNDSVD_student3", "No. Students", Model),
-         Model = gsub("Frobenius.NNDSVD_student4", "No. Sessions", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher1", "Assessments", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher2", "Scaffolding", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher3", "Activities", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher4", "Planning Guides", Model))
-
-# Create the table using the 'gt' package
-gt_table <- model_summary %>%
-  filter(!Term %in% c("rwd1","rwd2","lag1","lag2")) %>%
-  mutate(Estimate = ifelse(Term %in% c("BIC", "N"),
-                           sprintf("%d", as.integer(Coefficient)),
-                           sprintf("%1.3f%s\n(%1.3f)",
-                                   Coefficient, Significance, Std_Error)),
-         Term = factor(Term, levels = c("rwd1_lag1", "rwd1_lag2", "lag2_rwd2",
-                                        # "lag1", "lag2",
-                                        "st", "lag1_st",
-                                        "BIC", "N"),
-                       labels = c("R(t-1) x \n A(t-1)",
-                                  "R(t-1) x \n A(t-2)",
-                                  "R(t-2) x \n A(t-2)",
-                                  # "Action(t-1)", "Action(t-2)",
-                                  "S(t)", "S(t) x \n A(t-1)",
-                                  "BIC", "N"))) %>%
-  select(-Coefficient, -Std_Error, -Significance) %>%
-  # Pivot wider to have one column per model
-  pivot_wider(names_from = Model,
-              values_from = Estimate,
-              names_sep = "_") %>%
-  select(order(names(.))) %>%
-  arrange(Term) %>%
-  gt(rowname_col = "Term") %>%
-  sub_missing() %>%
-  tab_spanner_delim("&") %>%
-  tab_header(
-    title = "Fixed Effects Logistic Regression Results"
-  )
-
-# Print the table
-gt_table
-
-```
-
-```{=tex}
-}
-\newpage
-\KOMAoptions{paper=portrait,pagesize}
-\recalctypearea
-```
 ```{r panel-model-states-restricted}
 #| eval: false
 
@@ -2463,130 +2349,9 @@ results <- foreach(i = 1:nrow(params),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "fe-state-restricted-results.RData")
+save(results, file = "Regressions/fe-state-restricted-results.RData")
 
 ```
-
-```{r}
-#| label: tbl-fe-results
-#| tbl-cap: "State-Based Panel Logistic Regression Results"
-
-load("fe-state-subset-results.RData")
-
-# Combine the model stats from original and restricted results for comparison
-results_df <- do.call(rbind, lapply(results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  data.frame(
-    Action = x$Method,
-    Reward = x$Reward,
-    State = x$State,
-    AUC = x$AUC,
-    BIC = x$bic,
-    Type = "Original"
-  )
-}))
-# Select top 2 AUC models and top 2 BIC models for both original and restricted
-top_models <- results_df %>%
-  arrange(desc(AUC)) %>%
-  slice_head(n = 2)
-top_models <- results_df %>%
-  arrange(BIC) %>%
-  slice_head(n = 2) %>%
-  bind_rows(top_models)
-
-# Filter and tidy the results
-tidy_fe_results <- lapply(results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  if (top_models %>%
-      filter(Action == x$Method &
-             Reward == x$Reward &
-             State  == x$State) %>%
-      nrow() == 0) return(NULL)
-  temp <- x$fecoef %>%
-    as.data.frame() %>%
-    rownames_to_column(var = "Term") %>%
-    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
-                  ~ as.numeric(.))) %>%
-    filter(Term != "(Intercept)" & Term != "week_lag")
-  
-  return(list(
-    Model = paste(x$Method, x$Reward, x$State),
-    Data  = temp,
-    BIC   = x$bic,
-    N     = length(x$recoef$Teacher.User.ID)))
-})
-tidy_fe_results <- tidy_fe_results[!sapply(tidy_fe_results, is.null)]
-	
-# Combine all model summaries into one dataframe
-model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
-  x_name <- unlist(strsplit(x$Model, " "))
-  x_data <- x$Data %>%
-    rename(Coefficient = Estimate,
-           Std_Error = `Std. Error`) %>%
-    mutate(
-      Significance = case_when(
-        `Pr(>|z|)` < .001 ~ "***",
-        `Pr(>|z|)` < .01 ~ "**",
-        `Pr(>|z|)` < .05 ~ "*",
-        TRUE ~ ""),
-      Term = gsub(x_name[1], "lag", Term),
-      Term = gsub(x_name[2], "rwd", Term),
-      Term = gsub(x_name[3], "st",  Term),
-      Term = gsub("_", "",  Term),
-      Term = gsub(":", "_",  Term)) %>%
-    add_row(Term = "BIC", Coefficient = x[[3]]) %>%
-    add_row(Term = "N", Coefficient = x[[4]])
-  x_data$Model <- x$Model
-
-  x_data
-})) %>% select(Model, Term, Coefficient, Std_Error, Significance) %>%
-  mutate(Model = gsub(" ", "&", Model),
-         Model = gsub("Frobenius.NNDSVD_student1", "Completion", Model),
-         Model = gsub("Frobenius.NNDSVD_student2", "Struggle", Model),
-         Model = gsub("Frobenius.NNDSVD_student3", "No. Students", Model),
-         Model = gsub("Frobenius.NNDSVD_student4", "No. Sessions", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher1", "Assessments", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher2", "Scaffolding", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher3", "Activities", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher4", "Planning Guides", Model))
-
-# Create the table using the 'gt' package
-gt_table <- model_summary %>%
-  filter(!Term %in% c("rwd1","rwd2","lag1","lag2")) %>%
-  mutate(Estimate = ifelse(Term %in% c("BIC", "N"),
-                           sprintf("%d", as.integer(Coefficient)),
-                           sprintf("%1.3f%s\n(%1.3f)",
-                                   Coefficient, Significance, Std_Error)),
-         Term = factor(Term, levels = c("rwd1_lag1", "rwd1_lag2", "lag2_rwd2",
-                                        # "lag1", "lag2",
-                                        "st1", "lag2_st1",
-                                         "BIC", "N"),
-                       labels = c("R(t-1) x \n A(t-1)",
-                                  "R(t-1) x \n A(t-2)",
-                                  "R(t-2) x \n A(t-2)",
-                                  # "Action(t-1)", "Action(t-2)",
-                                  "S(t-1)", "S(t-1) x \n A(t-2)",
-                                  "BIC", "N"))) %>%
-  select(-Coefficient, -Std_Error, -Significance) %>%
-  # Pivot wider to have one column per model
-  pivot_wider(names_from = Model,
-              values_from = Estimate,
-              names_sep = "_") %>%
-  select(order(names(.))) %>%
-  arrange(Term) %>%
-  gt(rowname_col = "Term") %>%
-  sub_missing() %>%
-  tab_spanner_delim("&") %>%
-  tab_header(
-    title = "Fixed Effects Logistic Regression Results"
-    )
-
-# Print the table
-gt_table
-
-```
-
-### Variability Among Teachers
 
 ```{r RL-mixed-effects}
 #| eval: false
@@ -2738,7 +2503,7 @@ results <- foreach(i = 1:nrow(params2),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "me-results.RData")
+save(results, file = "Regressions/me-results.RData")
 
 ```
 
@@ -2747,7 +2512,7 @@ save(results, file = "me-results.RData")
 
 library(fixest)
 
-load("me-results.RData")
+load("Regressions/me-results.RData")
 teachers <- intersect(
   Reduce(union, sapply(results, function(x) {
     x$perform_df$Teacher.User.ID
@@ -2903,7 +2668,7 @@ results <- foreach(i = 1:nrow(params2),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "me-subset-results.RData")
+save(results, file = "Regressions/me-subset-results.RData")
 
 ```
 
@@ -3047,18 +2812,16 @@ results <- foreach(i = 1:nrow(params2),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "me-results-restricted.RData")
+save(results, file = "Regressions/me-results-restricted.RData")
 
 ```
-
-With a two-week lag established as optimal, we explored variability in model performance across teachers through a varying coefficients approach, which allows for individual slope estimations for each teacher. @tbl-RL-exploration shows pronounced variability, suggesting idiosyncratic pedagogical differences across teachers or diverse strategies tailored to classroom-specific needs. This finding highlights the need for hybrid models to accommodate teachers' diverse pedagogical approaches, strategies, and reinforcement patterns.
 
 ```{r}
 #| label: table-RL-exploration
 
 library(gtExtras)
-load("me-subset-results.RData")
-# load("me-results-restricted.RData")
+load("Regressions/me-subset-results.RData")
+# load("Regressions/me-results-restricted.RData")
 
 top_fits_df <- do.call(rbind, lapply(results, function(x) {
   # Assuming 'perform_df' is correctly structured as shown in your summary
@@ -3093,14 +2856,14 @@ top_fits_df <- top_fits_df %>%
               filter(Lag == 2),
             by = c("Action" = "Method", "Reward", "State")) %>%
   mutate(across(c(Action, Reward, State),
-                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Completion",
-                            . == "Frobenius.NNDSVD_student2" ~ "Struggle",
+                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Badges",
+                            . == "Frobenius.NNDSVD_student2" ~ "Struggles",
                             . == "Frobenius.NNDSVD_student3" ~ "No. Students",
-                            . == "Frobenius.NNDSVD_student4" ~ "No. Sessions",
+                            . == "Frobenius.NNDSVD_student4" ~ "Activity",
                             . == "Frobenius.NNDSVD_teacher1" ~ "Assessments",
-                            . == "Frobenius.NNDSVD_teacher2" ~ "Scaffolding",
-                            . == "Frobenius.NNDSVD_teacher3" ~ "Activities",
-                            . == "Frobenius.NNDSVD_teacher4" ~ "Planning Guides",
+                            . == "Frobenius.NNDSVD_teacher2" ~ "Pedagogical Knowledge",
+                            . == "Frobenius.NNDSVD_teacher3" ~ "Group Instruction",
+                            . == "Frobenius.NNDSVD_teacher4" ~ "Curriculum Planning",
                             .default = .)))
   
 top_statefree <- rbind(
@@ -3164,19 +2927,19 @@ top_fits_df %>%
 
 ```
 
-![](images/tbl-RL-exploration.png){#tbl-RL-exploration}
-
-### Model Selection and Interpretability
+![Summary of Fixed Effects and Varying Coefficients Models](images/tbl-RL-exploration.png){#tbl-RL-exploration}
 
 #### Model Performance
 
-We then refined our analysis to highlight models that demonstrated robustness and high predictive accuracy and provided meaningful insights into the interactions between rewards, actions, and states.
+Drawing on the resulting metrics, we strategically narrowed our focus to the action-reward-state configurations that most closely align with Reinforcement Learning (RL) principles. @fig-RL-exploration delineates the top 25 models based on their high fixed-effects Area Under the Curve (AUC) and mean teacher-specific AUC, as well as their parsimonious Bayesian Information Criterion (BIC) and higher mean teacher-specific log-likelihood.
 
-@fig-RL-exploration showcases 11 models selected with the highest a) fixed effects AUC, b) mean teacher-specific AUC, c) lowest fixed effects BIC, and d) highest mean teacher-specific log-likelihood, with the top state-free model of each category selected along with the top two state-based models from each category. Models closest to the bottom right corner of the graph (lowest BIC, highest out-of-sample AUC) do best in balancing parsimony in the fixed effects model and predictability in the varying coefficients model. In general, @fig-RL-exploration suggests that the best-fitting models use scaffolding as their action, but the best rewards and states are not clearly defined.
+Panel A of the figure highlights six state-free models. Each point on the plot represents a different model, identified by its BIC and average teacher-specific AUC. Within this framework, the actions of "Activities" and "Assessments" stand out, connected to rewards like "Completion," "No. Sessions," and "No. Students." Panel B spotlights 19 state-based models. In this plot, "Scaffolding" and "Activities" also emerge as the primary actions.
+
+These visualizations highlight "Scaffolding" and "Activities" as best-fit actions. However, the choice of associated rewards and states is unclear, suggesting the need to fit RL models using all configurations featuring these two actions.
 
 ```{r}
 #| label: fig-RL-exploration
-#| fig-cap: "Top AUC x BIC Models"
+#| fig-cap: "Selection of Actions, Rewards, and States for Reinforcement Learning Analysis. The plots show the performance metrics of logistic regression models designed to capture characteristics similar to reinforcement learning models. The AUC and BIC values are plotted separately for state-free and state-dependent contexts. Models closest to the upper-left corners indicate a more optimal balance between parsimony and accuracy in capturing RL-like teacher behaviors."
 #| fig-subcap: 
 #|   - "State-free"
 #|   - "State-dependent"
@@ -3195,7 +2958,6 @@ plot1 <- top_fits_df %>%
   select(Action, Reward, bic, auc_out) %>%
   ggplot(aes(x = bic, y = auc_out, color = Reward)) +
   geom_point() +
-  theme(legend.position = "bottom") +
   geom_mark_ellipse(
     aes(group = Action, label = Action, color = NULL),
     con.type = "straight",
@@ -3210,7 +2972,8 @@ plot1 <- top_fits_df %>%
   geom_segment(x = 90000, y = 0.7, xend = 90000, yend = 0.72,
                linetype = "dashed", color = "darkgray") +
   theme_minimal() +
-  labs(x = "BIC F.E.", y = "Avg. AUC M.E.",
+  theme(legend.position = "none") +
+  labs(x = "BIC F.E.", y = "Avg. Teacher AUC",
        title = paste(nrow(selected_models), "Models Selected"))
 
 # Join with selected_models
@@ -3242,7 +3005,7 @@ plot2 <- top_fits_df %>%
   geom_segment(x = 90000, y = 0.7, xend = 90000, yend = 0.72,
                linetype = "dashed", color = "darkgray") +
   theme_minimal() +
-  labs(x = "BIC F.E.", y = "Avg. AUC M.E.",
+  labs(x = "BIC F.E.", y = "Avg. Teacher AUC",
        title = paste(nrow(selected_models %>% filter(State != "None")),
                      "Models Selected"))
 
@@ -3250,6 +3013,8 @@ plot1
 plot2
 
 ```
+
+#### Model Interpretability
 
 ```{r RL-me-interpretation}
 #| eval: false
@@ -3315,14 +3080,14 @@ params2 <- crossing(
     selected_models %>%
       select(Action, Reward, State) %>%
       mutate(across(c(Action, Reward, State),
-                    ~ case_when(. == "Completion" ~ "Frobenius.NNDSVD_student1",
-                                . == "Struggle" ~ "Frobenius.NNDSVD_student2",
+                    ~ case_when(. == "Badges" ~ "Frobenius.NNDSVD_student1",
+                                . == "Struggles" ~ "Frobenius.NNDSVD_student2",
                                 . == "No. Students" ~ "Frobenius.NNDSVD_student3",
-                                . == "No. Sessions" ~ "Frobenius.NNDSVD_student4",
+                                . == "Activity" ~ "Frobenius.NNDSVD_student4",
                                 . == "Assessments" ~ "Frobenius.NNDSVD_teacher1",
-                                . == "Scaffolding" ~ "Frobenius.NNDSVD_teacher2",
-                                . == "Activities" ~ "Frobenius.NNDSVD_teacher3",
-                                . == "Planning Guides" ~ "Frobenius.NNDSVD_teacher4",
+                                . == "Pedagogical Knowledge" ~ "Frobenius.NNDSVD_teacher2",
+                                . == "Group Instruction" ~ "Frobenius.NNDSVD_teacher3",
+                                . == "Curriculum Planning" ~ "Frobenius.NNDSVD_teacher4",
                                 . == "None" ~ "NA",
                                 .default = .))),
     by = c("act" = "Action", "rwd" = "Reward", "st" = "State"))
@@ -3415,17 +3180,19 @@ results <- foreach(i = 1:nrow(params2),
 stopCluster(cl)
 rm(cl)
 
-save(results, file = "me-standardized-coef.RData")
+save(results, file = "Regressions/me-standardized-coef.RData")
 
 ```
 
-#### Model Interpretability
+Prior to fitting the reinforcement learning (RL) models, we analyzed the regression coefficients in our best-fitting logit models to identify patterns that align with RL principles. Our primary focus was on the relationship between rewards and actions. Their interaction should positively influence future actions for desired outcomes (e.g., lesson completion) and negatively for undesired outcomes (e.g., struggles). Additionally, we examined the effect of current states on strategic action selection and the interaction between states and lagged actions to indicate how actions attain and maintain desired states.
 
-We applied further scrutiny to the top models through re-estimation with scaled independent variables, enabling a direct comparison of coefficients. In this case, an increase of 1 unit in the independent variable represents an increase of one standard deviation. @tbl-re-estimation summarizes these results, revealing the standardized coefficients for reward and state variables and their interactions with lagged actions.
+We re-estimated the models with scaled independent variables, allowing for a direct coefficient comparison. In this context, a unit increase in these variables equates to a one standard deviation increase. @tbl-re-estimation-statefree and @tbl-re-estimation summarize these results, presenting a coherent overview of the standardized coefficients and highlighting the significance of interactions between rewards, states, and lagged actions.
 
-Here, we sought the models with coefficients presenting attributes most resembling RL. Specifically, the interaction between rewards and actions positively influenced future actions for desired outcomes (e.g., lesson completion) and negatively for undesired outcomes (e.g., struggles). Further, state-based models should incorporate the effects of current states on strategic action selection. The interaction term between states and lagged actions further points to the role of actions in achieving and maintaining desired states.
+The results convey that no singular approach fits all educational contexts. Instead, a spectrum of pedagogical strategies exists, with specific teaching methods aligning more closely with the principles of RL. By focusing on coefficients that display RL-like effects, particularly the interaction term R(t-1) x A(t-2), we identified dominant strategies that include 1) Action: Group Instruction with Reward: Struggles, and 2) Action: Group Instruction with Reward: Activity and State: Badges.
 
-Notably, the models underscore the absence of a one-size-fits-all approach, indicating a spectrum of strategies where some teachers' practices align more closely with RL principles than others. Ranking the models by the proportion of teachers whose coefficients present RL-like effects, this analysis favors 1) Action: Scaffolding, Reward: No. Sessions, State: No. Students; 2) Action: Activities, Reward: Completion, State: No. Students; and 3) Action: Assessments, Reward: No. Students, State: Completion. @fig-RL-exploration, on the other hand, highlights the models closest to the bottom right corner: 1) Action: Scaffolding, Reward: No. Students, State: No. Sessions; 2) Action: Scaffolding, Reward: No. Sessions, State-free; 3) Action: Scaffolding, Reward: No. Sessions, State: Completion; 4) Action: Activities, Reward: Completion, State: No. Students; and 5) Action: Activities, Reward: Struggle, State-free. Overall, the complexity of these individual differences and the model performance calls for hybrid modeling in future RL-fitting steps.
+In contrast, @fig-RL-exploration favors models that occupy the upper-left quadrant, indicative of an optimized balance between model complexity and predictive accuracy. Noteworthy configurations include 1) Action: Pedagogical Knowledge with Reward: Activity, and 2) Action: Pedagogical Knowledge with Reward: Activity, State: Number of Students.
+
+These configurations highlight teacher individual differences and support the idea that using a hybrid modeling approach could improve the process of fitting RL.
 
 ```{=tex}
 \newpage
@@ -3439,7 +3206,7 @@ Notably, the models underscore the absence of a one-size-fits-all approach, indi
 #| label: tbl-re-estimation-statefree
 #| tbl-cap: "State-Free Mixed Effects Logistic Regression Results"
 
-load("me-standardized-coef.RData")
+load("Regressions/me-standardized-coef.RData")
 
 filtered_results <- lapply(results, function(x) {
   if (!is.null(x$State)) return(NULL)
@@ -3449,14 +3216,14 @@ filtered_results <- lapply(results, function(x) {
     State = "None"
   ) %>%
   mutate(across(c(Action, Reward),
-                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Completion",
-                            . == "Frobenius.NNDSVD_student2" ~ "Struggle",
+                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Badges",
+                            . == "Frobenius.NNDSVD_student2" ~ "Struggles",
                             . == "Frobenius.NNDSVD_student3" ~ "No. Students",
-                            . == "Frobenius.NNDSVD_student4" ~ "No. Sessions",
+                            . == "Frobenius.NNDSVD_student4" ~ "Activity",
                             . == "Frobenius.NNDSVD_teacher1" ~ "Assessments",
-                            . == "Frobenius.NNDSVD_teacher2" ~ "Scaffolding",
-                            . == "Frobenius.NNDSVD_teacher3" ~ "Activities",
-                            . == "Frobenius.NNDSVD_teacher4" ~ "Planning Guides",
+                            . == "Frobenius.NNDSVD_teacher2" ~ "Pedagogical Knowledge",
+                            . == "Frobenius.NNDSVD_teacher3" ~ "Group Instruction",
+                            . == "Frobenius.NNDSVD_teacher4" ~ "Curriculum Planning",
                             .default = .)))
   if(nrow(
     temp %>%
@@ -3639,13 +3406,13 @@ model_summary_long %>%
 
 ```
 
-\newpage
+{{< pagebreak >}}
 
 ```{r}
 #| label: tbl-re-estimation
 #| tbl-cap: "State-Based Mixed Effects Logistic Regression Results"
 
-load("me-standardized-coef.RData")
+load("Regressions/me-standardized-coef.RData")
 
 filtered_results <- lapply(results, function(x) {
   if (is.null(x$State)) return(NULL)
@@ -3655,14 +3422,14 @@ filtered_results <- lapply(results, function(x) {
     State = x$State
   ) %>%
   mutate(across(c(Action, Reward, State),
-                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Completion",
-                            . == "Frobenius.NNDSVD_student2" ~ "Struggle",
+                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Badges",
+                            . == "Frobenius.NNDSVD_student2" ~ "Struggles",
                             . == "Frobenius.NNDSVD_student3" ~ "No. Students",
-                            . == "Frobenius.NNDSVD_student4" ~ "No. Sessions",
+                            . == "Frobenius.NNDSVD_student4" ~ "Activity",
                             . == "Frobenius.NNDSVD_teacher1" ~ "Assessments",
-                            . == "Frobenius.NNDSVD_teacher2" ~ "Scaffolding",
-                            . == "Frobenius.NNDSVD_teacher3" ~ "Activities",
-                            . == "Frobenius.NNDSVD_teacher4" ~ "Planning Guides",
+                            . == "Frobenius.NNDSVD_teacher2" ~ "Pedagogical Knowledge",
+                            . == "Frobenius.NNDSVD_teacher3" ~ "Group Instruction",
+                            . == "Frobenius.NNDSVD_teacher4" ~ "Curriculum Planning",
                             .default = .)))
   if(nrow(
     temp %>%
@@ -3859,27 +3626,172 @@ model_summary_long %>%
   # as_latex()
 
 ```
-
 ```{=tex}
 }
 \newpage
 \KOMAoptions{paper=portrait,pagesize}
 \recalctypearea
 ```
+
 ## Estimating RL Models
 
-### Laplace Approximations
+In this section, we delve into the process of estimating the reinforcement learning (RL) models based on the selected criteria of model performance. By leveraging the MATLAB computational environment, we have executed a rigorous model fitting procedure that is tailored to understand the teaching strategies embedded within our data set.
 
-<!-- - Present the 4 models that stood out during the first estimation. -->
+We first preset the random number generator for reproducibility and load the essential data for analysis. To account for the multifaceted nature of our models, we use a parallel computing framework to estimate each model, ensuring a comprehensive search over the parameter space.
 
-<!-- - Discuss the HBI results and model comparison statistics. -->
+After estimating a suite of models, we retrieve the log evidence—a measure of model fit that takes into account the complexity of each model. This evidence is used to rank the models according to their performance.
 
-#### Top Q-Learning and Actor-Critic Models
+#### Distribution of Model Performance
+
+The distribution of log evidence scores provides insight into the overall performance of our model suite. We present this distribution to showcase the variance in fit across all estimated models.
 
 ```{r}
-#| label: tbl-CBM-first
-#| tbl-cap: "Top QL and AC Models"
+#| label: fig-log-evidence-histogram
+#| fig-cap: "Histogram of Log Evidences. "
+
 library(R.matlab)
+
+# Initialize vectors to hold log-evidence values for each model type
+ql_log_evidences <- c()
+ac_log_evidences <- c()
+
+# Path to the folders containing the .mat files for Q-learning and Actor-Critic models
+ql_folder_path <- "CBM/zearn_results/ql_subj_results"
+ac_folder_path <- "CBM/zearn_results/ac_subj_results"
+
+# Function to read and accumulate log-evidences from given folder and model type
+accumulate_log_evidences <- function(folder_path) {
+  log_evidences <- c()
+  files <- list.files(path = folder_path, pattern = "\\.mat$", full.names = TRUE)
+  
+  for (file in files) {
+    mat_data <- readMat(file)
+    log_evidences <- c(log_evidences, sum(mat_data[["cbm"]][[5]][[2]]))
+  }
+  
+  return(log_evidences)
+}
+
+# Accumulate log-evidences for Q-learning and Actor-Critic models
+ql_log_evidences <- accumulate_log_evidences(ql_folder_path)
+ac_log_evidences <- accumulate_log_evidences(ac_folder_path)
+
+# Create a combined vector of all log-evidences and a factor indicating model type
+all_log_evidences <- c(ql_log_evidences, ac_log_evidences)
+model_types <- factor(c(rep("QL", length(ql_log_evidences)), rep("AC", length(ac_log_evidences))))
+
+# Create a data frame for ggplot
+data <- data.frame(
+  LogEvidence = c(ql_log_evidences, ac_log_evidences),
+  ModelType = factor(c(rep("Q-learning", length(ql_log_evidences)), rep("Actor-Critic", length(ac_log_evidences))))
+)
+
+# Plot using ggplot
+ggplot(data, aes(x = LogEvidence, fill = ModelType)) +
+  geom_histogram(position = "identity", alpha = 0.5, bins = 20) +
+  scale_fill_manual(values = c("Q-learning" = brewer.pal(3, "Dark2")[1],
+                               "Actor-Critic" = brewer.pal(3, "Dark2")[2])) +
+  labs(x = "Log Evidence",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+
+
+```
+
+#### Standout Models
+
+Next, we present the four models that distinguished themselves during the initial estimation phase. These models were selected based on their top log evidence scores, indicating a strong balance between goodness-of-fit and model simplicity.
+
+```{r}
+#| label: fig-top-CBM
+#| fig-cap: "Top Model Log Evidences"
+
+ql_folder_path <- "CBM/zearn_results/ql_refine"
+ac_folder_path <- "CBM/zearn_results/ac_refine"
+
+# Create a data frame for ggplot
+evidence_df <- data.frame(
+  Action = as.character(NA),
+  Reward = as.character(NA),
+  State = as.character(NA),
+  LogEvidence = as.numeric(NA)
+)
+files <- list.files(path = ql_folder_path,
+                    pattern = "refine_ql", full.names = TRUE)
+for (file in files) {
+  mat_data <- readMat(file)
+  evidence_df <- rbind(evidence_df, data.frame(
+    Action = file,
+    Reward = as.character(NA),
+    State = as.character(NA),
+    LogEvidence = sum(mat_data[["cbm"]][[5]][[2]])
+  ))
+}
+files <- list.files(path = ac_folder_path,
+                    pattern = "refine_ac", full.names = TRUE)
+for (file in files) {
+  mat_data <- readMat(file)
+  evidence_df <- rbind(evidence_df, data.frame(
+    Action = file,
+    Reward = as.character(NA),
+    State = as.character(NA),
+    LogEvidence = sum(mat_data[["cbm"]][[5]][[2]])
+  ))
+}
+
+evidence_df <- evidence_df[-1,]
+evidence_df[1,1:3] <- c("Pedagogical Knowledge","Badges", NA) # QL 1
+evidence_df[2,1:3] <- c("Pedagogical Knowledge","Struggles", NA) # QL 3
+evidence_df[3,1:3] <- c("Pedagogical Knowledge","No. Students", NA) # QL 5
+evidence_df[4,1:3] <- c("Pedagogical Knowledge","Activity", NA) # QL 7
+evidence_df[5,1:3] <- c("Pedagogical Knowledge","Badges",
+                        "Struggles, No. Students, Activity") # AC 13
+evidence_df[6,1:3] <- c("Pedagogical Knowledge","Struggles",
+                        "Activity") # AC 17
+evidence_df[7,1:3] <- c("Pedagogical Knowledge","Badges",
+                        "No. Students") # AC 2
+evidence_df[8,1:3] <- c("Pedagogical Knowledge","Struggles",
+                        "No. Students, Activity") # AC 23
+evidence_df[9,1:3] <- c("Pedagogical Knowledge","Struggles",
+                        "Badges, No. Students, Activity") # AC 27
+evidence_df[10,1:3] <- c("Pedagogical Knowledge","No. Students",
+                         "Badges, Struggles") # AC 35
+evidence_df[11,1:3] <- c("Pedagogical Knowledge","Activity",
+                         "Badges") # AC 43
+evidence_df[12,1:3] <- c("Pedagogical Knowledge","Activity",
+                         "Struggles No. Students") # AC 51
+evidence_df[13,1:3] <- c("Pedagogical Knowledge","Activity",
+                         "Badges, Struggles, No. Students") # AC 55
+evidence_df[14,1:3] <- c("Pedagogical Knowledge","Badges",
+                         "Struggles, No. Students") # AC 7
+
+# Display the table
+evidence_df %>%
+  select(-Action) %>%
+  group_by(Reward) %>%
+  arrange(desc(LogEvidence)) %>%
+  gt(row_group_as_column = TRUE) %>%
+  tab_stubhead(label = "Reward") %>%
+  cols_label(`LogEvidence` = "Log Evidence") %>%
+  sub_missing() %>%
+  fmt_number(columns = c(LogEvidence), decimals = 1)
+
+```
+
+#### Hierarchical Bayesian Inference (HBI) Results and Model Comparison
+
+To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more sophisticated model comparison. This statistical approach allows us to compare models not just by their individual fits, but also by their ability to explain data across different subjects.
+
+The HBI results and corresponding model comparison statistics serve as our basis for selecting the most appropriate RL model. By integrating across all levels of the data hierarchy, we gain a deeper understanding of the models' explanatory power.
+
+```{r}
+#| label: tbl-CBM-HBI
+#| tbl-cap: "Top QL and AC Models."
+#| tbl-subcap: 
+#| - ""
+#| - ""
 
 # Load the MATLAB files for the top QL and AC models
 top_model_ql <- readMat('CBM/zearn_results/ql_refine/hbi_QL4_refined.mat')
@@ -3894,18 +3806,40 @@ loglik_ac <- apply(top_model_ac[["cbm"]][[4]][[1]][[1]], 1, sum)
 
 
 # Create a data frame with each model
-top_models_table <- rbind(
-  data.frame(Statistic = "Frequency",
-             QL = model_freq_ql, 
-             AC = model_freq_ac),
-  data.frame(Statistic = "Log Likelihood",
-             QL = t(loglik_ql),
-             AC = t(loglik_ac))
-  )
+top_ql_models_table <- 
+  data.frame(Statistic = c("Model Frequency", "Log Likelihood"),
+             QL = matrix(c(model_freq_ql, t(loglik_ql)),
+                         nrow = 2, ncol = 4, byrow = T))
+colnames(top_ql_models_table)[2:5] <- c(
+  "Pedagogical Knowledge_Badges", # QL 1
+  "Pedagogical Knowledge_Struggles", # QL 3
+  "Pedagogical Knowledge_No. Students", # QL 5
+  "Pedagogical Knowledge_Activity" # QL 7
+)
+top_ac_models_table <- 
+  data.frame(Statistic = c("Model Frequency", "Log Likelihood"),
+             AC = matrix(c(model_freq_ac, t(loglik_ac)),
+                         nrow = 2, ncol = 5, byrow = T))
+colnames(top_ac_models_table)[2:6] <- c(
+  "Pedagogical Knowledge_Badges_No. Students", # AC 2
+  "Pedagogical Knowledge_Badges_Struggles, No. Students, Activity", # AC 13
+  "Pedagogical Knowledge_No. Students_Badges, Struggles", # AC 35
+  "Pedagogical Knowledge_Activity_Badges", # AC 43
+  "Pedagogical Knowledge_Activity_Struggles, No. Students" # AC 51
+)
 
 # Display the table
-gt(top_models_table) %>%
-  tab_spanner_delim(".") %>%
+top_ql_models_table %>%
+  group_by(Statistic) %>%
+  gt(row_group_as_column = TRUE) %>%
+  tab_spanner_delim("_") %>%
+  fmt_percent(rows = c(1), decimals = 1) %>%
+  fmt_number(rows = c(2), decimals = 1)
+
+top_ac_models_table %>%
+  group_by(Statistic) %>%
+  gt(row_group_as_column = TRUE) %>%
+  tab_spanner_delim("_") %>%
   fmt_percent(rows = c(1), decimals = 1) %>%
   fmt_number(rows = c(2), decimals = 1)
 
@@ -3930,11 +3864,26 @@ model_freq <- data.frame(rbind(
   comp_model_2[["cbm"]][[5]][[5]],
   comp_model_51[["cbm"]][[5]][[5]]
   ))
-row.names(model_freq) <- 
-  c("Model 7", "Model 1", "Model 2", "Model 51")
 names(model_freq) <- c("Logit", "RL", "Logit-RL Hybrid", "QL-AC Hybrid")
+model_freq$Reward <- c(
+  "Activity", # QL 7
+  "Badges", # QL 1
+  "Badges", # AC 2
+  "Activity" # AC 51
+)
+model_freq$State <- c(
+  NA, # QL 7
+  NA, # QL 1
+  "No. Students", # AC 2
+  "Struggles, No. Students" # AC 51
+)
 
-gt(model_freq, rownames_to_stub = T) %>%
+model_freq %>%
+  gt(groupname_col = "Reward",
+     row_group_as_column = T) %>%
+  tab_stubhead(label = "Reward") %>%
+  cols_move_to_start(State) %>%
+  sub_missing() %>%
   fmt_percent(decimals = 1)
 
 ```
@@ -3950,15 +3899,139 @@ top_model_comp <- readMat('CBM/zearn_results/comp_aggr_results/top_model_comp.ma
 model_freq <- data.frame(
   top_model_comp[["cbm"]][[5]][[5]]
   )
-names(model_freq) <- c("Logit 7", "Logit 1", "AC 2", "AC 51")
+names(model_freq) <- c(
+  "Pedagogical Knowledge_Activity_None", # QL 7
+  "Pedagogical Knowledge_Badges_None", # QL 1
+  "Pedagogical Knowledge_Badges_No. Students", # AC 2
+  "Pedagogical Knowledge_Activity_Struggles, No. Students" # AC 51
+)
+# model_freq <- rbind(
+#   c("Logit", "Logit", "Actor-Critic", "Actor-Critic"),
+#   model_freq)
+# rownames(model_freq) <- c("Model Type","Model Frequency")
+rownames(model_freq) <- c("Model Frequency")
 
-gt(model_freq) %>%
+model_freq %>%
+  relocate(`Pedagogical Knowledge_Activity_Struggles, No. Students`,
+           .after = `Pedagogical Knowledge_Activity_None`) %>%
+  gt(rownames_to_stub = T) %>%
+  tab_spanner_delim("_") %>%
   fmt_percent(decimals = 1)
+  
 ```
 
 ## Heterogeneity Analyses
 
-<!--  **************************************** -->
+```{r}
+
+# Load the full model data
+full_model <- readMat("CBM/zearn_results/top_results/hbi_ac.mat")
+
+# Extract log likelihoods
+log_likelihoods <- as.numeric(full_model[["cbm"]][[4]][[1]][[1]])
+median_log_likelihood <- round(median(log_likelihoods), digits = 1)
+
+# Create a histogram of log likelihoods
+ggplot(data = data.frame(LogLikelihoods = log_likelihoods),
+       aes(x = LogLikelihoods)) +
+  geom_histogram(fill = brewer.pal(3, "Set2")[1],
+                 color = brewer.pal(3, "Dark2")[1]) + 
+  geom_vline(xintercept = median_log_likelihood, color = brewer.pal(8, "Dark2")[8],
+             linetype = "dashed", size = 0.7) +
+  annotate("text", x = median_log_likelihood, y = 0,
+           label = median_log_likelihood,
+           color = "black", vjust = 1.5) +
+  theme_minimal() +
+  labs(x = "Log Likelihood",
+       y = "Frequency")
+
+```
+
+```{r}
+
+
+group_mean <- full_model[["cbm"]][[5]][[3]][[1]][[1]]
+error_bar <- full_model[["cbm"]][[5]][[4]][[1]][[1]]
+teacher_specific <- full_model[["cbm"]][[5]][[1]][[1]][[1]]
+
+para_labels <- c("alpha_w", "alpha_theta","gamma", "tau",
+                 "theta_init", "w_init", "cost")
+
+transformations <- list(
+  function(x) 1 / (1 + exp(-x)), # sigmoid
+  function(x) 1 / (1 + exp(-x)), # sigmoid
+  function(x) 1 / (1 + exp(-x)), # sigmoid
+  function(x) exp(x),            # exp
+  function(x) x,                 # none
+  function(x) x,                 # none
+  function(x) exp(x)             # exp
+)
+
+# Apply transformations
+group_mean_transformed <- mapply(function(x, transform) transform(x),
+                                 group_mean, transformations)
+# Error bar transformation - calculate lower and upper bounds after transformation
+error_bar_lower <- sapply(1:length(group_mean),
+  function(i) transformations[[i]](group_mean[i] - error_bar[i]))
+error_bar_upper <- sapply(1:length(group_mean),
+  function(i) transformations[[i]](group_mean[i] + error_bar[i]))
+
+# Ensuring correct transformation of teacher-specific parameters
+# The original attempt seemed to be incorrect; redoing transformation properly
+teacher_specific_transformed <- t(apply(teacher_specific, 1, function(row) {
+  mapply(function(value, transform) transform(value), row, transformations)
+}))
+
+# Correcting data frame for group means and error bars preparation
+group_mean_df <- data.frame(
+  Parameter = para_labels,
+  Mean = group_mean_transformed,
+  Lower = error_bar_lower,
+  Upper = error_bar_upper
+)
+
+# Preparing long-format data for plotting
+parameters_long <- data.frame(
+  Parameter = rep(para_labels,
+                  times = nrow(teacher_specific_transformed)),
+  Value = as.vector(t(teacher_specific_transformed)),
+  Teacher = rep(1:nrow(teacher_specific_transformed),
+                each = length(para_labels))
+)
+
+individual_plots <- list()
+# Plotting with improved readability
+for(param in unique(parameters_long$Parameter)) {
+  # Filter data for the current parameter
+  data_current <- parameters_long[parameters_long$Parameter == param, ]
+  group_mean_current <- group_mean_df[group_mean_df$Parameter == param, ]
+  
+  # Generate the plot for the current parameter
+  p <- ggplot(data_current, aes(x = Parameter, y = Value)) +
+    geom_violin(
+      fill = brewer.pal(3, "Set2")[1],
+      color = brewer.pal(3, "Set2")[3],
+      alpha = 0.5
+    ) +
+    geom_point(
+      data = group_mean_current, aes(x = Parameter, y = Mean),
+      color = brewer.pal(3, "Set2")[2], size = 4
+    ) +
+    geom_errorbar(
+      data = group_mean_current,
+      aes(x = Parameter, ymin = Lower, ymax = Upper),
+      color = brewer.pal(3, "Set2")[2], width = 0.3, size = 1
+    ) +
+    theme_minimal()
+  
+  # Add the plot to the list
+  individual_plots[[param]] <- p
+}
+
+
+```
+
+
 
 ```{r}
 #| label: tbl-CBM-teachers
@@ -4590,6 +4663,13 @@ To address this, we employed a hierarchical Bayesian analysis, which allows for 
 
 ## Heterogeneity
 
+
+To investigate the heterogeneity across teachers, we first extracted the posterior samples from the hierarchical model that demonstrated the best performance. For each teacher, we calculated the mean of each parameter: the estimated cost for each action, the discount rate, the learning rate, and the inverse temperature. We then correlated these parameters with the classroom-level variables: the average number of students, average minutes per student, average number of badges per student, average number of tower alerts, the number of classes per teacher, the grade level, the total number of weeks, the proportion of students under the poverty level, the average income level in the school, and whether the school had a paid Zearn account. Subsequently, we fit a linear regression model to predict the average number of badges per active user, using the estimated parameters as predictors.
+
+We extended our analysis to examine the relationship between the estimated parameters and demographic variables for each classroom to reveal whether learning and decision-making processes captured by our model vary across different demographic groups.
+
+
+
 Building on these results, we investigated how teachers' adaptation and implementation of the Zearn Math curriculum vary with various school-specific and demographic factors. The goal was to uncover potential disparities and leverage points that could inform intervention strategies and policy decisions to reduce educational inequities.
 
 Our multi-pronged statistical approach matched the diverse nature of our classroom variables. We selected each model to best account for the distribution and characteristics of the dependent variable. We used an ordered logistic regression for ordinal classroom variables, such as Income Level and Poverty Level. Binary variables, which included Charter School and Paid School Account status, naturally lent themselves to logistic regression modeling. Finally, we used Poisson regression to model the variable representing the number of classes taught by each teacher.
@@ -4709,6 +4789,8 @@ ggplot(coef_matrix_long, aes(x = response, y = term, fill = as.numeric(estimate)
 
 # Discussion
 
+-- This pattern is consistent with the findings from [@knudsen2020] that teachers reported learning from a variety of Zearn Math resources and that the curriculum materials and their implementation are important sources of learning. **Component 2 (Resource Utilization)**: This component has high weights for variables related to different resources available on the Zearn platform, such as "Optional Problem Sets," "Student Notes and Exit Tickets," and "Mission Overview". High values in this component suggest that teachers are downloading and possibly using a variety of resources in their teaching. This pattern is consistent with the findings from [@knudsen2020] that teachers reported learning from a variety of Zearn Math resources and that the curriculum materials and their implementation are important sources of learning. **Component 3 (Pedagogical Content Knowledge)**: This component has high weights for variables related to student activities, such as "Guided Practice Completed," "Tower Completed," and "Fluency Completed," suggesting that teachers may be engaged in acquiring subject-matter-specific pedagogy, learning to scaffold and to explain concepts in a variety of ways. This finding aligns with [@morrison2019], where teachers were most likely to report using Independent Digital Lessons, student notes and workbooks, small-group lessons, and paper Exit Tickets frequently or very frequently.
+
 Our study aimed to unravel the complex dynamics of teacher behavior in the context of Zearn Math, a popular online learning platform. We sought to understand the role of reinforcement learning (RL) in modeling these behaviors and their impact on student achievement. Our findings provide compelling evidence that RL models, particularly the hierarchical Q-learning model, can accurately characterize teacher behavior and offer valuable insights into the education field.
 
 ## Characterizing Teacher Behavior
@@ -4778,7 +4860,9 @@ In conclusion, our study provides compelling evidence for the potential of reinf
 
 # Supplemental Information {.appendix}
 
-## Correlations Between Variables
+## Supplemental Methods {.appendix}
+
+### Correlations Between Variables
 
 We begin to unveil the intricate relationships among the variables under consideration through a comprehensive correlation analysis, as depicted in @fig-corr. This correlation matrix elucidates the magnitude and direction of associations among variables such as badges earned, minutes spent per student, tower alerts, the number of students, and teacher minutes. These interconnections inform the construction of our reinforcement learning models by suggesting the influence of teacher effort on student achievement. In this correlation matrix, each cell represents the Spearman correlation coefficient between a pair of variables. The color and size of the circles in each cell reflect the strength and direction of the correlation, with blue indicating positive correlations and red indicating negative correlations. The histograms along the diagonal provide a visual representation of the distribution of each variable.
 
@@ -4805,103 +4889,296 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 
 ```
 
-## Software and Tools {#sec-software-tools}
+## Supplemental Tables {.appendix}
 
-### Dynamic Analysis
+<!-- FE Logit Model Summary -->
 
-We performed the dynamic analysis using the `plm` package in R [@croissant2008], which estimates linear models for panel data. We estimated both within and random effects models and used the Hausman test to select the most appropriate model based on its p-value [@hausman1978]. We estimated each model with different numbers of lags (from 1 to 8) and different methods of matrix factorization (PCA, NMF, and Autoencoder). We divided the data into training (80%) and testing (20%) sets to compute the Bayesian Information Criterion (BIC) and the negative log-likelihood (NLL) for each model. We then selected the number of lags based on the model with the lowest BIC and NLL.
-
-### Base Models
-
-#### Panel Model Estimation for Lag Selection
-
-We specified and estimated panel logistic regression models to capture the dynamics of actions influenced by lagged rewards and actions, including their interactions. The general model formulation for both state-free scenario is presented as follows:
-
-$$
-\text{Action}_t = \sum_{i=1}^{L} \left( \beta_{i} \text{Reward}_{t-i} + \gamma_i \text{Action}_{t-i} + \sum_{j=i}^{L} \delta_{ij} (\text{Reward}_{t-i} \times \text{Action}_{t-j}) \right) + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t 
-$$
-
-Model performance was assessed using the area under the receiver operating characteristic curve (AUC) and Bayesian Information Criterion (BIC). Optimal lag structures were identified based on predictive accuracy and model parsimony.
-
-We used a varying coefficients model to capture individual teacher effects on the dynamics between rewards, actions, and states. The model is specified as follows:
+<!-- FE Logit State-free -->
 
 ```{=tex}
-\begin{align*}
-\text{Action}_{kt} =& \ \sum_{i=1}^{L} \left( \beta_{ki} \text{Reward}_{k, t-i} + \gamma_{ki} \text{Action}_{k, t-i} + \sum_{j=i}^{L} \delta_{kij} (\text{Reward}_{k, t-i} \times \text{Action}_{k, t-j}) \right) \\
-& + \phi_k \text{State}_{kt} + \psi_k (\text{State}_{kt} \times \text{Action}_{k, t-1}) + \mu_k + \lambda_{\text{Week}} + \epsilon_{kt}
-\end{align*}
+\newpage
+\KOMAoptions{paper=landscape,pagesize}
+\recalctypearea
+{\areaset[current]{\dimexpr\textwidth\relax}{\textheight}
+\setlength{\marginparwidth}{0pt}
+\scriptsize
 ```
-where $\beta_{ki}$, $\gamma_{ki}$, and $\delta_{kij}$ represent the reward, action, and their interaction coefficients that vary by teacher; $\phi_k$ and $\psi_k$ are the fixed effects for the state and the interaction between state and lagged action, respectively; and $\mu_k$ and $\lambda_{\text{Week}}$ are fixed effects for teachers and weeks, respectively.
+```{r}
+#| label: tbl-fe-results-statefree
+#| tbl-cap: "State-Free Panel Logistic Regression Results"
 
-To assess the model's predictive accuracy and generalizability, we used the out-of-sample AUC as a performance metric, calculated separately for each teacher.
+# Load the results from both subset and restricted analyses
+load("Regressions/fe-subset-results.RData")
+original_results <- results
+load("Regressions/fe-restricted-results.RData")
+restricted_results <- results
 
-### Hierarchical Models
+# Combine the model stats from original and restricted results for comparison
+original_models <- do.call(rbind, lapply(original_results, function(x) {
+  if (x$Lag != 2) return(NULL)
+  data.frame(
+    Action = x$Method,
+    Reward = x$Reward,
+    AUC = x$AUC,
+    BIC = x$bic,
+    Type = "Original"
+  )
+}))
 
-Our initial approach involved fitting non-hierarchical models for three binary action variables using a simple logistic regression model. The dependent variables were derived from the Non-negative Matrix Factorization (NMF) using the Frobenius Nonnegative Double Singular Value Decomposition (NNDSVD) method. For each of these variables, we generated a lagged version and incorporated it into the model alongside the 'Badges' and 'State' variables. The models were constructed using the `brms` package, specifying the Bernoulli family and employing the `cmdstanr` backend [@bates2015; @bürkner2017; @gabry2022; @stanmod2022; @bürkner2021; @croissant2008]. The formula for these models are represented as follows:
+# Select top 2 AUC models and top 2 BIC models for both original and restricted
+top_models <- original_models %>%
+  arrange(desc(AUC)) %>%
+  slice_head(n = 2)
+top_models <- original_models %>%
+  arrange(BIC) %>%
+  slice_head(n = 2) %>%
+  bind_rows(top_models)
 
-$$
-a_t = a_{t-1} + Badges_t + s_t + \epsilon_t
-$$
+# Prepare the results from selected top models for the table
+tidy_fe_results <- lapply(original_results, function(x) {
+  if (x$Lag != 2) return(NULL)
+  if (!(paste(x$Method, x$Reward) %in%
+        paste(top_models$Action, top_models$Reward))) return(NULL)
+  temp <- as.data.frame(x$fecoef) %>%
+    rownames_to_column(var = "Term") %>%
+    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
+                  as.numeric)) %>%
+    filter(Term != "(Intercept)" & Term != "week_lag")
+  
+  return(list(
+    Model = paste(x$Method, x$Reward,"Full"),
+    Data  = temp,
+    BIC   = x$bic,
+    N     = length(x$recoef$Teacher.User.ID)))
+})
+tidy_fe_results <- tidy_fe_results[!sapply(tidy_fe_results, is.null)]
+tidy_fe_results_restrict <- lapply(restricted_results, function(x) {
+  if (x$Lag != 2) return(NULL)
+  if (!(paste(x$Method, x$Reward) %in%
+        paste(top_models$Action, top_models$Reward))) return(NULL)
+  temp <- as.data.frame(x$fecoef) %>%
+    rownames_to_column(var = "Term") %>%
+    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
+                  as.numeric)) %>%
+    filter(Term != "(Intercept)" & Term != "week_lag")
+  
+  return(list(
+    Model = paste(x$Method, x$Reward,"Restricted"),
+    Data  = temp,
+    BIC   = x$bic,
+    N     = length(x$recoef$Teacher.User.ID)))
+})
+tidy_fe_results_restrict <- 
+  tidy_fe_results_restrict[!sapply(tidy_fe_results_restrict, is.null)]
+tidy_fe_results <- c(tidy_fe_results, tidy_fe_results_restrict)
 
-where $a_t$ represents the action variable at time $t$, $a_{t-1}$ is the lagged version of the action variable, $Badges_t$ is the reward variable, $s_t$ is the 'State' variable, and $ε_t$ is the error term.
+# Combine all model summaries into one dataframe
+model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
+  x_name <- unlist(strsplit(x[[1]], " "))
+  x_data <- x$Data %>%
+    rename(Coefficient = Estimate,
+           Std_Error = `Std. Error`) %>%
+    mutate(
+      Significance = case_when(
+        `Pr(>|z|)` < .001 ~ "***",
+        `Pr(>|z|)` < .01 ~ "**",
+        `Pr(>|z|)` < .05 ~ "*",
+        TRUE ~ ""),
+      Term = gsub(x_name[1], "lag", Term),
+      Term = gsub(x_name[2], "rwd", Term),
+      Term = gsub("_", "",  Term),
+      Term = gsub(":", "_",  Term)) %>%
+    add_row(Term = "BIC", Coefficient = x[[3]]) %>%
+    add_row(Term = "N", Coefficient = x[[4]])
+  x_data$Model <- x[[1]]
 
-#### Hierarchical Base Models
+  x_data
+})) %>% select(Model, Term, Coefficient, Std_Error, Significance) %>%
+  mutate(Model = gsub(" ", "&", Model),
+         Model = gsub("Frobenius.NNDSVD_student1", "Badges", Model),
+         Model = gsub("Frobenius.NNDSVD_student2", "Struggles", Model),
+         Model = gsub("Frobenius.NNDSVD_student3", "No. Students", Model),
+         Model = gsub("Frobenius.NNDSVD_student4", "Activity", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher1", "Assessments", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher2", "Pedagogical Knowledge", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher3", "Group Instruction", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher4", "Curriculum Planning", Model))
 
-Subsequently, we constructed hierarchical models for the same set of action variables. We assume Classroom, Teacher, and School are the three levels of the hierarchy. The hierarchical models were similar to their non-hierarchical counterparts but included random intercepts and random slopes for the predictors.
+# Create the table using the 'gt' package
+gt_table <- model_summary %>%
+  filter(!Term %in% c("rwd1","rwd2","lag1","lag2")) %>%
+  mutate(Estimate = ifelse(Term %in% c("BIC", "N"),
+                           sprintf("%d", as.integer(Coefficient)),
+                           sprintf("%1.3f%s\n(%1.3f)",
+                                   Coefficient, Significance, Std_Error)),
+         Term = factor(Term, levels = c("rwd1_lag1", "rwd1_lag2", "lag2_rwd2",
+                                        # "lag1", "lag2",
+                                        "st", "lag1_st",
+                                        "BIC", "N"),
+                       labels = c("R(t-1) x \n A(t-1)",
+                                  "R(t-1) x \n A(t-2)",
+                                  "R(t-2) x \n A(t-2)",
+                                  # "Action(t-1)", "Action(t-2)",
+                                  "S(t)", "S(t) x \n A(t-1)",
+                                  "BIC", "N"))) %>%
+  select(-Coefficient, -Std_Error, -Significance) %>%
+  # Pivot wider to have one column per model
+  pivot_wider(names_from = Model,
+              values_from = Estimate,
+              names_sep = "_") %>%
+  select(order(names(.))) %>%
+  arrange(Term) %>%
+  gt(rowname_col = "Term") %>%
+  sub_missing() %>%
+  tab_spanner_delim("&") %>%
+  tab_header(
+    title = "Fixed Effects Logistic Regression Results"
+  )
 
-### Reinforcement Learning Model Fit
+# Print the table
+gt_table
 
-The reinforcement learning models were implemented using the Stan programming language, a probabilistic programming language designed for statistical inference [@stanmod2022; @gabry2022]. We trained the models on data that included the number of weeks, choices made, and outcomes (log badges) for each classroom. The model parameters, including cost, discount rate, learning rate, and inverse temperature, were estimated from the data. The models employed a Bernoulli logit model to compute action probabilities and updated the expected values of the actions based on prediction errors. The models also generated posterior predictions and computed the log-likelihood for each subject.
+```
+```{=tex}
+}
+\newpage
+\KOMAoptions{paper=portrait,pagesize}
+\recalctypearea
+```
 
-Stan employs the Hamiltonian Monte Carlo (HMC) algorithm, a state-of-the-art Markov Chain Monte Carlo (MCMC) method that is particularly well-suited for high-dimensional and complex posterior distributions [@betancourt2017]. We specified three independent MCMC chains to check for convergence of the MCMC algorithm by comparing them. Each chain had 2,500 warmup (burn-in) iterations and 2,500 sampling iterations. During the warmup phase, the HMC algorithm adapts its parameters to the shape of the posterior distribution. The samples drawn during the warmup phase were discarded, and the models ran until they achieved convergence, as assessed by the R-hat statistic, which compares the within-chain and between-chain variance of the MCMC samples; values close to 1 indicate that the chains have converged to the same distribution [@gelman1992].
+<!-- FE Logit State-based -->
 
-#### Hierarchical RL Method
+```{r}
+#| label: tbl-fe-results
+#| tbl-cap: "State-Based Panel Logistic Regression Results"
 
-We extended the base reinforcement learning models by incorporating a hierarchical structure to account for individual commonalities and enhance robustness. This hierarchical framework defines individual-level parameters as random effects from a group-level distribution. We used the parameter values found by the non-hierarchical models to generate weakly informed priors for the hyper-parameters (group-level parameters). This approach was necessary to ensure the rapid convergence of the Hamiltonian Monte Carlo algorithm. We specified the priors as follows:
+load("Regressions/fe-state-subset-results.RData")
 
-+---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
-| Parameter           | Group-level Prior                                 | Individual-level Prior                                                            |
-+=====================+===================================================+===================================================================================+
-| Cost                | $\mu_{\text{cost}} \sim \mathcal{N}(0.5, 1)$\     | $\text{cost}_{i,j} \sim \mathcal{N}(\mu_{\text{cost}_j}, \sigma_{\text{cost}_j})$ |
-|                     | $\sigma_{\text{cost}} \sim \text{Cauchy}(0, 2.5)$ |                                                                                   |
-+---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
-| Discount Rate       | $\mu_{\gamma} \sim \mathcal{N}(0.7, 1)$\          | $\gamma_i \sim \mathcal{N}(\mu_{\gamma}, \sigma_{\gamma})$                        |
-|                     | $\sigma_{\gamma} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
-+---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
-| Step Size           | $\mu_{\alpha} \sim \mathcal{N}(0.5, 1)$\          | $\alpha_i \sim \mathcal{N}(\mu_{\alpha}, \sigma_{\alpha})$                        |
-|                     | $\sigma_{\alpha} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
-+---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
-| Inverse Temperature | $\mu_{\tau} \sim \mathcal{N}(1, 1)$\              | $\tau_i \sim \mathcal{N}(\mu_{\tau}, \sigma_{\tau})$                              |
-|                     | $\sigma_{\tau} \sim \text{Cauchy}(0, 2.5)$        |                                                                                   |
-+---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+# Combine the model stats from original and restricted results for comparison
+results_df <- do.call(rbind, lapply(results, function(x) {
+  if (x$Lag != 2) return(NULL)
+  data.frame(
+    Action = x$Method,
+    Reward = x$Reward,
+    State = x$State,
+    AUC = x$AUC,
+    BIC = x$bic,
+    Type = "Original"
+  )
+}))
+# Select top 2 AUC models and top 2 BIC models for both original and restricted
+top_models <- results_df %>%
+  arrange(desc(AUC)) %>%
+  slice_head(n = 2)
+top_models <- results_df %>%
+  arrange(BIC) %>%
+  slice_head(n = 2) %>%
+  bind_rows(top_models)
 
-where $\mu$ and $\sigma$ denote the group-level hyperparameters, and the subscript $i$ signifies the individual-level parameters.
+# Filter and tidy the results
+tidy_fe_results <- lapply(results, function(x) {
+  if (x$Lag != 2) return(NULL)
+  if (top_models %>%
+      filter(Action == x$Method &
+             Reward == x$Reward &
+             State  == x$State) %>%
+      nrow() == 0) return(NULL)
+  temp <- x$fecoef %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "Term") %>%
+    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
+                  ~ as.numeric(.))) %>%
+    filter(Term != "(Intercept)" & Term != "week_lag")
+  
+  return(list(
+    Model = paste(x$Method, x$Reward, x$State),
+    Data  = temp,
+    BIC   = x$bic,
+    N     = length(x$recoef$Teacher.User.ID)))
+})
+tidy_fe_results <- tidy_fe_results[!sapply(tidy_fe_results, is.null)]
+	
+# Combine all model summaries into one dataframe
+model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
+  x_name <- unlist(strsplit(x$Model, " "))
+  x_data <- x$Data %>%
+    rename(Coefficient = Estimate,
+           Std_Error = `Std. Error`) %>%
+    mutate(
+      Significance = case_when(
+        `Pr(>|z|)` < .001 ~ "***",
+        `Pr(>|z|)` < .01 ~ "**",
+        `Pr(>|z|)` < .05 ~ "*",
+        TRUE ~ ""),
+      Term = gsub(x_name[1], "lag", Term),
+      Term = gsub(x_name[2], "rwd", Term),
+      Term = gsub(x_name[3], "st",  Term),
+      Term = gsub("_", "",  Term),
+      Term = gsub(":", "_",  Term)) %>%
+    add_row(Term = "BIC", Coefficient = x[[3]]) %>%
+    add_row(Term = "N", Coefficient = x[[4]])
+  x_data$Model <- x$Model
 
-### Feature Selection
+  x_data
+})) %>% select(Model, Term, Coefficient, Std_Error, Significance) %>%
+  mutate(Model = gsub(" ", "&", Model),
+         Model = gsub("Frobenius.NNDSVD_student1", "Badges", Model),
+         Model = gsub("Frobenius.NNDSVD_student2", "Struggles", Model),
+         Model = gsub("Frobenius.NNDSVD_student3", "No. Students", Model),
+         Model = gsub("Frobenius.NNDSVD_student4", "Activity", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher1", "Assessments", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher2", "Pedagogical Knowledge", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher3", "Group Instruction", Model),
+         Model = gsub("Frobenius.NNDSVD_teacher4", "Curriculum Planning", Model))
 
--   Explain how you created different combinations of variables for rewards and state variables.
--   Elaborate on data-driven exploration, model estimation, and HBI.
--   Discuss the code used for actor-critic models and variable combinations.
+# Create the table using the 'gt' package
+gt_table <- model_summary %>%
+  filter(!Term %in% c("rwd1","rwd2","lag1","lag2")) %>%
+  mutate(Estimate = ifelse(Term %in% c("BIC", "N"),
+                           sprintf("%d", as.integer(Coefficient)),
+                           sprintf("%1.3f%s\n(%1.3f)",
+                                   Coefficient, Significance, Std_Error)),
+         Term = factor(Term, levels = c("rwd1_lag1", "rwd1_lag2", "lag2_rwd2",
+                                        # "lag1", "lag2",
+                                        "st1", "lag2_st1",
+                                         "BIC", "N"),
+                       labels = c("R(t-1) x \n A(t-1)",
+                                  "R(t-1) x \n A(t-2)",
+                                  "R(t-2) x \n A(t-2)",
+                                  # "Action(t-1)", "Action(t-2)",
+                                  "S(t-1)", "S(t-1) x \n A(t-2)",
+                                  "BIC", "N"))) %>%
+  select(-Coefficient, -Std_Error, -Significance) %>%
+  # Pivot wider to have one column per model
+  pivot_wider(names_from = Model,
+              values_from = Estimate,
+              names_sep = "_") %>%
+  select(order(names(.))) %>%
+  arrange(Term) %>%
+  gt(rowname_col = "Term") %>%
+  sub_missing() %>%
+  tab_spanner_delim("&") %>%
+  tab_header(
+    title = "Fixed Effects Logistic Regression Results"
+    )
 
-### Model Performance
+# Print the table
+gt_table
 
-To evaluate the performance of the Bayesian models, we used the Leave-One-Out Information Criterion (LOOIC), a robust measure of model quality. The LOOIC is a variant of the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC). However, unlike AIC and BIC, which use asymptotic approximations, LOOIC is a fully Bayesian criterion that provides a more accurate estimate of out-of-sample prediction error. We used the `loo` package in R to compute the LOOIC [@vehtari2023]. The package uses Pareto smoothed importance sampling (PSIS), a beneficial technique for models where standard cross-validation is computationally expensive or impractical [@vehtari2017].
+```
 
-### Heterogeneity
+<!-- VC Logit Model Summary -->
 
-To investigate the heterogeneity across teachers, we first extracted the posterior samples from the hierarchical model that demonstrated the best performance. For each teacher, we calculated the mean of each parameter: the estimated cost for each action, the discount rate, the learning rate, and the inverse temperature. We then correlated these parameters with the classroom-level variables: the average number of students, average minutes per student, average number of badges per student, average number of tower alerts, the number of classes per teacher, the grade level, the total number of weeks, the proportion of students under the poverty level, the average income level in the school, and whether the school had a paid Zearn account. Subsequently, we fit a linear regression model to predict the average number of badges per active user, using the estimated parameters as predictors.
+<!-- QL Model Summary -->
 
-#### Across Demographics
+<!-- AC Model Summary -->
 
-We extended our analysis to examine the relationship between the estimated parameters and demographic variables for each classroom to reveal whether learning and decision-making processes captured by our model vary across different demographic groups.
-
-## Figures {#sec-supp-fig}
+## Supplemental Figures {#sec-supp-fig}
 
 ![Zearn Student Portal](images/student-feed.PNG){#fig-st-portal fig-align="center"}
 
 ![Professional Development Calendar](images/PD-calendar.jpg){#fig-prof-dev fig-align="center"}
 
-## Zearn's Eye View of the Data
 
 ```{r}
 #| eval: false
@@ -4910,7 +5187,7 @@ We extended our analysis to examine the relationship between the estimated param
 
 ```
 
-## Lag Comparison Across NMF Methods
+{{< pagebreak >}}
 
 ```{r}
 #| eval: false
@@ -5002,201 +5279,41 @@ combined_plot
 
 ```
 
-## Autoencoder
 
-```{python train autoencoder}
-#| eval: false
-import os # To fix: https://github.com/tensorflow/tensorflow/issues/59779
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from keras.models import Model
-from keras.layers import Input, Dense
-from kerastuner.tuners import Hyperband
-from kerastuner.engine.hyperparameters import HyperParameters
-from keras.constraints import NonNeg
-from keras.callbacks import EarlyStopping
-from keras.regularizers import l1, l2
-
-# Create training and testing data frames
-train_df = dfpca_py[dfpca_py['set'] == 'train']
-test_df = dfpca_py[dfpca_py['set'] == 'test']
-
-# Predictors
-X_train = train_df.drop([
-  'Badges.per.Active.User', 'Classroom.ID', 'MDR.School.ID',
-  'set', 'week'
-  ], axis=1)
-X_test = test_df.drop([
-  'Badges.per.Active.User', 'Classroom.ID', 'MDR.School.ID',
-  'set', 'week'
-  ], axis=1)
-
-X_train = pd.DataFrame(X_train, columns=X_cols)
-X_test = pd.DataFrame(X_test, columns=X_cols)
-
-# Get the target variable
-Y = dfpca_py[['Badges.per.Active.User']]
-Y_train = train_df[['Badges.per.Active.User']]
-Y_test = test_df[['Badges.per.Active.User']]
-
-# Define the number of components and features
-n_features = X_scaled.shape[1]
-n_labels = 1  # For regression, we usually have just one output node
-
-# Determine loss weights according to the data structure:
-decoding_weight = Y.std() / (Y.std() + X_scaled.std(numeric_only=True).mean())
-prediction_weight = 1 - decoding_weight
-def build_model(hp):
-  # Define the input layer
-  input_data = Input(shape=(n_features,))
-  
-  # Define the encoding layer(s)
-  n_layers = hp.Int('n_layers', min_value=1, max_value=4, step=1)
-  n_units = [
-    hp.Choice('units_' + str(i), values=[8, 16, 32, 64, 128, 256, 512])
-    for i in range(n_layers)
-  ]
-  encoded = input_data
-  for i in range(n_layers):
-      encoded = Dense(
-        units=n_units[i],
-        kernel_regularizer=l2(0.001),
-        activation='relu')(encoded)
-        
-  # Generate the latent vector
-  latent_dim = hp.Int('encoding_units', min_value=2, max_value=n_comp, step=1)
-  l1_value = hp.Float('l1_value', min_value=0.0001, max_value=0.001, default=0.0005, step=0.0001)
-  latent = Dense(
-    units=latent_dim,
-    activation='linear',
-    # activity_regularizer= L1(l1=l1_value),
-    kernel_constraint=NonNeg(),
-    name='latent')(encoded)      
-
-  # Decoder
-  decoded = latent
-  for i in range(n_layers):
-      decoded = Dense(
-        units=n_units[n_layers - i - 1],
-        activation='relu')(decoded)
-  decoded = Dense(n_features, activation='sigmoid', name='decoded')(decoded)
-  
-  # Define the label output layer
-  label_output = Dense(n_labels, activation='linear', name='label_output')(latent)
-
-  # Define the autoencoder model
-  autoencoder = Model(inputs=input_data, outputs=[decoded, label_output])
-  # Compile the model
-  autoencoder.compile(optimizer='adadelta',
-                  loss={
-                    'decoded': 'mean_squared_error',
-                    'label_output': 'mean_squared_error'
-                  },
-                  loss_weights={
-                    'decoded': decoding_weight,
-                    'label_output': prediction_weight
-                  })
-                  
-  return autoencoder
-
-# Set up hyperparameter tuner
-tuner = Hyperband(build_model,
-                  objective='val_loss',
-                  max_epochs=20,
-                  directory='autoencoder_tuning',
-                  project_name='autoencoder_3rd_tuning')
-
-# Perform hyperparameter search
-early_stopping_callback = EarlyStopping(monitor='val_loss', patience=5)
-tuner.search(x=X_train,
-            y=[X_train, Y_train],
-            epochs=50,
-            validation_data=(X_test, [X_test, Y_test]),
-            callbacks=[early_stopping_callback])
-# tuner.results_summary()
-# Get the optimal hyperparameters
-best_hyperparameters = tuner.get_best_hyperparameters(num_trials=2)[1]
-model = tuner.hypermodel.build(best_hyperparameters)
-history = model.fit(x=X_train, 
-                    y=[X_train, Y_train],
-                    epochs=2_000,
-                    validation_data=(X_test, [X_test, Y_test]),
-                    callbacks=[early_stopping_callback])
-best_model = model
-
-
-# Function to get encoded representation and components
-def get_encoded_representation_and_components(best_model, X):
-    # Get index of encoding layer
-    encoding_layer_index = next(
-      i for i,
-      layer in enumerate(best_model.layers) if layer.name == 'latent'
-    )
-    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
-    input_data = Input(shape=(n_features,))
-    x = input_data
-    for layer in encoder_layers[1:]:
-      x = layer(x)
-    encoder = Model(input_data, x)
-    
-    # Copy weights for each layer from the best model
-    for i, layer in enumerate(encoder.layers):
-      layer.set_weights(best_model.layers[i].get_weights())
-    
-    X_encoded = encoder.predict(X)
-    X_hat = best_model.predict(X)[0]
-    res = ((X - X_hat)**2).sum().sum()
-    n_components = X_encoded.shape[1]
-    
-    results.setdefault("Autoencoder", {})[n_components] = X_encoded
-    residuals.setdefault("Autoencoder", {})[n_components] = res
-
-# Get encoded representation and components
-get_encoded_representation_and_components(best_model, X_scaled)
-
-# save the model
-model.save('./autoencoder_tuning/final_model.h5')
-
-```
-
-```{python load autoencoder}
-#| eval: false
-from tensorflow.keras.models import load_model
-from keras.models import Model
-from keras.layers import Input
-
-# Function to get encoded representation and components
-loaded_model = load_model('./autoencoder_tuning/final_model.h5')
-def get_encoded_representation_and_components(best_model, X):
-    # Get index of encoding layer
-    encoding_layer_index = next(
-      i for i,
-      layer in enumerate(best_model.layers) if layer.name == 'latent'
-    )
-    encoder_layers = [layer for layer in best_model.layers[:encoding_layer_index + 1]]
-    input_data = Input(shape=(n_features,))
-    x = input_data
-    for layer in encoder_layers[1:]:
-      x = layer(x)
-    encoder = Model(input_data, x)
-    
-    # Copy weights for each layer from the best model
-    for i, layer in enumerate(encoder.layers):
-      layer.set_weights(best_model.layers[i].get_weights())
-    
-    X_encoded = encoder.predict(X)
-    X_hat = best_model.predict(X)[0]
-    res = ((X - X_hat)**2).sum().sum()
-    n_components = X_encoded.shape[1]
-    
-    results.setdefault("Autoencoder", {})[n_components] = X_encoded
-    residuals.setdefault("Autoencoder", {})[n_components] = res
-
-n_features = X_scaled.shape[1]
-# Get encoded representation and components
-get_encoded_representation_and_components(loaded_model, X_scaled)
-```
-
+<!--
 ## Markov Chain Monte Carlo (MCMC) Estimation
+
+### Reinforcement Learning Model Fit
+
+The reinforcement learning models were implemented using the Stan programming language, a probabilistic programming language designed for statistical inference [@stanmod2022; @gabry2022]. We trained the models on data that included the number of weeks, choices made, and outcomes (log badges) for each classroom. The model parameters, including cost, discount rate, learning rate, and inverse temperature, were estimated from the data. The models employed a Bernoulli logit model to compute action probabilities and updated the expected values of the actions based on prediction errors. The models also generated posterior predictions and computed the log-likelihood for each subject.
+
+Stan employs the Hamiltonian Monte Carlo (HMC) algorithm, a state-of-the-art Markov Chain Monte Carlo (MCMC) method that is particularly well-suited for high-dimensional and complex posterior distributions [@betancourt2017]. We specified three independent MCMC chains to check for convergence of the MCMC algorithm by comparing them. Each chain had 2,500 warmup (burn-in) iterations and 2,500 sampling iterations. During the warmup phase, the HMC algorithm adapts its parameters to the shape of the posterior distribution. The samples drawn during the warmup phase were discarded, and the models ran until they achieved convergence, as assessed by the R-hat statistic, which compares the within-chain and between-chain variance of the MCMC samples; values close to 1 indicate that the chains have converged to the same distribution [@gelman1992].
+
+#### Hierarchical RL Method
+
+We extended the base reinforcement learning models by incorporating a hierarchical structure to account for individual commonalities and enhance robustness. This hierarchical framework defines individual-level parameters as random effects from a group-level distribution. We used the parameter values found by the non-hierarchical models to generate weakly informed priors for the hyper-parameters (group-level parameters). This approach was necessary to ensure the rapid convergence of the Hamiltonian Monte Carlo algorithm. We specified the priors as follows:
+
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Parameter           | Group-level Prior                                 | Individual-level Prior                                                            |
++=====================+===================================================+===================================================================================+
+| Cost                | $\mu_{\text{cost}} \sim \mathcal{N}(0.5, 1)$\     | $\text{cost}_{i,j} \sim \mathcal{N}(\mu_{\text{cost}_j}, \sigma_{\text{cost}_j})$ |
+|                     | $\sigma_{\text{cost}} \sim \text{Cauchy}(0, 2.5)$ |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Discount Rate       | $\mu_{\gamma} \sim \mathcal{N}(0.7, 1)$\          | $\gamma_i \sim \mathcal{N}(\mu_{\gamma}, \sigma_{\gamma})$                        |
+|                     | $\sigma_{\gamma} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Step Size           | $\mu_{\alpha} \sim \mathcal{N}(0.5, 1)$\          | $\alpha_i \sim \mathcal{N}(\mu_{\alpha}, \sigma_{\alpha})$                        |
+|                     | $\sigma_{\alpha} \sim \text{Cauchy}(0, 2.5)$      |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+| Inverse Temperature | $\mu_{\tau} \sim \mathcal{N}(1, 1)$\              | $\tau_i \sim \mathcal{N}(\mu_{\tau}, \sigma_{\tau})$                              |
+|                     | $\sigma_{\tau} \sim \text{Cauchy}(0, 2.5)$        |                                                                                   |
++---------------------+---------------------------------------------------+-----------------------------------------------------------------------------------+
+
+where $\mu$ and $\sigma$ denote the group-level hyperparameters, and the subscript $i$ signifies the individual-level parameters.
+
+### Model Performance
+
+To evaluate the performance of the Bayesian models, we used the Leave-One-Out Information Criterion (LOOIC), a robust measure of model quality. The LOOIC is a variant of the Akaike Information Criterion (AIC) and the Bayesian Information Criterion (BIC). However, unlike AIC and BIC, which use asymptotic approximations, LOOIC is a fully Bayesian criterion that provides a more accurate estimate of out-of-sample prediction error. We used the `loo` package in R to compute the LOOIC [@vehtari2023]. The package uses Pareto smoothed importance sampling (PSIS), a beneficial technique for models where standard cross-validation is computationally expensive or impractical [@vehtari2017].
 
 ```{r Stan Results prep}
 #| eval: false
@@ -5471,3 +5588,4 @@ group_params_df %>%
 
 
 ```
+-->
