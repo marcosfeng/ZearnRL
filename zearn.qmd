@@ -45,8 +45,8 @@ library(PerformanceAnalytics)
 library(doParallel)
 library(foreach)
 library(reticulate)
-library(cmdstanr)
-library(brms)
+# library(cmdstanr)
+# library(brms)
 ```
 
 ```{r}
@@ -3635,19 +3635,15 @@ model_summary_long %>%
 
 ## Estimating RL Models
 
-In this section, we delve into the process of estimating the reinforcement learning (RL) models based on the selected criteria of model performance. By leveraging the MATLAB computational environment, we have executed a rigorous model fitting procedure that is tailored to understand the teaching strategies embedded within our data set.
-
-We first preset the random number generator for reproducibility and load the essential data for analysis. To account for the multifaceted nature of our models, we use a parallel computing framework to estimate each model, ensuring a comprehensive search over the parameter space.
-
-After estimating a suite of models, we retrieve the log evidence—a measure of model fit that takes into account the complexity of each model. This evidence is used to rank the models according to their performance.
+This section aims to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the log evidence, a metric that balances model fit against complexity, similar to the Bayesian Information Criterion. This metric is critical as it provides a common ground for comparing models with varying degrees of freedom, ensuring that our selection process favors models that capture the essential patterns without overfitting. Our first step will be to choose the most suitable model based on this performance score. Then, we will carefully analyze it for any discernible patterns that may help us understand the teaching strategies present in our dataset.
 
 #### Distribution of Model Performance
 
-The distribution of log evidence scores provides insight into the overall performance of our model suite. We present this distribution to showcase the variance in fit across all estimated models.
+After estimating Q-learning and Actor-Critic Models for all potential action-reward-state configurations, specifically focusing on the actions "Pedagogical Knowledge" and "Group Instruction," we plotted their log evidence scores in @fig-log-evidence-histogram. The resulting histogram illustrates the variability in model fit for both Q-learning and Actor-Critic RL models. The diversity in log evidence scores highlights the distinct behaviors of each model. At the same time, the bimodal distribution suggests that the two action variables can yield significantly different model fits, as we saw in our logistic regression models.
 
 ```{r}
 #| label: fig-log-evidence-histogram
-#| fig-cap: "Histogram of Log Evidences. "
+#| fig-cap: "Histogram of Log Evidences for Q-learning and Actor-Critic Models. The graph illustrates the distribution of models based on their log evidence (i.e., penalized likelihood) across Actor-Critic and Q-learning models."
 
 library(R.matlab)
 
@@ -3702,11 +3698,11 @@ ggplot(data, aes(x = LogEvidence, fill = ModelType)) +
 
 #### Standout Models
 
-Next, we present the four models that distinguished themselves during the initial estimation phase. These models were selected based on their top log evidence scores, indicating a strong balance between goodness-of-fit and model simplicity.
+Our computational analysis identified a distinct group of models that excelled in their high log evidence scores. Interestingly, all top-performing models featured "Pedagogical Knowledge" as their primary action. @tbl-top-CBM provides a breakdown of scores for different combinations of rewards and states under this action, offering insight into the comparative performance of various model setups. Notably, models with "Badges" and "Activity" as their rewards outperform others, as do state-free models, likely due to their higher simplicity.
 
 ```{r}
-#| label: fig-top-CBM
-#| fig-cap: "Top Model Log Evidences"
+#| label: tbl-top-CBM
+#| tbl-cap: "Best-fit models. The table lists the models with the highest log evidence scores by their rewards, states. All models are based on the action 'Pedagogical Knowledge.'"
 
 ql_folder_path <- "CBM/zearn_results/ql_refine"
 ac_folder_path <- "CBM/zearn_results/ac_refine"
@@ -3782,16 +3778,14 @@ evidence_df %>%
 
 #### Hierarchical Bayesian Inference (HBI) Results and Model Comparison
 
-To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more sophisticated model comparison. This statistical approach allows us to compare models not just by their individual fits, but also by their ability to explain data across different subjects.
-
-The HBI results and corresponding model comparison statistics serve as our basis for selecting the most appropriate RL model. By integrating across all levels of the data hierarchy, we gain a deeper understanding of the models' explanatory power.
+To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more detailed comparison of the selected models. This statistical approach allows us to compare models not just by their individual fits, but also by their ability to explain data across different subjects. In interpreting the results from HBI, we observed the differential performances of Q-learning (QL) and Actor-Critic (AC) models. @tbl-CBM-HBI provides quantifiable insights into how frequently each model emerged as the best fit across iterations (Model Frequency) and the sum log likelihood across subjects (Log Likelihood). Notably, we see that in both model types, models that used Badges and Activity as their rewards overperformed. The HBI results and corresponding model comparison statistics serve as our basis for selecting the most appropriate RL model.
 
 ```{r}
 #| label: tbl-CBM-HBI
-#| tbl-cap: "Top QL and AC Models."
+#| tbl-cap: "Top Q-learning and Actor-Critic models. The tables quantify performance under hierarchical bayesian inference through model frequencies and the sum of log likelihoods. All models are based on the action 'Pedagogical Knowledge.'"
 #| tbl-subcap: 
-#| - ""
-#| - ""
+#| - "Model frequencies"
+#| - "Sum log likelihoods"
 
 # Load the MATLAB files for the top QL and AC models
 top_model_ql <- readMat('CBM/zearn_results/ql_refine/hbi_QL4_refined.mat')
@@ -3847,9 +3841,13 @@ top_ac_models_table %>%
 
 #### Hybrid Models Comparison
 
+In pursuit of a more comprehensive understanding of our model space, we turn to the investigation of hybrid models that blend elements from both the Logit and RL frameworks. These hybrids offer a potentially more nuanced approach to representing the complexities of learning behavior, aiming to combine the strengths of logistic regression with the dynamic adaptability inherent in reinforcement learning techniques.
+
+The comparative analysis of these models is conducted via Hierarchical Bayesian Inference. @tbl-CBM-second shows the performance for different reward and state contexts across the logit model, the corresponding reinforcement learning model (Q-learning model in state-free cases and Actor-Critic in state-based cases), and two hybrid configurations (i.e., Logit and RL hybrids, Q-learning and Actor-Critic hybrids). Our evaluation suggests that any potential performance gain from hybridizing do not outweigh the cost of increased model complexity.
+
 ```{r}
 #| label: tbl-CBM-second
-#| tbl-cap: "Hybrid Models"
+#| tbl-cap: "Comparative fit of hybrid models. The table presents the proportion of data that is best explained by each model configuration, including hybrid models. All models are based on the action 'Pedagogical Knowledge.'"
 
 # Load the MATLAB files for the comparative models and the top model comparison
 comp_model_7 <- readMat('CBM/zearn_results/comp_aggr_results/hbi_compare_7.mat')
@@ -3884,15 +3882,29 @@ model_freq %>%
   tab_stubhead(label = "Reward") %>%
   cols_move_to_start(State) %>%
   sub_missing() %>%
-  fmt_percent(decimals = 1)
+  fmt_percent(decimals = 1) %>%
+  tab_footnote(
+    footnote = "Q-learning model in state-free case and Actor-Critic in state-based case",
+    locations = cells_body(columns = RL)
+  ) %>%
+  tab_footnote(
+    footnote = "Combines predictions of Logit and RL models",
+    locations = cells_body(columns = `Logit-RL Hybrid`)
+  ) %>%
+  tab_footnote(
+    footnote = "Combines predictions of Q-learning (state-free) and Actor-Critic (state-based) models",
+    locations = cells_body(columns = `QL-AC Hybrid`)
+  )
 
 ```
 
-#### Top Model
+#### Top Model Selection
+
+In the final stages of our model selection process, we converge on the identification of the top-performing models. By assessing the frequency with which each model provides the best explanation for the observed data, we make an informed decisions about their suitability for capturing teacher behavioral patterns. @tbl-CBM-final distills these results by juxtaposing the models based on the rewards 'Activity' and 'Badges.' The table reveals that the 'Badges' consistently outperforms 'Activity' across logit and actor-critic models, indicating its superior explanatory power in the context of pedagogical knowledge.
 
 ```{r}
 #| label: tbl-CBM-final
-#| tbl-cap: "Top Model Comparison"
+#| tbl-cap: "Top Model Comparison. The table compares the leading models on their ability to explain the data, as indicated by the model frequencies. All models are based on the action 'Pedagogical Knowledge.'"
 
 top_model_comp <- readMat('CBM/zearn_results/comp_aggr_results/top_model_comp.mat')
 # Extract model frequency data
@@ -3923,7 +3935,9 @@ model_freq %>%
 ## Heterogeneity Analyses
 
 ```{r}
-
+#| label: fig-loglik-histogram
+#| fig-cap: "Histogram of teacher-specific log likelihood"
+ 
 # Load the full model data
 full_model <- readMat("CBM/zearn_results/top_results/hbi_ac.mat")
 
@@ -3948,7 +3962,16 @@ ggplot(data = data.frame(LogLikelihoods = log_likelihoods),
 ```
 
 ```{r}
-
+#| label: fig-params-histogram
+#| fig-cap: "Histogram of Teacher-Specific Parameters"
+#| fig-subcap:
+#| - "Value weights learning rate"
+#| - "Policy weights learning rate"
+#| - "Discount factor"
+#| - "Temperature"
+#| - "Initial policy"
+#| - "Initial value"
+#| - "Cost"
 
 group_mean <- full_model[["cbm"]][[5]][[3]][[1]][[1]]
 error_bar <- full_model[["cbm"]][[5]][[4]][[1]][[1]]
@@ -4006,32 +4029,52 @@ for(param in unique(parameters_long$Parameter)) {
   data_current <- parameters_long[parameters_long$Parameter == param, ]
   group_mean_current <- group_mean_df[group_mean_df$Parameter == param, ]
   
+  # Define the expression for the parameter name
+  parameter_expression <- switch(param,
+                                "alpha_w" = expression(alpha[w]),
+                                "alpha_theta" = expression(alpha[theta]),
+                                "gamma" = expression(gamma),
+                                "tau" = expression(tau),
+                                "theta_init" = expression(theta[init]),
+                                "w_init" = expression(w[init]),
+                                "cost" = expression(cost))
+  
   # Generate the plot for the current parameter
-  p <- ggplot(data_current, aes(x = Parameter, y = Value)) +
+  p <- ggplot(data_current) +
     geom_violin(
+      aes(x = Parameter, y = Value),
+      adjust = 2,
       fill = brewer.pal(3, "Set2")[1],
       color = brewer.pal(3, "Set2")[3],
       alpha = 0.5
     ) +
     geom_point(
-      data = group_mean_current, aes(x = Parameter, y = Mean),
+      data = group_mean_current,
+      aes(x = Parameter, y = Mean),
       color = brewer.pal(3, "Set2")[2], size = 4
     ) +
     geom_errorbar(
       data = group_mean_current,
       aes(x = Parameter, ymin = Lower, ymax = Upper),
-      color = brewer.pal(3, "Set2")[2], width = 0.3, size = 1
+      color = brewer.pal(3, "Set2")[2], width = 0.05, size = 1
     ) +
-    theme_minimal()
+    theme_minimal() +
+    theme(axis.text.x = element_blank()) +
+    labs(y = "Parameter Value", x = parameter_expression)
   
   # Add the plot to the list
   individual_plots[[param]] <- p
 }
 
+individual_plots[[1]]
+individual_plots[[2]]
+individual_plots[[3]]
+individual_plots[[4]]
+individual_plots[[5]]
+individual_plots[[6]]
+individual_plots[[7]]
 
 ```
-
-
 
 ```{r}
 #| label: tbl-CBM-teachers
@@ -4089,362 +4132,6 @@ hetereogeneity %>%
   add_n() %>%
   add_difference() %>%
   add_q()
-
-```
-
-The trade-off between model complexity and predictive accuracy justifies including four lags. Including more lags would increase the complexity of the model, potentially leading to overfitting and poorer predictive performance. Conversely, including fewer lags might result in a model that fails to capture critical temporal dependencies in the data. The selection of four lags represents an inflection point in the BIC and NLL, indicating an optimal balance between model complexity and predictive accuracy.
-
-In @fig-lags, we present the estimated coefficients of the lagged variables as derived from the random effects models. The lines represent the regression coefficients of different variables and their standard errors. The grey line and shaded area correspond to the coefficients for the lagged Badges per Student variable. This graphical representation elucidates the diminishing influence of each variable as the lag increases.
-
-Taking the Frobenius 1 component as an example, the coefficient for the first lag is approximately 0.30, accompanied by a standard error of 0.25. As the lag increases, there is a noticeable decrease in the coefficient, implying a waning influence of this component over time. In contrast, the Badges per Student variable demonstrates a different pattern. First, the magnitude of these coefficients is smaller and non-significant. The coefficient also fluctuates around zero as the lag increases, suggesting a relatively consistent influence over time.
-
-```{r}
-#| eval: false
-#| label: fig-timelines
-#| fig-cap: ""
-
-# Reshape the data to long format
-long_df <- df %>%
-  select(MDR.School.ID, week, Active.Users...Total, Sessions.per.Active.User, 
-         Minutes.per.Active.User, Badges.per.Active.User, 
-         Boosts.per.Tower.Completion, Tower.Alerts.per.Tower.Completion, 
-         FrobeniusNNDSVD1, FrobeniusNNDSVD2, FrobeniusNNDSVD3,
-         poverty, school.account) %>%
-  group_by(MDR.School.ID, week, poverty, school.account) %>%
-  summarize(across(where(is.numeric), ~ mean(., na.rm = TRUE))) %>%
-  gather(key = "Variable", value = "Value",
-         -MDR.School.ID, -week, -poverty, -school.account)
-
-# Function to create a plot for each variable with error ribbons
-plot_variable <- function(variable_name, var) {
-  # Calculate overall average and standard error
-  avg_data <- long_df %>%
-    filter(Variable == variable_name) %>%
-    filter(!is.na({{var}})) %>%
-    group_by({{var}}, week) %>%
-    summarize(
-      Avg = mean(Value, na.rm = TRUE),
-      SE = sd(Value, na.rm = TRUE)/sqrt(n()),
-      CI_low = Avg - SE,
-      CI_high = Avg + SE
-    )
-  
-  # Calculate 2 standard deviations from the overall data
-  y_high <- quantile(avg_data$Value[avg_data$Variable == variable_name],
-                     0.85, na.rm = T)
-  y_low <- quantile(avg_data$Value[avg_data$Variable == variable_name],
-                    0.15, na.rm = T)
-
-  ggplot(avg_data, aes(x = week, y = Avg, group = {{var}})) +
-    geom_line(aes(color = {{var}})) +
-    geom_ribbon(data = avg_data,
-                aes(x = week, y = Avg, group = {{var}}, alpha = 0.2,
-                    fill = {{var}}, ymin = CI_low, ymax = CI_high)) +
-    theme_minimal() +
-    labs(title = variable_name, x = "Time", y = "Value") +
-    theme(legend.position = "none") +
-    coord_cartesian(ylim = c(y_low, y_high))  # Adjust y-axis range
-}
-
-# Variables to plot
-variables_to_plot <- c(
-  "Active.Users...Total", "Sessions.per.Active.User",
-  "Minutes.per.Active.User", "Badges.per.Active.User",
-  "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion", 
-  "FrobeniusNNDSVD1", "FrobeniusNNDSVD2", "FrobeniusNNDSVD3"
-  )
-
-# Create individual plots
-plots <- lapply(variables_to_plot, plot_variable, var = school.account)
-
-# Combine the plots into a panel
-do.call(grid.arrange, c(plots, ncol = 3))
-
-```
-
-In our pursuit to identify the most parsimonious model that optimally fits the data, we conducted a comparative analysis of the out-of-sample negative likelihood (NLL) across four distinct reinforcement learning models: State-Based Q-Learning, Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. We evaluated these models using three different methods for non-negative matrix factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and Kullback-Leibler. Each cell in @fig-panel-bic represents the median negative log-likelihood of a model given a specific method, with lower values signifying a superior model fit.
-
-Our analysis reveals that the Kernalized Q-Learning model, when evaluated using the Frobenius (NNDSVD) method, provides the most optimal fit to the data, as evidenced by its lowest negative log-likelihood value. As a result, we select this combination of model and method for our remaining analyses.
-
-```{r}
-#| label: tbl-choose-RL-model
-#| tbl-cap: "The table presents a comparison of the median negative log-likelihood values for posterior distributions across four reinforcement learning models: State-Based Q-Learning, Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. These models are evaluated based on three methods for non-negative matrix factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and Kullback-Leibler. Each cell in the table represents the median negative log-likelihood of a model's posterior given a method, with lower values indicating better model fit. The best performing combination of model and method (i.e., the one with the lowest negative log-likelihood value) is highlighted in light green."
-
-results_files <- list.files(path = "Bayesian/Results", pattern = "*.RDS", full.names = TRUE)
-results_files <- results_files[!grepl("logit", results_files)]
-
-# Function to extract median of lp__ from a model
-extract_lp_median <- function(model_file) {
-  fit <- readRDS(model_file)
-  lp_median <- fit$summary("lp__", "median")  # Get the median of lp__
-  data.frame(Model = gsub("Bayesian/Results/||.RDS", "", model_file),
-             NLL_Median = -1 * as.numeric(lp_median))
-}
-
-# Apply function to all models and combine into one dataframe
-lp_df <- purrr::map_df(results_files, extract_lp_median) %>%
-  na.omit()
-lp_df$Method <- gsub(".*-", "", lp_df$Model)
-lp_df$ModelType <- stringr::str_extract(lp_df$Model, ".*(?=-)")
-
-# Define descriptive names
-model_names <- c("Q-learning-states" = "State-Based Q-Learning",
-                 "Q-learning-kernel" = "Kernalized Q-Learning",
-                 "Q-learning" = "State-Free Q-Learning",
-                 "Actor-Critic" = "Actor-Critic")
-
-method_names <- c("FR" = "Frobenius (NNDSVD)",
-                  "FRa" = "Frobenius (NNDSVDA)",
-                  "KL" = "Kullback-Leibler")
-
-# Apply the descriptive names
-lp_df$ModelType <- model_names[lp_df$ModelType]
-lp_df$Method <- method_names[lp_df$Method]
-
-# Create the table with models as rows and NMF methods as columns
-table_df <- lp_df %>%
-  dplyr::select(-Model) %>%
-  tidyr::pivot_wider(names_from = Method, values_from = NLL_Median) %>%
-  arrange(desc(ModelType)) %>%
-  na.omit()
-
-# Remove redundant 'ModelType' label
-colnames(table_df)[colnames(table_df) == "ModelType"] <- "Model"
-
-# To highlight the best value in the table
-table_df %>%
-  gt() %>%
-  tab_style(
-    style = cell_fill(color = "lightgreen"),
-    locations = cells_body(
-      columns = names(table_df)[colSums(table_df == min(table_df[,-1])) >= 1],
-      rows = rowSums(table_df == min(table_df[,-1])) >= 1
-    )
-  )
-
-```
-
-We compared our base models, which used logistic regression, and our top-performing reinforcement learning (RL) model, which employed kernelized Q-learning, to identify which best fit the data. @tbl-RL-logit-comp presents the Leave-One-Out Information Criterion (LOOIC) estimates for these models, with lower values indicative of superior model performance.
-
-Our analysis revealed that the hierarchical Q-learning model outperformed the others, as evidenced by its lowest LOOIC value. This finding suggests that reinforcement learning provides a more accurate representation of teacher behavior on Zearn when individual parameters are fitted. The hierarchical logistic regression model followed closely, demonstrating competitive performance. However, the models that did not incorporate a hierarchical structure yielded higher LOOIC values, indicating a lesser fit to the data. These findings highlight the significant heterogeneity in the data and emphasize the value of reinforcement learning models, particularly those with a hierarchical structure, in accurately capturing the dynamics of teacher behavior on Zearn.
-
-```{r Bayesian LOOIC prep}
-#| include: false
-# Clean environment
-rm(list = setdiff(ls(), c("df", "random_py", "get_lag_value")))
-gc(verbose = FALSE)
-```
-
-```{r}
-#| eval: false
-#| cache: true
-#| label: tbl-RL-logit-comp
-#| tbl-cap: "Model comparison using Leave-One-Out Information Criterion (LOOIC). LOOIC values, a measure of model quality, were calculated for each model type. Lower values indicate better model performance. Q-learning models were built using a kernel-based approach. Hierarchical models incorporate a hierarchical structure to account for classroom-level variations."
-
-# Non-hierarchical models
-## Q-learning model
-# post <- read_rds("Bayesian/Results/Q-learning-kernel-FR.RDS")
-post <- read_rds("Bayesian/Results/Q-learning-FR.RDS")
-loo_qlearn <- post$loo()$estimates["looic", ]
-## Logit
-models_nh <- readRDS("Bayesian/Results/logit.RDS")
-loo_nh <- models_nh$loo()$estimates["looic", ]
-# nll_nh <- lapply(models_nh, log_lik)
-# nll_nh <- lapply(nll_nh, mean)
-
-# Hierarchical models
-## Q-learning
-post_hierarchical <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
-loo_qhierarchical <- post_hierarchical$loo()$estimates["looic", ]
-## Logit
-models_h <- readRDS("Bayesian/Results/logit-hierarchical.RDS")
-loo_h <- models_h$loo()$estimates["looic", ]
-
-# Collect LOOIC values
-looic_values <- c(loo_qlearn[1],loo_nh[1],
-                  loo_qhierarchical[1], loo_h[1])
-df_looic <- data.frame(Model = c("Q-learning", "Logistic regression", "Hierarchical Q-learning", "Hierarchical logistic regression"),
-                       LOOIC = looic_values)
-
-# Create gt table
-df_looic %>%
-  gt() %>%
-  cols_label(
-    Model = "Model",
-    LOOIC = "LOOIC Value"
-  )
-
-# Create gt table
-gt(df_looic)
-
-```
-
-We compared the hierarchical model's predictions and the original choice data, representing a distinct action. We averaged the model predictions across teachers weekly and overlayed them with the average action from the choice data. We also calculated the standard error around these averages accounting for missing data, which provided a measure of uncertainty around these values.
-
-@fig-model-fit shows the model fit for each action where the y-axis represents the probability of a=1, and the x-axis represents the time in weeks. The line plot includes the mean probabilities, highlighted by colored lines, and their respective standard errors, represented by shaded ribbons surrounding the lines. The results section of the data for 'Action 1' revealed that the model predictions initially remained relatively close to the mean probability of 0.5, demonstrating some variability but remaining within a reasonable range. The model's variability increased over time, denoted by the broadening standard error ribbons, peaking at week 36 with a significant increase in the mean predicted probability. This peak corresponded to a drastic decline in the choice data, implying a divergence between the model's predictions and the data towards the end of the observed period.
-
-In the case of 'Action 2' and 'Action 3,' the model prediction started at the mean probability of 0.5 and demonstrated a declining trend over the weeks. Although the declining trend was present in both model fit and data, the model predicted a less drastic decline. The standard error for this action also increased over time, albeit not as dramatically as in the case of 'Action 1', indicating that the model's predictions became more uncertain as time progressed. Despite this variability, the model provided a reasonable fit for the choice data across the weeks for the first months of the study period.
-
-```{r}
-#| eval: false
-#| cache: true
-#| label: fig-model-fit
-#| fig-cap: "Model predictions for teacher actions compared with choice data over time. The y-axis denotes the probability of a particular action being taken (a=1), while the x-axis indicates time in weeks. The figure showcases three distinct actions (NMF components). The solid lines represent the weekly averaged model predictions for each action, while the shaded ribbons denote the respective standard errors."
-stan_data <- read_rds("./Bayesian/Q-learn-data.RDS")
-choice_data <- read_rds("./Bayesian/Results/Q-learning-FR.RDS")
-choice_data <- choice_data$summary()
-
-prediction_hierarchical <- read.csv("./Bayesian/Results/prediction_hierarchical.csv") %>%
-  filter(grepl("y_pred", variable)) %>%
-  dplyr::select(variable, mean)
-
-prediction_hierarchical <- prediction_hierarchical %>%
-  mutate(variable = str_extract(variable, "\\[.*\\]"),
-         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
-  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
-
-prediction_hierarchical_3d <- array(dim = c(max(prediction_hierarchical$dim1),
-                                            max(prediction_hierarchical$dim2),
-                                            max(prediction_hierarchical$dim3)))
-
-for (i in 1:nrow(prediction_hierarchical)) {
-  dim1 <- prediction_hierarchical$dim1[i]
-  dim2 <- prediction_hierarchical$dim2[i]
-  dim3 <- prediction_hierarchical$dim3[i]
-  prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
-}
-
-# Loop through each subject
-for (subject in seq_len(dim1)) {
-  # Get the value of Tsubj for this subject
-  Tsubj_value <- stan_data[["Tsubj"]][subject]
-  
-  # Set the values in prediction_hierarchical_3d to NA
-  if (Tsubj_value != max(stan_data[["Tsubj"]])) {
-    prediction_hierarchical_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
-    # Set the values in choice_data to NA
-    choice_data[subject, (Tsubj_value + 1):dim2, ] <- NA
-  }
-}
-
-# Get the number of layers
-num_layers <- dim(prediction_hierarchical_3d)[3]
-# Custom function to calculate standard error based on the number of non-NA elements
-calc_se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
-
-df_compare <- data.frame()
-
-# Generate a plot for each layer
-for (k in 1:num_layers) {
-  y_pred_avg <- apply(prediction_hierarchical_3d[, , k], 2, mean, na.rm = TRUE)
-  y_pred_se  <- apply(prediction_hierarchical_3d[, , k], 2, calc_se)
-  
-  choice_data_avg <- apply(choice_data[, , k], 2, mean, na.rm = TRUE)
-  choice_data_se  <- apply(choice_data[, , k], 2, calc_se)
-  
-  # Only consider weeks with valid SEs
-  weeks <- seq_len(sum(!is.na(y_pred_se)))
-
-  df_pred <- data.frame(weeks = weeks,
-                        probability = y_pred_avg[weeks],
-                        type = rep("Model Fit", max(weeks)),
-                        se = y_pred_se[weeks],
-                        action = rep(paste("Action", k), max(weeks)))
-
-  df_real <- data.frame(weeks = weeks,
-                        probability = choice_data_avg[weeks],
-                        type = rep("Real Data", max(weeks)),
-                        se = choice_data_se[weeks],
-                        action = rep(paste("Action", k), max(weeks)))
-
-  df_compare <- rbind(df_compare, df_pred, df_real)
-}
-
-p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
-  geom_line() +
-  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
-  labs(x = "Week", y = "Probability of a=1") +
-  facet_wrap(~action, ncol = 1) +
-  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
-  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
-  theme_bw()
-
-print(p)
-
-```
-
-```{r}
-#| eval: false
-
-logit_model <- readRDS("./Bayesian/Results/logit-hierarchical.RDS")
-pred_logit_model <- lapply(logit_model, function(model) {
-  fitted(model)
-})
-data_logit_model <- lapply(logit_model, function(model) {
-  model$data[,1]
-})
-logit_pred_3d <- array(NA, dim = dim(prediction_hierarchical_3d))
-choice_data_3d <- array(NA, dim = dim(prediction_hierarchical_3d))
-
-# Loop through each subject
-for (subject in seq_len(dim1)) {
-  Tsubj_value <- stan_data[["Tsubj"]][subject]
-  
-  # Calculate the starting and ending indices for the current subject
-  start_idx <- ifelse(subject == 1, 1,
-                      sum(stan_data[["Tsubj"]][1:(subject-1)]) - subject + 2)
-  end_idx <- sum(stan_data[["Tsubj"]][1:subject]) - subject
-  
-  # Loop through each model in pred_logit_model
-  for (model_idx in seq_along(pred_logit_model)) {
-    # Extract the estimated probabilities for the current model
-    model_predictions <- pred_logit_model[[model_idx]][start_idx:end_idx,"Estimate"]
-    real_data <- data_logit_model[[model_idx]][start_idx:end_idx]
-
-    # Populate logit_pred_3d with the predicted values
-    logit_pred_3d[subject, 2:(Tsubj_value), model_idx] <- model_predictions
-    choice_data_3d[subject, 2:(Tsubj_value), model_idx] <- real_data
-  }
-}
-
-# Generate a plot for each layer
-df_compare <- data.frame()
-for (k in 1:dim3) {
-  y_pred_avg <- apply(logit_pred_3d[, , k], 2, mean, na.rm = TRUE)
-  y_pred_se <- apply(logit_pred_3d[, , k], 2, calc_se)
-  
-  choice_data_avg <- apply(choice_data_3d[, , k], 2, mean, na.rm = TRUE)
-  choice_data_se  <- apply(choice_data_3d[, , k], 2, calc_se)
-
-  # Only consider weeks with valid SEs
-  weeks <- seq_len(length(y_pred_se))[!is.na(y_pred_se)]
-  idx_shift <- weeks[1] - 1
-
-  df_pred <- data.frame(weeks = weeks,
-                        probability = y_pred_avg[weeks],
-                        type = rep("Model Fit", length(weeks)),
-                        se = y_pred_se[weeks],
-                        action = rep(paste("Action", k), length(weeks)))
-
-  df_real <- data.frame(weeks = weeks,
-                        probability = choice_data_avg[weeks],
-                        type = rep("Real Data", length(weeks)),
-                        se = choice_data_se[weeks],
-                        action = rep(paste("Action", k), length(weeks)))
-
-  df_compare <- rbind(df_compare, df_pred, df_real)
-}
-
-p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
-  geom_line() +
-  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
-  labs(x = "Week", y = "Probability of a=1") +
-  facet_wrap(~action, ncol = 1) +
-  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
-  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
-  theme_bw()
-
-print(p)
 
 ```
 
@@ -4623,57 +4310,6 @@ stargazer(model1, model2, model3, model4, model5, model6,
 
 ```
 
-```{r}
-#| eval: false
-#| cache: true
-#| label: fig-parameters-corr
-#| fig-cap: "Correlations between the estimated parameters (Cost 1, Cost 2, Cost 3, Gamma, Alpha, Tau) and the outcome variables (average weekly Badges and average weekly Tower Alerts) across the six different linear regression models. Each circle represents a correlation coefficient; the size and shading of the circles indicate the magnitude and direction of the correlation, respectively. The first correlogram (top) relates to the outcome variable of average weekly Badges, while the second correlogram (bottom) relates to the outcome variable of average weekly Tower Alerts."
-
-# Selecting relevant variables for the first model concerning badges
-relevant_data_badges <- classroom_data %>%
-  dplyr::select(mean_C1, mean_C2, mean_C3, gamma, alpha, tau, badges)
-
-# Similarly, for the fourth model concerning tower alerts
-relevant_data_tower <- classroom_data %>%
-  dplyr::select(mean_C1, mean_C2, mean_C3, gamma, alpha, tau, tower_alers)
-
-cor_matrix_badges <- cor(relevant_data_badges, use = "complete.obs")
-cor_matrix_tower <- cor(relevant_data_tower, use = "complete.obs")
-
-cor_matrix_badges <- cor(relevant_data_badges, use = "complete.obs")
-cor_matrix_tower <- cor(relevant_data_tower, use = "complete.obs")
-
-# For badges
-corrplot(cor_matrix_badges, method = "circle")
-
-# For tower alerts
-corrplot(cor_matrix_tower, method = "circle")
-
-```
-
-### Feature Selection Model Fit
-
--   Discuss the best-performing model using students online as a reward, and alerts, badges, and minutes as state variables.
-
-## Hierarchical Models
-
-Our dataset comprises classrooms spanning a period of around 40 weeks. Given the limited amount of data per classroom, individual-level estimation using maximum likelihood estimation would yield noisy results. Although group-level estimation provides reliable estimates, it overlooks individual differences, which are crucial to our analysis.
-
-To address this, we employed a hierarchical Bayesian analysis, which allows for information pooling across individuals while accommodating individual differences. In this approach, individual-level parameters are functions of group-level hyperparameters, and this anchoring enhances our power by assuming commonalities among individuals [@ahn2017]. A notable feature of this estimation technique is that the extent of pooling is reflected in the hyperparameter variance. Strong pooling corresponds to low hierarchical variance, and vice versa for weak pooling.
-
-## Heterogeneity
-
-
-To investigate the heterogeneity across teachers, we first extracted the posterior samples from the hierarchical model that demonstrated the best performance. For each teacher, we calculated the mean of each parameter: the estimated cost for each action, the discount rate, the learning rate, and the inverse temperature. We then correlated these parameters with the classroom-level variables: the average number of students, average minutes per student, average number of badges per student, average number of tower alerts, the number of classes per teacher, the grade level, the total number of weeks, the proportion of students under the poverty level, the average income level in the school, and whether the school had a paid Zearn account. Subsequently, we fit a linear regression model to predict the average number of badges per active user, using the estimated parameters as predictors.
-
-We extended our analysis to examine the relationship between the estimated parameters and demographic variables for each classroom to reveal whether learning and decision-making processes captured by our model vary across different demographic groups.
-
-
-
-Building on these results, we investigated how teachers' adaptation and implementation of the Zearn Math curriculum vary with various school-specific and demographic factors. The goal was to uncover potential disparities and leverage points that could inform intervention strategies and policy decisions to reduce educational inequities.
-
-Our multi-pronged statistical approach matched the diverse nature of our classroom variables. We selected each model to best account for the distribution and characteristics of the dependent variable. We used an ordered logistic regression for ordinal classroom variables, such as Income Level and Poverty Level. Binary variables, which included Charter School and Paid School Account status, naturally lent themselves to logistic regression modeling. Finally, we used Poisson regression to model the variable representing the number of classes taught by each teacher.
-
 @fig-heterogeneity presents a detailed summary of the associations between different factors and classroom variables. Among these, the interaction between "Cost 3" and "Poverty Level" is notable. Our data suggest that a higher estimated cost of applying Pedagogical Content Knowledge predicts a lower median income level in the school. The estimated Discount Rate is another variable significantly associated with a school's Poverty Level ($\beta = -0.39,\text{ } p<0.05$). Furthermore, the negative relationship between being a Charter School and the Learning Rate, with a coefficient of -0.67 (p\<0.001), suggests that teachers in charter schools are slower to adapt and modify their teaching methods in response to new information.
 
 ```{r}
@@ -4786,6 +4422,147 @@ ggplot(coef_matrix_long, aes(x = response, y = term, fill = as.numeric(estimate)
   labs(x = NULL, y = NULL, title = NULL)
 
 ```
+
+
+
+<!--
+## Posterior Predictive Checks
+```{r}
+#| eval: false
+#| label: fig-timelines
+#| fig-cap: ""
+
+# Load the data
+hbi_ac_data <- readMat('CBM/zearn_results/top_results/hbi_ac_data.mat')
+model_fit <- readMat('CBM/zearn_results/top_results/hbi_ac.mat')
+teacher_specific_params <- model_fit[["cbm"]][[5]][[1]][[1]][[1]]
+
+simulate_predictions <- function(parameters, subj) {
+  alpha_w <- 1 / (1 + exp(-parameters[1]))  # Learning rate for w (critic)
+  alpha_theta <- 1 / (1 + exp(-parameters[2]))  # Learning rate for theta (actor)
+  gamma <- 1 / (1 + exp(-parameters[3]))  # Discount factor
+  tau <- exp(parameters[4])
+  theta_init <- parameters[5]
+  w_init <- parameters[6]
+  cost <- exp(parameters[7])
+  
+  # Unpack data
+  Tsubj <- length(subj[[1]][[2]])
+  choice <- subj[[1]][[2]]
+  outcome <- subj[[1]][[5]]
+  state <- cbind(1, as.matrix(subj[[1]][[7]]))
+  week <- subj[[1]][[9]][[1]]
+  
+  # Initialize
+  w <- w_init
+  theta <- theta_init
+  log_probabilities <- rep(0, Tsubj)
+  
+  # Loop through trials
+  for (t in 1:Tsubj) {
+    if (week[t] == 0) break  # End loop if week is zero
+    s <- state[t, ]
+    a <- choice[t]
+    o <- outcome[t]
+    
+    # Actor: Compute policy (log probability of taking the action)
+    product <- sum(s * theta * tau)
+    # Handle numerical issues for large values of theta
+    if (product < -8) {
+      log_probabilities[t] <- log_probabilities[t] - product * a
+    } else if (product > 8) {
+      log_probabilities[t] <- log_probabilities[t] + (1 - product) * (1 - a)
+    } else {
+      log_probabilities[t] <- log_probabilities[t] - log(1 + exp(-product)) * a - log(1 + exp(product)) * (1 - a)
+    }
+    
+    # Critic: Compute TD error (delta)
+    delta <- (o - cost)  # Basic TD error, without considering future states
+    
+    # Update weights
+    theta <- theta + alpha_theta * gamma ^ (week[t] - week[1]) * (tau * s) / (1 + exp(product)) * delta
+    w <- w + alpha_w * s * delta
+  }
+  
+  # Sum log probabilities to get log-likelihood
+  log_likelihood <- sum(log_probabilities)
+  
+  return(list(predictions = choice, log_likelihood = log_likelihood))
+}
+
+# Prepare the data for plotting (replace with actual variables and data)
+long_df <- as.data.frame(hbi_ac_data$Variable) %>%
+  mutate(Week = rep(1:nrow(.), each = ncol(.)),
+         Value = as.vector(t(.)))
+
+# Simulate predictions using group mean parameters
+predictions <- simulate_predictions(group_mean_transformed, long_df)
+
+# Variables to plot
+variables_to_plot <- names(hbi_ac_data$Variable)
+
+# Create individual plots
+plots <- lapply(variables_to_plot, plot_variable, data = long_df)
+
+# Reshape the data to long format
+long_df <- df %>%
+  select(MDR.School.ID, week, Active.Users...Total, Sessions.per.Active.User, 
+         Minutes.per.Active.User, Badges.per.Active.User, 
+         Boosts.per.Tower.Completion, Tower.Alerts.per.Tower.Completion, 
+         FrobeniusNNDSVD1, FrobeniusNNDSVD2, FrobeniusNNDSVD3,
+         poverty, school.account) %>%
+  group_by(MDR.School.ID, week, poverty, school.account) %>%
+  summarize(across(where(is.numeric), ~ mean(., na.rm = TRUE))) %>%
+  gather(key = "Variable", value = "Value",
+         -MDR.School.ID, -week, -poverty, -school.account)
+
+# Function to create a plot for each variable with error ribbons
+plot_variable <- function(variable_name, var) {
+  # Calculate overall average and standard error
+  avg_data <- long_df %>%
+    filter(Variable == variable_name) %>%
+    filter(!is.na({{var}})) %>%
+    group_by({{var}}, week) %>%
+    summarize(
+      Avg = mean(Value, na.rm = TRUE),
+      SE = sd(Value, na.rm = TRUE)/sqrt(n()),
+      CI_low = Avg - SE,
+      CI_high = Avg + SE
+    )
+  
+  # Calculate 2 standard deviations from the overall data
+  y_high <- quantile(avg_data$Value[avg_data$Variable == variable_name],
+                     0.85, na.rm = T)
+  y_low <- quantile(avg_data$Value[avg_data$Variable == variable_name],
+                    0.15, na.rm = T)
+
+  ggplot(avg_data, aes(x = week, y = Avg, group = {{var}})) +
+    geom_line(aes(color = {{var}})) +
+    geom_ribbon(data = avg_data,
+                aes(x = week, y = Avg, group = {{var}}, alpha = 0.2,
+                    fill = {{var}}, ymin = CI_low, ymax = CI_high)) +
+    theme_minimal() +
+    labs(title = variable_name, x = "Time", y = "Value") +
+    theme(legend.position = "none") +
+    coord_cartesian(ylim = c(y_low, y_high))  # Adjust y-axis range
+}
+
+# Variables to plot
+variables_to_plot <- c(
+  "Active.Users...Total", "Sessions.per.Active.User",
+  "Minutes.per.Active.User", "Badges.per.Active.User",
+  "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion", 
+  "FrobeniusNNDSVD1", "FrobeniusNNDSVD2", "FrobeniusNNDSVD3"
+  )
+
+# Create individual plots
+plots <- lapply(variables_to_plot, plot_variable, var = school.account)
+
+# Combine the plots into a panel
+do.call(grid.arrange, c(plots, ncol = 3))
+
+```
+-->
 
 # Discussion
 
@@ -5279,6 +5056,36 @@ combined_plot
 
 ```
 
+{{< pagebreak >}}
+
+```{r}
+#| eval: false
+#| cache: true
+#| label: fig-parameters-corr
+#| fig-cap: "Correlations between the estimated parameters (Cost 1, Cost 2, Cost 3, Gamma, Alpha, Tau) and the outcome variables (average weekly Badges and average weekly Tower Alerts) across the six different linear regression models. Each circle represents a correlation coefficient; the size and shading of the circles indicate the magnitude and direction of the correlation, respectively. The first correlogram (top) relates to the outcome variable of average weekly Badges, while the second correlogram (bottom) relates to the outcome variable of average weekly Tower Alerts."
+
+# Selecting relevant variables for the first model concerning badges
+relevant_data_badges <- classroom_data %>%
+  dplyr::select(mean_C1, mean_C2, mean_C3, gamma, alpha, tau, badges)
+
+# Similarly, for the fourth model concerning tower alerts
+relevant_data_tower <- classroom_data %>%
+  dplyr::select(mean_C1, mean_C2, mean_C3, gamma, alpha, tau, tower_alers)
+
+cor_matrix_badges <- cor(relevant_data_badges, use = "complete.obs")
+cor_matrix_tower <- cor(relevant_data_tower, use = "complete.obs")
+
+cor_matrix_badges <- cor(relevant_data_badges, use = "complete.obs")
+cor_matrix_tower <- cor(relevant_data_tower, use = "complete.obs")
+
+# For badges
+corrplot(cor_matrix_badges, method = "circle")
+
+# For tower alerts
+corrplot(cor_matrix_tower, method = "circle")
+
+```
+
 
 <!--
 ## Markov Chain Monte Carlo (MCMC) Estimation
@@ -5588,4 +5395,299 @@ group_params_df %>%
 
 
 ```
+
+
+The trade-off between model complexity and predictive accuracy justifies including four lags. Including more lags would increase the complexity of the model, potentially leading to overfitting and poorer predictive performance. Conversely, including fewer lags might result in a model that fails to capture critical temporal dependencies in the data. The selection of four lags represents an inflection point in the BIC and NLL, indicating an optimal balance between model complexity and predictive accuracy.
+
+In @fig-lags, we present the estimated coefficients of the lagged variables as derived from the random effects models. The lines represent the regression coefficients of different variables and their standard errors. The grey line and shaded area correspond to the coefficients for the lagged Badges per Student variable. This graphical representation elucidates the diminishing influence of each variable as the lag increases.
+
+Taking the Frobenius 1 component as an example, the coefficient for the first lag is approximately 0.30, accompanied by a standard error of 0.25. As the lag increases, there is a noticeable decrease in the coefficient, implying a waning influence of this component over time. In contrast, the Badges per Student variable demonstrates a different pattern. First, the magnitude of these coefficients is smaller and non-significant. The coefficient also fluctuates around zero as the lag increases, suggesting a relatively consistent influence over time.
+
+In our pursuit to identify the most parsimonious model that optimally fits the data, we conducted a comparative analysis of the out-of-sample negative likelihood (NLL) across four distinct reinforcement learning models: State-Based Q-Learning, Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. We evaluated these models using three different methods for non-negative matrix factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and Kullback-Leibler. Each cell in @fig-panel-bic represents the median negative log-likelihood of a model given a specific method, with lower values signifying a superior model fit.
+
+Our analysis reveals that the Kernalized Q-Learning model, when evaluated using the Frobenius (NNDSVD) method, provides the most optimal fit to the data, as evidenced by its lowest negative log-likelihood value. As a result, we select this combination of model and method for our remaining analyses.
+
+```{r}
+#| label: tbl-choose-RL-model
+#| tbl-cap: "The table presents a comparison of the median negative log-likelihood values for posterior distributions across four reinforcement learning models: State-Based Q-Learning, Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. These models are evaluated based on three methods for non-negative matrix factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and Kullback-Leibler. Each cell in the table represents the median negative log-likelihood of a model's posterior given a method, with lower values indicating better model fit. The best performing combination of model and method (i.e., the one with the lowest negative log-likelihood value) is highlighted in light green."
+
+results_files <- list.files(path = "Bayesian/Results", pattern = "*.RDS", full.names = TRUE)
+results_files <- results_files[!grepl("logit", results_files)]
+
+# Function to extract median of lp__ from a model
+extract_lp_median <- function(model_file) {
+  fit <- readRDS(model_file)
+  lp_median <- fit$summary("lp__", "median")  # Get the median of lp__
+  data.frame(Model = gsub("Bayesian/Results/||.RDS", "", model_file),
+             NLL_Median = -1 * as.numeric(lp_median))
+}
+
+# Apply function to all models and combine into one dataframe
+lp_df <- purrr::map_df(results_files, extract_lp_median) %>%
+  na.omit()
+lp_df$Method <- gsub(".*-", "", lp_df$Model)
+lp_df$ModelType <- stringr::str_extract(lp_df$Model, ".*(?=-)")
+
+# Define descriptive names
+model_names <- c("Q-learning-states" = "State-Based Q-Learning",
+                 "Q-learning-kernel" = "Kernalized Q-Learning",
+                 "Q-learning" = "State-Free Q-Learning",
+                 "Actor-Critic" = "Actor-Critic")
+
+method_names <- c("FR" = "Frobenius (NNDSVD)",
+                  "FRa" = "Frobenius (NNDSVDA)",
+                  "KL" = "Kullback-Leibler")
+
+# Apply the descriptive names
+lp_df$ModelType <- model_names[lp_df$ModelType]
+lp_df$Method <- method_names[lp_df$Method]
+
+# Create the table with models as rows and NMF methods as columns
+table_df <- lp_df %>%
+  dplyr::select(-Model) %>%
+  tidyr::pivot_wider(names_from = Method, values_from = NLL_Median) %>%
+  arrange(desc(ModelType)) %>%
+  na.omit()
+
+# Remove redundant 'ModelType' label
+colnames(table_df)[colnames(table_df) == "ModelType"] <- "Model"
+
+# To highlight the best value in the table
+table_df %>%
+  gt() %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(
+      columns = names(table_df)[colSums(table_df == min(table_df[,-1])) >= 1],
+      rows = rowSums(table_df == min(table_df[,-1])) >= 1
+    )
+  )
+
+```
+
+We compared our base models, which used logistic regression, and our top-performing reinforcement learning (RL) model, which employed kernelized Q-learning, to identify which best fit the data. @tbl-RL-logit-comp presents the Leave-One-Out Information Criterion (LOOIC) estimates for these models, with lower values indicative of superior model performance.
+
+Our analysis revealed that the hierarchical Q-learning model outperformed the others, as evidenced by its lowest LOOIC value. This finding suggests that reinforcement learning provides a more accurate representation of teacher behavior on Zearn when individual parameters are fitted. The hierarchical logistic regression model followed closely, demonstrating competitive performance. However, the models that did not incorporate a hierarchical structure yielded higher LOOIC values, indicating a lesser fit to the data. These findings highlight the significant heterogeneity in the data and emphasize the value of reinforcement learning models, particularly those with a hierarchical structure, in accurately capturing the dynamics of teacher behavior on Zearn.
+
+```{r Bayesian LOOIC prep}
+#| include: false
+# Clean environment
+rm(list = setdiff(ls(), c("df", "random_py", "get_lag_value")))
+gc(verbose = FALSE)
+```
+
+```{r}
+#| eval: false
+#| cache: true
+#| label: tbl-RL-logit-comp
+#| tbl-cap: "Model comparison using Leave-One-Out Information Criterion (LOOIC). LOOIC values, a measure of model quality, were calculated for each model type. Lower values indicate better model performance. Q-learning models were built using a kernel-based approach. Hierarchical models incorporate a hierarchical structure to account for classroom-level variations."
+
+# Non-hierarchical models
+## Q-learning model
+# post <- read_rds("Bayesian/Results/Q-learning-kernel-FR.RDS")
+post <- read_rds("Bayesian/Results/Q-learning-FR.RDS")
+loo_qlearn <- post$loo()$estimates["looic", ]
+## Logit
+models_nh <- readRDS("Bayesian/Results/logit.RDS")
+loo_nh <- models_nh$loo()$estimates["looic", ]
+# nll_nh <- lapply(models_nh, log_lik)
+# nll_nh <- lapply(nll_nh, mean)
+
+# Hierarchical models
+## Q-learning
+post_hierarchical <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
+loo_qhierarchical <- post_hierarchical$loo()$estimates["looic", ]
+## Logit
+models_h <- readRDS("Bayesian/Results/logit-hierarchical.RDS")
+loo_h <- models_h$loo()$estimates["looic", ]
+
+# Collect LOOIC values
+looic_values <- c(loo_qlearn[1],loo_nh[1],
+                  loo_qhierarchical[1], loo_h[1])
+df_looic <- data.frame(Model = c("Q-learning", "Logistic regression", "Hierarchical Q-learning", "Hierarchical logistic regression"),
+                       LOOIC = looic_values)
+
+# Create gt table
+df_looic %>%
+  gt() %>%
+  cols_label(
+    Model = "Model",
+    LOOIC = "LOOIC Value"
+  )
+
+# Create gt table
+gt(df_looic)
+
+```
+
+We compared the hierarchical model's predictions and the original choice data, representing a distinct action. We averaged the model predictions across teachers weekly and overlayed them with the average action from the choice data. We also calculated the standard error around these averages accounting for missing data, which provided a measure of uncertainty around these values.
+
+@fig-model-fit shows the model fit for each action where the y-axis represents the probability of a=1, and the x-axis represents the time in weeks. The line plot includes the mean probabilities, highlighted by colored lines, and their respective standard errors, represented by shaded ribbons surrounding the lines. The results section of the data for 'Action 1' revealed that the model predictions initially remained relatively close to the mean probability of 0.5, demonstrating some variability but remaining within a reasonable range. The model's variability increased over time, denoted by the broadening standard error ribbons, peaking at week 36 with a significant increase in the mean predicted probability. This peak corresponded to a drastic decline in the choice data, implying a divergence between the model's predictions and the data towards the end of the observed period.
+
+In the case of 'Action 2' and 'Action 3,' the model prediction started at the mean probability of 0.5 and demonstrated a declining trend over the weeks. Although the declining trend was present in both model fit and data, the model predicted a less drastic decline. The standard error for this action also increased over time, albeit not as dramatically as in the case of 'Action 1', indicating that the model's predictions became more uncertain as time progressed. Despite this variability, the model provided a reasonable fit for the choice data across the weeks for the first months of the study period.
+
+```{r}
+#| eval: false
+#| cache: true
+#| label: fig-model-fit
+#| fig-cap: "Model predictions for teacher actions compared with choice data over time. The y-axis denotes the probability of a particular action being taken (a=1), while the x-axis indicates time in weeks. The figure showcases three distinct actions (NMF components). The solid lines represent the weekly averaged model predictions for each action, while the shaded ribbons denote the respective standard errors."
+stan_data <- read_rds("./Bayesian/Q-learn-data.RDS")
+choice_data <- read_rds("./Bayesian/Results/Q-learning-FR.RDS")
+choice_data <- choice_data$summary()
+
+prediction_hierarchical <- read.csv("./Bayesian/Results/prediction_hierarchical.csv") %>%
+  filter(grepl("y_pred", variable)) %>%
+  dplyr::select(variable, mean)
+
+prediction_hierarchical <- prediction_hierarchical %>%
+  mutate(variable = str_extract(variable, "\\[.*\\]"),
+         variable = str_replace_all(variable, "\\[|\\]", "")) %>%
+  separate(variable, into = c("dim1", "dim2", "dim3"), sep = ",", convert = TRUE)
+
+prediction_hierarchical_3d <- array(dim = c(max(prediction_hierarchical$dim1),
+                                            max(prediction_hierarchical$dim2),
+                                            max(prediction_hierarchical$dim3)))
+
+for (i in 1:nrow(prediction_hierarchical)) {
+  dim1 <- prediction_hierarchical$dim1[i]
+  dim2 <- prediction_hierarchical$dim2[i]
+  dim3 <- prediction_hierarchical$dim3[i]
+  prediction_hierarchical_3d[dim1, dim2, dim3] <- prediction_hierarchical$mean[i]
+}
+
+# Loop through each subject
+for (subject in seq_len(dim1)) {
+  # Get the value of Tsubj for this subject
+  Tsubj_value <- stan_data[["Tsubj"]][subject]
+  
+  # Set the values in prediction_hierarchical_3d to NA
+  if (Tsubj_value != max(stan_data[["Tsubj"]])) {
+    prediction_hierarchical_3d[subject, (Tsubj_value + 1):dim2, ] <- NA
+    # Set the values in choice_data to NA
+    choice_data[subject, (Tsubj_value + 1):dim2, ] <- NA
+  }
+}
+
+# Get the number of layers
+num_layers <- dim(prediction_hierarchical_3d)[3]
+# Custom function to calculate standard error based on the number of non-NA elements
+calc_se <- function(x) sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
+
+df_compare <- data.frame()
+
+# Generate a plot for each layer
+for (k in 1:num_layers) {
+  y_pred_avg <- apply(prediction_hierarchical_3d[, , k], 2, mean, na.rm = TRUE)
+  y_pred_se  <- apply(prediction_hierarchical_3d[, , k], 2, calc_se)
+  
+  choice_data_avg <- apply(choice_data[, , k], 2, mean, na.rm = TRUE)
+  choice_data_se  <- apply(choice_data[, , k], 2, calc_se)
+  
+  # Only consider weeks with valid SEs
+  weeks <- seq_len(sum(!is.na(y_pred_se)))
+
+  df_pred <- data.frame(weeks = weeks,
+                        probability = y_pred_avg[weeks],
+                        type = rep("Model Fit", max(weeks)),
+                        se = y_pred_se[weeks],
+                        action = rep(paste("Action", k), max(weeks)))
+
+  df_real <- data.frame(weeks = weeks,
+                        probability = choice_data_avg[weeks],
+                        type = rep("Real Data", max(weeks)),
+                        se = choice_data_se[weeks],
+                        action = rep(paste("Action", k), max(weeks)))
+
+  df_compare <- rbind(df_compare, df_pred, df_real)
+}
+
+p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
+  geom_line() +
+  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
+  labs(x = "Week", y = "Probability of a=1") +
+  facet_wrap(~action, ncol = 1) +
+  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  theme_bw()
+
+print(p)
+
+```
+
+```{r}
+#| eval: false
+
+logit_model <- readRDS("./Bayesian/Results/logit-hierarchical.RDS")
+pred_logit_model <- lapply(logit_model, function(model) {
+  fitted(model)
+})
+data_logit_model <- lapply(logit_model, function(model) {
+  model$data[,1]
+})
+logit_pred_3d <- array(NA, dim = dim(prediction_hierarchical_3d))
+choice_data_3d <- array(NA, dim = dim(prediction_hierarchical_3d))
+
+# Loop through each subject
+for (subject in seq_len(dim1)) {
+  Tsubj_value <- stan_data[["Tsubj"]][subject]
+  
+  # Calculate the starting and ending indices for the current subject
+  start_idx <- ifelse(subject == 1, 1,
+                      sum(stan_data[["Tsubj"]][1:(subject-1)]) - subject + 2)
+  end_idx <- sum(stan_data[["Tsubj"]][1:subject]) - subject
+  
+  # Loop through each model in pred_logit_model
+  for (model_idx in seq_along(pred_logit_model)) {
+    # Extract the estimated probabilities for the current model
+    model_predictions <- pred_logit_model[[model_idx]][start_idx:end_idx,"Estimate"]
+    real_data <- data_logit_model[[model_idx]][start_idx:end_idx]
+
+    # Populate logit_pred_3d with the predicted values
+    logit_pred_3d[subject, 2:(Tsubj_value), model_idx] <- model_predictions
+    choice_data_3d[subject, 2:(Tsubj_value), model_idx] <- real_data
+  }
+}
+
+# Generate a plot for each layer
+df_compare <- data.frame()
+for (k in 1:dim3) {
+  y_pred_avg <- apply(logit_pred_3d[, , k], 2, mean, na.rm = TRUE)
+  y_pred_se <- apply(logit_pred_3d[, , k], 2, calc_se)
+  
+  choice_data_avg <- apply(choice_data_3d[, , k], 2, mean, na.rm = TRUE)
+  choice_data_se  <- apply(choice_data_3d[, , k], 2, calc_se)
+
+  # Only consider weeks with valid SEs
+  weeks <- seq_len(length(y_pred_se))[!is.na(y_pred_se)]
+  idx_shift <- weeks[1] - 1
+
+  df_pred <- data.frame(weeks = weeks,
+                        probability = y_pred_avg[weeks],
+                        type = rep("Model Fit", length(weeks)),
+                        se = y_pred_se[weeks],
+                        action = rep(paste("Action", k), length(weeks)))
+
+  df_real <- data.frame(weeks = weeks,
+                        probability = choice_data_avg[weeks],
+                        type = rep("Real Data", length(weeks)),
+                        se = choice_data_se[weeks],
+                        action = rep(paste("Action", k), length(weeks)))
+
+  df_compare <- rbind(df_compare, df_pred, df_real)
+}
+
+p <- ggplot(df_compare, aes(x = weeks, y = probability, color = type)) +
+  geom_line() +
+  geom_ribbon(data = df_compare, aes(ymin = probability - se, ymax = probability + se, fill = type), alpha = 0.1) +
+  labs(x = "Week", y = "Probability of a=1") +
+  facet_wrap(~action, ncol = 1) +
+  scale_color_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  scale_fill_manual(values = c("Model Fit" = "blue", "Real Data" = "red")) +
+  theme_bw()
+
+print(p)
+
+```
+
+
 -->
