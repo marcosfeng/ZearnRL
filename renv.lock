@@ -21,18 +21,6 @@
       "Repository": "RSPM",
       "Hash": "a8235afbcd6316e6e91433ea47661013"
     },
-    "Brobdingnag": {
-      "Package": "Brobdingnag",
-      "Version": "1.2-9",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "methods"
-      ],
-      "Hash": "00077243042334c50b74cdfafe172870"
-    },
     "DBI": {
       "Package": "DBI",
       "Version": "1.2.2",
@@ -338,27 +326,6 @@
       ],
       "Hash": "543776ae6848fde2f48ff3816d0628bc"
     },
-    "bayesplot": {
-      "Package": "bayesplot",
-      "Version": "1.11.1",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "dplyr",
-        "ggplot2",
-        "ggridges",
-        "glue",
-        "posterior",
-        "reshape2",
-        "rlang",
-        "stats",
-        "tibble",
-        "tidyselect",
-        "utils"
-      ],
-      "Hash": "c5cde76012ea08e94265ace1b53b77b9"
-    },
     "bigD": {
       "Package": "bigD",
       "Version": "0.2.0",
@@ -424,25 +391,6 @@
       ],
       "Hash": "a0cb8a465a115fd8460cab1a5b18a5f3"
     },
-    "bridgesampling": {
-      "Package": "bridgesampling",
-      "Version": "1.1-2",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "Brobdingnag",
-        "Matrix",
-        "R",
-        "coda",
-        "methods",
-        "mvtnorm",
-        "parallel",
-        "scales",
-        "stringr",
-        "utils"
-      ],
-      "Hash": "a64d4be61a31696fec80dc24cef69a9c"
-    },
     "brio": {
       "Package": "brio",
       "Version": "1.1.4",
@@ -452,41 +400,6 @@
         "R"
       ],
       "Hash": "68bd2b066e1fe780bbf62fc8bcc36de3"
-    },
-    "brms": {
-      "Package": "brms",
-      "Version": "2.21.0",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "Matrix",
-        "R",
-        "Rcpp",
-        "abind",
-        "backports",
-        "bayesplot",
-        "bridgesampling",
-        "coda",
-        "future",
-        "future.apply",
-        "ggplot2",
-        "glue",
-        "grDevices",
-        "loo",
-        "matrixStats",
-        "methods",
-        "mgcv",
-        "nleqslv",
-        "nlme",
-        "parallel",
-        "posterior",
-        "rlang",
-        "rstan",
-        "rstantools",
-        "stats",
-        "utils"
-      ],
-      "Hash": "5997b296ee665c10f0d18f1d01c9dd5c"
     },
     "broom": {
       "Package": "broom",
@@ -700,17 +613,6 @@
         "withr"
       ],
       "Hash": "7d975b08a9b0ff7bfb037c432a1ef0f8"
-    },
-    "coda": {
-      "Package": "coda",
-      "Version": "0.19-4.1",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "lattice"
-      ],
-      "Hash": "af436915c590afc6fffc3ce3a5be1569"
     },
     "codetools": {
       "Package": "codetools",
@@ -1109,20 +1011,6 @@
       ],
       "Hash": "e57e292737f7a4efa9d8a91c5908222c"
     },
-    "future.apply": {
-      "Package": "future.apply",
-      "Version": "1.11.1",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "future",
-        "globals",
-        "parallel",
-        "utils"
-      ],
-      "Hash": "455e00c16ec193c8edcf1b2b522b3288"
-    },
     "gargle": {
       "Package": "gargle",
       "Version": "1.5.2",
@@ -1254,20 +1142,6 @@
         "withr"
       ],
       "Hash": "cc3361e234c4a5050e29697d675764aa"
-    },
-    "ggridges": {
-      "Package": "ggridges",
-      "Version": "0.5.6",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "ggplot2",
-        "grid",
-        "scales",
-        "withr"
-      ],
-      "Hash": "66488692cb8621bc78df1b9b819497a6"
     },
     "ggsci": {
       "Package": "ggsci",
@@ -1936,24 +1810,6 @@
       ],
       "Hash": "6dfe8bf774944bd5595785e3229d8771"
     },
-    "mvtnorm": {
-      "Package": "mvtnorm",
-      "Version": "1.2-4",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "R",
-        "stats"
-      ],
-      "Hash": "17e96668f44a28aef0981d9e17c49b59"
-    },
-    "nleqslv": {
-      "Package": "nleqslv",
-      "Version": "3.3.5",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Hash": "982736cfb7276c4d9a2afa4e6b8e95a4"
-    },
     "nlme": {
       "Package": "nlme",
       "Version": "3.1-164",
@@ -2162,17 +2018,6 @@
         "withr"
       ],
       "Hash": "876c618df5ae610be84356d5d7a5d124"
-    },
-    "plyr": {
-      "Package": "plyr",
-      "Version": "1.8.9",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "Rcpp"
-      ],
-      "Hash": "6b8177fd19982f0020743fadbfdbd933"
     },
     "png": {
       "Package": "png",
@@ -2508,19 +2353,6 @@
       ],
       "Hash": "1425f91b4d5d9a8f25352c44a3d914ed"
     },
-    "reshape2": {
-      "Package": "reshape2",
-      "Version": "1.4.4",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "Rcpp",
-        "plyr",
-        "stringr"
-      ],
-      "Hash": "bb5996d0bd962d214a11140d77589917"
-    },
     "reticulate": {
       "Package": "reticulate",
       "Version": "1.35.0",
@@ -2609,20 +2441,6 @@
         "stats4"
       ],
       "Hash": "8a5b5978f888a3477c116e0395d006f8"
-    },
-    "rstantools": {
-      "Package": "rstantools",
-      "Version": "2.4.0",
-      "Source": "Repository",
-      "Repository": "RSPM",
-      "Requirements": [
-        "Rcpp",
-        "RcppParallel",
-        "desc",
-        "stats",
-        "utils"
-      ],
-      "Hash": "23813e635fcd210c33e154aa46d0a21a"
     },
     "rstatix": {
       "Package": "rstatix",
@@ -2754,6 +2572,17 @@
         "utils"
       ],
       "Hash": "ad57b543f7c3fca05213ba78ff63df9b"
+    },
+    "stargazer": {
+      "Package": "stargazer",
+      "Version": "5.2.3",
+      "Source": "Repository",
+      "Repository": "RSPM",
+      "Requirements": [
+        "stats",
+        "utils"
+      ],
+      "Hash": "d313fa83180f3376229f98633813cd31"
     },
     "stringfish": {
       "Package": "stringfish",

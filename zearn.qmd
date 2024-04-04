@@ -3884,16 +3884,16 @@ model_freq %>%
   sub_missing() %>%
   fmt_percent(decimals = 1) %>%
   tab_footnote(
-    footnote = "Q-learning model in state-free case and Actor-Critic in state-based case",
-    locations = cells_body(columns = RL)
+    footnote = "Q-learning model in state-free case and Actor-Critic in state-based case.",
+    locations = cells_column_labels(columns = RL)
   ) %>%
   tab_footnote(
-    footnote = "Combines predictions of Logit and RL models",
-    locations = cells_body(columns = `Logit-RL Hybrid`)
+    footnote = "Combines predictions of Logit and RL models.",
+    locations = cells_column_labels(columns = `Logit-RL Hybrid`)
   ) %>%
   tab_footnote(
-    footnote = "Combines predictions of Q-learning (state-free) and Actor-Critic (state-based) models",
-    locations = cells_body(columns = `QL-AC Hybrid`)
+    footnote = "Combines predictions of Q-learning (state-free) and Actor-Critic (state-based) models.",
+    locations = cells_column_labels(columns = `QL-AC Hybrid`)
   )
 
 ```
@@ -3934,6 +3934,10 @@ model_freq %>%
 
 ## Heterogeneity Analyses
 
+In our investigation of different pedagogical strategies in Zearn, we analyzed the impact of teacher characteristics on the success of reinforcement learning (RL) models. 
+
+The histogram of teacher-specific log-likelihoods in @fig-loglik-histogram reveals a centralized distribution, indicating consistency in model performance across teachers. Most teachers' data aligned with the model around the median log-likelihood, suggesting a typical teaching strategy efficacy pattern. This central tendency indicates the model's reliability in capturing the underlying decision-making processes. However, the spread of the histogram also implies variations, highlighting the diversity in teaching strategies, which warrants further investigation into individual differences.
+
 ```{r}
 #| label: fig-loglik-histogram
 #| fig-cap: "Histogram of teacher-specific log likelihood"
@@ -3961,6 +3965,8 @@ ggplot(data = data.frame(LogLikelihoods = log_likelihoods),
 
 ```
 
+In addition, we analyzed teacher-specific parameters to capture these individual differences. @fig-params-histogram provides a set of violin plots depicting a range of teacher behaviors and tendencies. We observed a wide range of learning rates, indicating differences in how quickly teachers adjusted their teaching based on student interactions. The distribution of the temperature parameter indicated varying levels of strategic consistency. Initial policy parameters are very close to zero, implying a "blank slate" for educators before making adjustments. Finally, the range in cost parameters pointed to a subjective assessment of resource investment in different teaching actions, revealing differences in perceived effort or resources required for specific teaching approaches.
+
 ```{r}
 #| label: fig-params-histogram
 #| fig-cap: "Histogram of Teacher-Specific Parameters"
@@ -3972,6 +3978,7 @@ ggplot(data = data.frame(LogLikelihoods = log_likelihoods),
 #| - "Initial policy"
 #| - "Initial value"
 #| - "Cost"
+#| layout-ncol: 3
 
 group_mean <- full_model[["cbm"]][[5]][[3]][[1]][[1]]
 error_bar <- full_model[["cbm"]][[5]][[4]][[1]][[1]]
@@ -4043,7 +4050,7 @@ for(param in unique(parameters_long$Parameter)) {
   p <- ggplot(data_current) +
     geom_violin(
       aes(x = Parameter, y = Value),
-      adjust = 2,
+      # adjust = 2,
       fill = brewer.pal(3, "Set2")[1],
       color = brewer.pal(3, "Set2")[3],
       alpha = 0.5
@@ -4076,9 +4083,11 @@ individual_plots[[7]]
 
 ```
 
+Our heterogeneity analysis also included comparing teachers classified into Logit or Actor-Critic models. @tbl-CBM-teachers displays these results; however, no differences were statistically significant after p-value correction.
+
 ```{r}
 #| label: tbl-CBM-teachers
-#| tbl-cap: "Teacher Heterogeneity"
+#| tbl-cap: "Comparison of Teacher Characteristics by Model Type. The table presents the differences in means across various characteristics between teachers classified into Logit or Actor-Critic models."
 
 # Classify each teacher according to the best-fit model
 teacher_classification <- apply(top_model_comp[["cbm"]][[5]][[2]],
@@ -4086,138 +4095,149 @@ teacher_classification <- apply(top_model_comp[["cbm"]][[5]][[2]],
 teacher_params <- top_model_comp[["cbm"]][[5]][[1]][[3]][[1]]
 # Make min(teacher_classification) the baseline
 load("CBM/data/classrooms.RData")
-hetereogeneity <- classrooms %>%
+heterogeneity <- classrooms %>%
   cbind(
     data.frame(
-      actorcritic = teacher_classification - min(teacher_classification)
+      ModelType = factor(teacher_classification - min(teacher_classification), 
+                         labels = c("Logit", "Actor-Critic"))
       )) %>%
   cbind(teacher_params)
-names(hetereogeneity)[3:9] <- c(
+names(heterogeneity)[3:9] <- c(
   "alpha_w", "alpha_theta", "gamma", "tau", "theta_init", "w_init", "cost"
 )
-hetereogeneity <- hetereogeneity %>%
+heterogeneity <- heterogeneity %>%
   mutate(across(c(alpha_w, alpha_theta, gamma), ~ 1/(1+exp(-.)))) %>%
   mutate(across(c(tau, cost), ~ exp(.))) %>%
   left_join(
     df %>%
       group_by(Classroom.ID, Teacher.User.ID) %>%
       summarize(
-        across(c(charter.school, school.account),
-               \(x) mean(x, na.rm = TRUE)),
-        across(c(Frobenius.NNDSVD_teacher2,
-                 Frobenius.NNDSVD_student1, Frobenius.NNDSVD_student3,
-                 `Active.Users...Total`, Badges.per.Active.User,
-                 Tower.Alerts.per.Tower.Completion),
-               \(x) sum(x, na.rm = TRUE)),
-        across(c(income, poverty), ~ unique(.)),
-        n_weeks = n()
+        `Charter School` = mean(charter.school, na.rm = TRUE),
+        `Paid Account` = mean(school.account, na.rm = TRUE),
+        Action = sum(Frobenius.NNDSVD_teacher2, na.rm = TRUE),
+        Reward = sum(Frobenius.NNDSVD_student1, na.rm = TRUE),
+        State = sum(Frobenius.NNDSVD_student3, na.rm = TRUE),
+        `Active Students` = sum(`Active.Users...Total`, na.rm = TRUE),
+        `Avg. Badges` = sum(`Badges.per.Active.User`, na.rm = TRUE),
+        `Avg. Tower Alerts` = sum(`Tower.Alerts.per.Tower.Completion`, na.rm = TRUE),
+        Income = unique(income),
+        Poverty = unique(poverty),
+        `No. of Weeks` = n()
         ), by = "Classroom.ID"
     ) %>%
-  mutate(across(c(income, poverty), as.ordered))
+  mutate(across(c(Income, Poverty), as.ordered))
 
-# T-tests for differences in means
-hetereogeneity %>%
-  select(actorcritic, charter.school, school.account, poverty, 
-         n_weeks,
-         `Active.Users...Total`, `Badges.per.Active.User`,
-         `Tower.Alerts.per.Tower.Completion`,
-         Frobenius.NNDSVD_teacher2,
-         Frobenius.NNDSVD_student1, Frobenius.NNDSVD_student3) %>%
+# T-tests for differences in means by model type
+heterogeneity %>%
+  dplyr::select(ModelType, `Charter School`, `Paid Account`, Poverty, 
+         `No. of Weeks`, `Active Students`, `Avg. Badges`, `Avg. Tower Alerts`, 
+         Action, Reward, State) %>%
   tbl_summary(
-    by = actorcritic,  # Grouping variable
+    by = ModelType,  # Grouping variable
     statistic = list(all_continuous() ~ "{mean} ({sd})",
                      all_categorical() ~ "{p}%"),
     missing = "no"
   ) %>%
   add_n() %>%
   add_difference() %>%
+  modify_column_hide(columns = ci) %>%
   add_q()
+
+```
+
+Additionally, we further differentiated teacher behaviors by splitting the data based on log-likelihood, creating 'Good Fit' and 'Bad Fit' model groups. @tbl-CBM-teachers-full shows the differences between these two groups, and the results indicate overall higher weekly usage for teachers in the Good Fit group. With the exception of the average number of tower alerts (i.e., corrected for number of weeks), teachers in the Good Fit group had higher values across all variables, suggesting a more engaged and effective teaching approach.
+
+```{r}
+#| label: tbl-CBM-teachers-full
+#| tbl-cap: "Comparison of Teacher Characteristics by Model Fit. The table presents the differences in means across various characteristics between teachers classified into Good Fit or Bad Fit groups."
+
+# Load the full model data
+full_model <- readMat("CBM/zearn_results/top_results/hbi_ac.mat")
+
+# Extract log likelihoods and classify teachers based on median split
+log_likelihoods <- as.numeric(full_model[["cbm"]][[4]][[1]][[1]])
+median_log_likelihood <- median(log_likelihoods)
+
+# Add model fit classification to the data frame
+teacher_params <- full_model[["cbm"]][[5]][[1]][[1]][[1]]
+fit_group <- ifelse(log_likelihoods >= median_log_likelihood, "Good Fit", "Bad Fit")
+
+# Load classroom data
+load("CBM/data/classrooms_full.RData")
+valid_subj <- readMat("CBM/zearn_results/top_results/valid_subj_all.mat")
+valid_subj <- as.logical(unlist(valid_subj))
+
+# Merge and transform the data
+full_data <- as.data.frame(classrooms) %>%
+  rename(`Classroom.ID` = classrooms) %>%
+  filter(valid_subj) %>%
+  cbind(teacher_params) %>%
+  mutate(
+    FitGroup = factor(fit_group, levels = c("Good Fit", "Bad Fit"))
+  ) %>%
+  left_join(
+    df %>%
+      group_by(Classroom.ID, Teacher.User.ID) %>%
+      summarize(
+        `Charter School` = mean(charter.school, na.rm = TRUE),
+        `Paid Zearn Account` = mean(school.account, na.rm = TRUE),
+        Action = mean(Frobenius.NNDSVD_teacher2, na.rm = TRUE),
+        Reward = mean(Frobenius.NNDSVD_student1, na.rm = TRUE),
+        State = mean(Frobenius.NNDSVD_student3, na.rm = TRUE),
+        `Active Students` = mean(`Active.Users...Total`, na.rm = TRUE),
+        `Avg. Badges` = mean(`Badges.per.Active.User`, na.rm = TRUE),
+        `Avg. Tower Alerts` = mean(`Tower.Alerts.per.Tower.Completion`, na.rm = TRUE),
+        Income = unique(income),
+        Poverty = unique(poverty),
+        `No. of Weeks` = n(),
+        n_classes_by_teacher = median(teacher_number_classes),
+        grade = first(Grade.Level)
+        ), by = "Classroom.ID"
+    )
+
+# Prepare data for statistical testing
+full_data <- full_data %>%
+  mutate(across(c(Income, Poverty), as.ordered))
+
+# T-tests for differences in means by model type and fit group
+full_data %>%
+  dplyr::select(FitGroup, `Charter School`, `Paid Zearn Account`, Poverty, 
+         `No. of Weeks`, `Active Students`, `Avg. Badges`, `Avg. Tower Alerts`, 
+         Action, Reward, State) %>%
+  tbl_summary(
+    by = c("FitGroup"), # Grouping variables
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{p}%"),
+    missing = "no"
+  ) %>%
+  add_n() %>%
+  add_difference() %>%
+  modify_column_hide(columns = ci) %>%
+  add_q()
+
 
 ```
 
 ## Optimality
 
-To understand the factors contributing to a teacher's ability to maximize lesson completion, we conducted an in-depth analysis of teachers' performance across various parameters from the previous hierarchical model. We focused specifically on the learning rate ("Alpha") and the inverse temperature ("Tau"). We examined their correlation with the average weekly badges earned per teacher, a proxy for lesson completion, and Tower Alerts, a measure of student struggle with the materials.
+To understand what makes a teacher effective in helping students complete their lessons, we carefully examined teachers' performance across various parameters from the previous hierarchical model. We were especially interested in the learning rate ("Alpha") and the inverse temperature ("Tau") because of their potential impact on behavior adaptation and decision consistency. We found that these parameters correlated to the number of weekly badges earned by the average student (i.e., average lesson completion) and Tower Alerts (i.e., students struggling with the material). 
 
 @tbl-optimality presents the coefficients of six different linear regression models. Each model predicts the average weekly badges earned per teacher (Models 1-3) or the average weekly Tower Alerts (Models 4-6) based on different combinations of the parameters and control variables. The control variables include the number of active students, the number of classes taught by the teacher, the grade level, the number of weeks, the poverty level, the income level, whether the school is a charter school, and whether the school has a paid account.
 
-Alpha and Tau achieved statistical significance when adding all the control variables (columns 3 and 6, respectively). These results suggest that a higher learning rate may lead to fewer badges earned and more Tower Alerts. A higher inverse temperature is associated with a slight increase in badges earned.
+These models revealed that the RL parameters do not significantly affect tower alerts, as already suggested in @tbl-CBM-teachers-full. However, they correlate with badges: a higher learning rate for value weights and initial value weights were linked to higher badges. A positive correlation was also present for the estimated cost parameter. On the other hand, a higher temperature parameter, discount rate, and initial policy weights were negatively associated with badges.
 
 ```{r, results='asis'}
-#| eval: false
-#| cache: true
 #| label: tbl-optimality
-#| tbl-cap: "The impact of different parameters and control variables on average weekly badges and Tower Alerts. Six linear regression models were used to examine the correlations between a teacher's RL parameters (Cost 1, Cost 2, Cost 3, Gamma, Alpha, Tau) and two measures of student engagement: average weekly Badges earned per student (Models 1-3) and average weekly Tower Alerts per student (Models 4-6). Models 2-3 and 5-6 also control for other variables including number of active students, number of classes taught, grade level, weeks, poverty level, income level, whether the school is a charter school, and whether the school has a paid account. Coefficients and standard errors are provided for each parameter in each model."
+#| tbl-cap: "Impact of RL parameters on Weekly Badges and Tower Alerts. Six linear regression models were used to examine the correlations between a teacher's RL parameters and two measures of student engagement: average weekly Badges earned per student (Models 1-3) and average weekly Tower Alerts per student (Models 4-6). Models 2-3 and 5-6 also control for other variables including number of active students, number of classes taught, grade level, weeks, poverty level, income level, whether the school is a charter school, and whether the school has a paid account. Coefficients and standard errors are provided for each parameter in each model."
 
-library(tidybayes)
 library(stargazer)
 
-hierarchical_model <- read_rds("Bayesian/Results/Q-kernel-hierarchical-FR.RDS")
-classroom_data <- read.csv("Bayesian/df_subset.csv") %>%
-  group_by(Teacher.User.ID) %>%
-  summarise(n_active_students = mean(Active.Users...Total),
-            n_students = mean(Students...Total),
-            minutes_students = mean(Minutes.per.Active.User),
-            badges = mean(Badges.per.Active.User),
-            boosts = mean(Boosts.per.Tower.Completion),
-            tower_alers = mean(Tower.Alerts.per.Tower.Completion),
-            n_classes_by_teacher = median(teacher_number_classes),
-            grade = first(Grade.Level),
-            n_weeks = mean(n_weeks),
-            poverty = first(poverty),
-            income = first(income),
-            charter_school = first(charter.school),
-            school_account = first(school.account))
-
-posterior_samples <- hierarchical_model$draws() %>%
-  spread_draws(cost[207,3],
-               gamma[207],
-               alpha[207], 
-               tau[207])
-
-summary_cost <- posterior_samples %>%
-  unnest_wider(cost, names_sep = "_")
-list_of_dfs <- lapply(seq_along(summary_cost)[grepl("cost", names(summary_cost))], function(x){
-  temp_df <- as.data.frame(summary_cost[[x]])
-  names(temp_df) <- paste0("C", 1:ncol(temp_df))
-  temp_df$teacher <- paste0("teacher_", (x - 3))
-  return(temp_df)
-})
-cost_df <- do.call(rbind, list_of_dfs)
-cost_df$teacher <- as.numeric(gsub("teacher_", "", cost_df$teacher)) 
-summary_cost <- cost_df %>% 
-  group_by(teacher) %>% 
-  summarise(across(starts_with("C"), mean, .names = "mean_{.col}"))
-
-summary_gamma_alpha_tau <- posterior_samples %>%
-  unnest_wider(gamma, names_sep = "_") %>%
-  unnest_wider(alpha, names_sep = "_") %>%
-  unnest_wider(tau, names_sep = "_") %>%
-  summarise(across(c(starts_with("gamma"),
-                     starts_with("alpha"),
-                     starts_with("tau")),
-                   mean, .names = "{.col}")) %>%
-  pivot_longer(cols = c(starts_with("gamma"),
-                        starts_with("alpha"),
-                        starts_with("tau")),
-               names_to = "variable",
-               values_to = "value") %>%
-  separate(variable, into = c("type", "teacher"), sep = "_", convert = TRUE) %>%
-  pivot_wider(names_from = type, values_from = value)
-
-# merge the two dataframes
-summary_all <- merge(summary_cost, summary_gamma_alpha_tau, by = "teacher")
-
-classroom_data <- classroom_data %>%
-  arrange(Teacher.User.ID) %>%
-  bind_cols(summary_all) %>%
-  dplyr::mutate(
-    income = factor(income, ordered = TRUE), 
-    grade = factor(grade, ordered = TRUE,
-                   levels = c("Kindergarten",
-                              "1st", "2nd", "3rd", "4th", "5th")),
-    poverty = factor(poverty, ordered = TRUE)
-  )
+# Prepare CBM hierarchical model results
+names(full_data)[2:8] <- c("alpha_w", "alpha_theta", "gamma", "tau",
+                           "theta_init", "w_init", "cost")
+# full_data <- full_data %>%
+#   mutate(across(c(alpha_w, alpha_theta, gamma), ~ 1/(1+exp(-.)))) %>%
+#   mutate(across(c(tau, cost), ~ exp(.)))
 
 ordered_factor <- function(fact_var) {
   categories <- levels(fact_var)
@@ -4231,198 +4251,190 @@ ordered_factor <- function(fact_var) {
   contrasts(fact_var) <- cont
   return(fact_var)
 }
-classroom_data <- classroom_data %>%
+full_data <- full_data %>%
   dplyr::mutate(
-    income = ordered_factor(income), 
+    Income = factor(Income, ordered = TRUE), 
+    grade = factor(grade, ordered = TRUE,
+                   levels = c("Kindergarten",
+                              "1st", "2nd", "3rd", "4th", "5th")),
+    Poverty = factor(Poverty, ordered = TRUE)
+  ) %>%
+  dplyr::mutate(
+    Income = ordered_factor(Income), 
     grade = ordered_factor(grade),
-    poverty = ordered_factor(poverty)
+    Poverty = ordered_factor(Poverty)
   )
 
-model1 <- lm(badges ~ mean_C1 + mean_C2 + mean_C3 +
-            gamma + alpha + tau,
-          classroom_data)
+# Run regression models using the median split groups
+model1 <- lm(`Avg. Badges` ~ alpha_w + alpha_theta + gamma + tau +
+               cost + theta_init + w_init,
+             data = full_data)
+model2 <- lm(`Avg. Badges` ~ alpha_w + alpha_theta + gamma + tau +
+               cost + theta_init + w_init +
+               `Active Students` + n_classes_by_teacher,
+             data = full_data)
+model3 <- lm(`Avg. Badges` ~ alpha_w + alpha_theta + gamma + tau +
+               cost + theta_init + w_init +
+               `Active Students` + n_classes_by_teacher +
+               grade + `No. of Weeks` + Poverty +
+               `Charter School` + `Paid Zearn Account`,
+             data = full_data)
+model4 <- lm(`Avg. Tower Alerts` ~ alpha_w + alpha_theta + gamma + tau +
+               cost + theta_init + w_init,
+             data = full_data)
+model5 <- lm(`Avg. Tower Alerts` ~ alpha_w + alpha_theta + gamma + tau +
+               cost + theta_init + w_init  +
+               `Active Students` + n_classes_by_teacher,
+             data = full_data)
+model6 <- lm(`Avg. Tower Alerts` ~ alpha_w + alpha_theta + gamma + tau +
+               cost + theta_init + w_init +
+               `Active Students` + n_classes_by_teacher +
+               grade + `No. of Weeks` + Poverty +
+               `Charter School` + `Paid Zearn Account`,
+             data = full_data)
 
-model2 <- lm(badges ~ mean_C1 + mean_C2 + mean_C3 +
-            gamma + alpha + tau +
-            n_active_students +
-            n_classes_by_teacher +
-            grade +
-            n_weeks,
-          classroom_data)
-
-model3 <- lm(badges ~ mean_C1 + mean_C2 + mean_C3 +
-            gamma + alpha + tau +
-            n_active_students +
-            n_classes_by_teacher +
-            grade +
-            n_weeks +
-            poverty +
-            income +
-            charter_school +
-            school_account,
-          classroom_data)
-
-model4 <- lm(tower_alers ~ mean_C1 + mean_C2 + mean_C3 +
-            gamma + alpha + tau,
-          classroom_data)
-
-model5 <- lm(tower_alers ~ mean_C1 + mean_C2 + mean_C3 +
-            gamma + alpha + tau +
-            n_active_students +
-            n_classes_by_teacher +
-            grade +
-            n_weeks,
-          classroom_data)
-
-model6 <- lm(tower_alers ~ mean_C1 + mean_C2 + mean_C3 +
-            gamma + alpha + tau +
-            n_active_students +
-            n_classes_by_teacher +
-            grade +
-            n_weeks +
-            poverty +
-            income +
-            charter_school +
-            school_account,
-          classroom_data)
+# # Gather tidy summaries of each model
+# model_summaries <- list(
+#   tidy(model1), tidy(model2), tidy(model3),
+#   tidy(model4), tidy(model5), tidy(model6)
+# )
+# 
+# # Create a function to format model summaries for gt
+# format_for_gt <- function(model_summary, model_name) {
+#   model_summary %>%
+#     mutate(model = model_name) %>%
+#     dplyr::select(model, term, estimate, std.error, statistic, p.value)
+# }
+# 
+# # Apply the function to each model summary with an appropriate model name
+# formatted_summaries <- lapply(seq_along(model_summaries), function(i) {
+#   format_for_gt(model_summaries[[i]], paste("Model", i))
+# }) %>%
+#   bind_rows()
+# 
+# # Generate a gt table
+# table_gt <- gt(formatted_summaries) %>%
+#   cols_label(
+#     model = "Model",
+#     term = "Term",
+#     estimate = "Estimate",
+#     std.error = "Standard Error",
+#     statistic = "T Value",
+#     p.value = "P Value"
+#   ) %>%
+#   tab_spanner(
+#     label = "Statistics",
+#     columns = c(estimate, std.error, statistic, p.value)
+#   ) %>%
+#   fmt_number(
+#     columns = c(estimate, std.error, statistic, p.value),
+#     decimals = 3
+#   ) %>%
+#   data_color(
+#     columns = c(p.value),
+#     colors = scales::col_numeric(
+#       palette = c("red", "yellow", "green"),
+#       domain = c(0, 0.05)
+#     )
+#   )
+# 
+# # Print the table
+# print(table_gt)
 
 # Create table with stargazer
 stargazer(model1, model2, model3, model4, model5, model6,
           type = "latex",
           header=FALSE,
           align = TRUE,
-          covariate.labels = c("Cost 1", "Cost 2", "Cost 3",
-                               "Gamma", "Alpha", "Tau",
-                               "Number of Active Students", "Number of Classes",
-                               "Number of Weeks", "Charter School", "Paid School Account"),
-          omit = c("grade", "poverty", "income"),
-          dep.var.caption = "Dependent variables:",
+          covariate.labels = c("$\\alpha_w$", "$\\alpha_\\theta$",
+                               "$\\gamma$", "$\\tau$",
+                               "Cost", "$\\theta_{init}$", "$w_{init}$",
+                               "No. of Active Students",
+                               "No. of Classes", "Grade", "No. of Weeks",
+                               "Poverty Level",
+                               "Charter School", "Paid Zearn Account"),
+          omit = c("grade", "Poverty"),
           dep.var.labels = c("Badges", "Tower Alerts"),
           star.cutoffs = c(.05, .01, .001), 
           star.char = c("*", "**", "***"),
           add.lines = list(c("Control for Grade Level",
                              "", "Yes", "Yes", "", "Yes", "Yes"),
                            c("Control for Poverty Level",
-                             "", "", "Yes", "", "", "Yes"),
-                           c("Control for Income Level",
                              "", "", "Yes", "", "", "Yes")))
 
 
 ```
 
-@fig-heterogeneity presents a detailed summary of the associations between different factors and classroom variables. Among these, the interaction between "Cost 3" and "Poverty Level" is notable. Our data suggest that a higher estimated cost of applying Pedagogical Content Knowledge predicts a lower median income level in the school. The estimated Discount Rate is another variable significantly associated with a school's Poverty Level ($\beta = -0.39,\text{ } p<0.05$). Furthermore, the negative relationship between being a Charter School and the Learning Rate, with a coefficient of -0.67 (p\<0.001), suggests that teachers in charter schools are slower to adapt and modify their teaching methods in response to new information.
+@fig-heterogeneity presents another perspective on how classroom characteristics correlate with RL parameters. For this figure, we regress classroom variables (columns) on the estimated cost parameter, the discount rate, the learning rates, the weights, and the temperature. Each cell in the heatmap represents the estimate of a linear, Poisson, or logistic regression model, depending on the variable type. For ordinal classroom variables (Income Level and Poverty Level), we used ordered logistic regression (proportional odds model), while for binary variables (Charter School, Paid School Account), we applied logistic regression. We model the number of classes by teacher (count data) with Poisson regression. The coefficients are scaled estimates of the effect of each parameter on the respective classroom variable.
+
+One notable finding is the association between RL parameters and the total number of weeks of Zearn usage. This finding makes sense if we assume that teachers and classrooms who use the platform more frequently will present more noticeable learning patterns.
+
+Further, the heat map illustrates how the initial policy ($\theta_{init}$) predicts income and poverty levels, implying that teachers' initial strategies vary across different socio-economic backgrounds. Additionally, the contrasting effects of a Paid Zearn Account indicate that teachers in these schools tend to begin the academic year with higher value weights and lower policy weights.
 
 ```{r}
-#| eval: false
-#| cache: true
 #| label: fig-heterogeneity
-#| fig-cap: "Predicting classroom variables with RL parameters. The data comes from a comprehensive set of classroom records, including income level, poverty level, charter school status, whether a school account is paid, and the number of classes each teaches. These classroom variables (columns) are regressed on the estimated cost parameters for each action (Cost 1, Cost 2, Cost 3), the discount rate, the learning rate, and the inverse temperature. Each cell in the heatmap represents the estimate of a linear, Poisson, or logistic regression model, depending on the variable type. For ordinal classroom variables (Income Level and Poverty Level), ordered logistic regression (proportional odds model) is used, while for binary variables (Charter School, Paid School Account), logistic regression is applied. The number of classes by each teacher, being a count data, is modeled with Poisson regression. The coefficients are scaled estimates of the effect of each parameter on the respective classroom variable. The asterisks indicate the level of statistical significance based on p-values (*p < 0.1; **p < 0.01; ***p < 0.001). The coefficients are color-coded with a gradient from light blue (negative) to white (zero) to dark blue (positive)."
+#| fig-cap: "Predicting classroom variables with RL parameters. The data comes from a comprehensive set of classroom records, including income level, poverty level, charter school status, whether a school account is paid, and the number of classes each teaches. These classroom variables (columns) are regressed on the estimated cost parameter, the discount rate, the learning rate, and the temperature. Each cell in the heatmap represents the estimate of a linear, Poisson, or logistic regression model, depending on the variable type. For ordinal classroom variables (Income Level and Poverty Level), ordered logistic regression (proportional odds model) is used, while for binary variables (Charter School, Paid School Account), logistic regression is applied. The number of classes by each teacher, being a count data, is modeled with Poisson regression. The coefficients are scaled estimates of the effect of each parameter on the respective classroom variable. The asterisks indicate the level of statistical significance based on p-values (p < .1; p < .01; p < .001). The coefficients are color-coded with a gradient from light blue (negative) to white (zero) to dark blue (positive)."
 library(broom)
 library(MASS)
 
-# Prepare data
-hetero <- classroom_data %>%
-  dplyr::select(income, poverty, charter_school, school_account, n_classes_by_teacher,
-         mean_C1, mean_C2, mean_C3, gamma, alpha, tau) %>%
-  dplyr::mutate(
-    income = factor(income, ordered = TRUE),
-    poverty = factor(poverty, ordered = TRUE)
-  )
+# Ensure the predictors are scaled
+predictors <- c("alpha_w", "alpha_theta", "gamma", "tau",
+                "cost", "theta_init", "w_init")
+full_data[predictors] <- scale(full_data[predictors])
 
-# Define predictors and responses
-responses <- c("income", "poverty",
-               "charter_school", "school_account", "n_classes_by_teacher")
-predictors <- c("mean_C1", "mean_C2", "mean_C3", "gamma", "alpha", "tau")
-hetero[predictors] <- scale(hetero[predictors])
-# Create the formula for the model with all predictors
+# Define responses for which models will be run
+responses <- c("Income", "Poverty", "`Charter School`", "`Paid Zearn Account`", "`No. of Weeks`")
 predictors_formula <- paste(predictors, collapse = " + ")
 
-# Run models for each response, and extract coefficients
+# Run models for each response and extract coefficients
 coef_matrix <- map_dfr(responses, function(response) {
-  if (response == "income" | response == "poverty") {
-    model <- polr(as.formula(paste0(response, " ~ ", predictors_formula)),
-                  data = hetero, Hess = TRUE)
-  } else if (response == "n_classes_by_teacher") {
-    model <- glm(as.formula(paste0(response, " ~ ", predictors_formula)),
-                 data = hetero, family = poisson(link = "log"))
+  formula <- as.formula(paste0(response, " ~ ", predictors_formula))
+  if (response %in% c("Income", "Poverty")) {
+    model <- polr(formula, data = full_data, Hess = TRUE)
+  } else if (response == "`No. of Weeks`") {
+    model <- glm(formula, data = full_data, family = poisson(link = "log"))
   } else {
-    model <- glm(as.formula(paste0(response, " ~ ", predictors_formula)),
-                 data = hetero, family = binomial(link = "logit"))
+    model <- glm(formula, data = full_data, family = binomial(link = "logit"))
   }
   
   tidy(model, p.values = TRUE) %>%
     filter(term %in% predictors) %>%
     dplyr::select(term, estimate, p.value) %>%
     mutate(response = response,
-           sig = ifelse(p.value < 0.05, "***",
-                        ifelse(p.value < 0.01, "**",
-                               ifelse(p.value < 0.1, "*", ""))))
+           sig = case_when(
+             p.value < 0.001 ~ "***",
+             p.value < 0.01 ~ "**",
+             p.value < 0.05 ~ "*",
+             TRUE ~ ""
+           ))
 })
 
-# Convert to wide format
+# Convert to wide format for plotting
 coef_matrix <- coef_matrix %>%
-  pivot_wider(names_from = term, values_from = c(estimate, p.value, sig))
-
-# Reorder the rows to match the original order of responses
-coef_matrix <- coef_matrix %>%
+  pivot_wider(names_from = term, values_from = c(estimate, p.value, sig)) %>%
   mutate(response = factor(response, levels = responses)) %>%
   arrange(response)
 
-# Reshape for plotting
 coef_matrix_long <- coef_matrix %>%
   pivot_longer(cols = starts_with("estimate"), names_to = "term", values_to = "estimate") %>%
   pivot_longer(cols = starts_with("sig"), names_to = "term_sig", values_to = "sig")
-
 # Clean up term names
 coef_matrix_long$term <- str_replace(coef_matrix_long$term, "estimate_", "")
 coef_matrix_long$term_sig <- str_replace(coef_matrix_long$term_sig, "sig_", "")
-
 # Make sure the term columns match
 coef_matrix_long <- coef_matrix_long[coef_matrix_long$term == coef_matrix_long$term_sig,]
 
-# Rename the variables
-var_names <- c("income" = "Income Level", "poverty" = "Poverty Level",
-               "charter_school" = "Charter School",
-               "school_account" = "Paid School Account",
-               "n_classes_by_teacher" = "Number of Classes by Teacher",
-               "mean_C1" = "Cost 1", "mean_C2" = "Cost 2", "mean_C3" = "Cost 3",
-               "gamma" = "Discount Rate",
-               "alpha" = "Learning Rate",
-               "tau" = "Inverse Temperature")
-coef_matrix_long$term <- var_names[coef_matrix_long$term]
-
-responses_new <- c("Income\n Level", "Poverty\n Level",
-                   "Charter\n School", "Paid School\n Account", 
-                   "Classes\n per Teacher")
-
-names(responses_new) <- responses
-
-# Update variable labels
-coef_matrix_long$response <- factor(coef_matrix_long$response, 
-                                    levels = responses, 
-                                    labels = responses_new)
-
-# Create the plot
+# Plot the heatmap
 ggplot(coef_matrix_long, aes(x = response, y = term, fill = as.numeric(estimate))) +
-  scale_y_discrete(limits = c("Cost 1", "Cost 2", "Cost 3",
-                              "Inverse Temperature", "Discount Rate", "Learning Rate")) +
   geom_tile() +
-  geom_text(aes(label = paste0(round(as.numeric(estimate), 2), sig)), size = 4) +
+  geom_text(aes(label = paste0(signif(as.numeric(estimate), 2), sig)), size = 3) +
   scale_fill_gradient2(low = "lightblue", high = "darkblue", mid = "white", 
-                       midpoint = 0, limit = c(-1, 1), 
-                       name = "Regression\n Coefficient") +
-  scale_x_discrete(position = "top") + # This line moves the x-axis labels to the top
+                       midpoint = 0, limits = c(-1, 1), name = "Estimate") +
   theme_minimal() +
-  theme(axis.text.x = element_text(size = 12, angle = 0, vjust = 1, hjust = 0.5), 
-        axis.text.y = element_text(size = 12), 
-        legend.title = element_text(size = 11), 
-        legend.text = element_text(size = 10),
-        legend.spacing.x = unit(0.5, "cm"),
-        legend.position = "bottom") +
-  labs(x = NULL, y = NULL, title = NULL)
+  labs(x = NULL, y = NULL) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
-
 
 
 <!--
@@ -4566,25 +4578,23 @@ do.call(grid.arrange, c(plots, ncol = 3))
 
 # Discussion
 
--- This pattern is consistent with the findings from [@knudsen2020] that teachers reported learning from a variety of Zearn Math resources and that the curriculum materials and their implementation are important sources of learning. **Component 2 (Resource Utilization)**: This component has high weights for variables related to different resources available on the Zearn platform, such as "Optional Problem Sets," "Student Notes and Exit Tickets," and "Mission Overview". High values in this component suggest that teachers are downloading and possibly using a variety of resources in their teaching. This pattern is consistent with the findings from [@knudsen2020] that teachers reported learning from a variety of Zearn Math resources and that the curriculum materials and their implementation are important sources of learning. **Component 3 (Pedagogical Content Knowledge)**: This component has high weights for variables related to student activities, such as "Guided Practice Completed," "Tower Completed," and "Fluency Completed," suggesting that teachers may be engaged in acquiring subject-matter-specific pedagogy, learning to scaffold and to explain concepts in a variety of ways. This finding aligns with [@morrison2019], where teachers were most likely to report using Independent Digital Lessons, student notes and workbooks, small-group lessons, and paper Exit Tickets frequently or very frequently.
-
 Our study aimed to unravel the complex dynamics of teacher behavior in the context of Zearn Math, a popular online learning platform. We sought to understand the role of reinforcement learning (RL) in modeling these behaviors and their impact on student achievement. Our findings provide compelling evidence that RL models, particularly the hierarchical Q-learning model, can accurately characterize teacher behavior and offer valuable insights into the education field.
 
 ## Characterizing Teacher Behavior
 
-Our first research question aimed to identify the RL model that best characterizes teacher behavior in the Zearn Math context. The hierarchical Q-learning model emerged as the most accurate, outperforming the simple logistic regression model. This result suggests that teachers are not merely following a static "education production function" but are actively learning and adapting their teaching strategies on Zearn Math.
+Our first research question aimed to identify the RL model that best characterizes teacher behavior in the Zearn Math context. The hierarchical Actor-Critic model emerged as the most accurate, outperforming the simple logistic regression model. This result suggests that most teachers are not merely following a static "education production function" but are actively learning and adapting their teaching strategies on Zearn Math.
 
-The hierarchical Q-learning model's superiority underscores the importance of considering individual teacher differences. As an agent in the RL model, each teacher has unique parameters that reflect their learning rate and decision-making strategies. These parameters offer a rich source of information about teacher behavior, providing a more nuanced understanding than simpler models.
+The hierarchical Actor-Critic model's superiority underscores the importance of considering individual teacher differences. As an agent in the RL model, each teacher has unique parameters that reflect their learning rate and decision-making strategies. These parameters offer a rich source of information about teacher behavior, providing a more nuanced understanding than simpler models.
 
 ## Parameter Variations and Their Influence on Student Achievement
 
-Our second research question explored how variations in the parameters of RL models (i.e., the learning rate and the exploration-exploitation trade-off) affect teacher behavior and, consequently, student achievement. The learning rate suggests a teacher's adaptability in altering teaching strategies based on feedback. The exploration-exploitation trade-off encapsulates a teacher's ability to balance using new teaching strategies (exploration) and sticking with known effective strategies (exploitation).
+Our second research question explored how variations in the parameters of RL models (e.g., the learning rate or the temperature) affect teacher behavior and, consequently, student achievement. The learning rate suggests a teacher's adaptability in altering teaching strategies based on feedback. The exploration-exploitation trade-off encapsulates a teacher's ability to balance using new teaching strategies (exploration) and sticking with known effective strategies (exploitation).
 
-Our findings indicated that teachers exhibiting a higher learning rate, a marker of greater adaptability, were associated with higher student achievement. This finding echoes the sentiments expressed by teachers in [@knudsen2020], who found value in the multifaceted strategies provided by Zearn Math. A 3rd-grade Zearn teacher stated, "I like that Zearn provides several strategies to get to the answer...you see the problems; you see what you need to hit on and stress the first time around." This sentiment aligns with our observation that the ability to adapt teaching strategies based on feedback, akin to a higher learning rate in RL models, is a valuable attribute in promoting student achievement.
+Our findings indicated that teachers exhibiting a higher value learning rate, suggesting greater adaptability, were associated with higher student achievement. This finding echoes the sentiments expressed by teachers in [@knudsen2020], who found value in the multifaceted strategies provided by Zearn Math. A 3rd-grade Zearn teacher stated, "I like that Zearn provides several strategies to get to the answer...you see the problems; you see what you need to hit on and stress the first time around." This sentiment aligns with our observation that the ability to adapt teaching strategies based on feedback, akin to a higher learning rate in RL models, is a valuable attribute in promoting student achievement.
 
 Similarly, teachers who effectively balanced exploration and exploitation had students with superior outcomes. [@morrison2019] noted that teachers exhibited varied levels of preparedness for implementing the Zearn Math curriculum, with just under half of the teachers reporting feeling adequately prepared for implementation. This lack of preparation could influence how effectively teachers navigate the exploration-exploitation trade-off, impacting student outcomes.
 
-Our results also highlight the complex dynamics underlying teacher behaviors and their implications for student outcomes. For instance, @knudsen2020 found that veteran teachers with strong PCK leaned heavily on traditional teaching methods, reducing their engagement with the novel practices proposed by Zearn Math. Conversely, new teachers exhibited a blend of traditional and innovative practices, despite their initial resistance to Zearn Math, underscoring their learning curve with the new curriculum.
+Our results also highlight the complex dynamics underlying teacher behaviors and their implications for student outcomes. For instance, @knudsen2020 found that veteran teachers with strong Pedagogical Knowledge leaned heavily on traditional teaching methods, reducing their engagement with the novel practices proposed by Zearn Math. Conversely, new teachers exhibited a blend of traditional and innovative practices, despite their initial resistance to Zearn Math, underscoring their learning curve with the new curriculum.
 
 Our findings point to the potential of RL parameters to provide valuable insights into teacher behaviors and their subsequent effects on student achievement. Understanding and leveraging these parameters could enhance teacher training programs and interventions, ultimately improving student outcomes. By incorporating insights from our study into such initiatives, we can help foster a more adaptive and effective teaching landscape that better supports student learning and achievement.
 
@@ -4592,13 +4602,9 @@ Our findings point to the potential of RL parameters to provide valuable insight
 
 Our third research question asked how teacher background, training, and experience influence their adaptation to and implementation of the Zearn Math curriculum. Our findings confirm the fundamental role of teachers' background, training, and experience when implementing new educational platforms like Zearn Math. They also underscore the importance of differentiating support and training strategies to cater to teachers' unique backgrounds and needs, which may prove pivotal in fostering effective adoption and implementation of such platforms. A prominent theme that emerged from our investigation was the interaction between teacher behaviors, school characteristics, and broader socio-economic contexts.
 
-Our analyses revealed a telling association between Poverty Level and Cost 3, denoting the estimated cost of applying PCK, suggesting that schools in higher poverty strata are more likely to encounter additional barriers in the form of resource constraints when implementing the Zearn Math curriculum.
+Our analyses revealed a telling association between Poverty Level and initial policy weights, suggesting that schools in higher poverty strata are more likely to overweight the state variables in their decision making when implementing the Zearn Math curriculum, especially in the beginning of the school year.
 
-This observation points towards a potential resource disparity where schools in lower-income areas grapple with the challenge of investing in critical teacher training and resources needed for effective curriculum implementation. Implementing a comprehensive math curriculum like Zearn becomes particularly daunting in economically disadvantaged areas where financial constraints may obstruct optimal pedagogical strategies.
-
-Moreover, we unveiled a striking finding regarding charter schools. Our data showed a negative relationship between being a Charter School and the Learning Rate. This finding was unexpected, given the increased flexibility often associated with charter schools. It raises pertinent questions about the pedagogical dynamics within such institutions and points towards the necessity for further research into the support systems and professional development opportunities provided for teachers in these settings.
-
-One of the more disconcerting findings was the negative relationship between Poverty Level and Discount Rate, indicating that teachers in schools with higher poverty levels might place less emphasis on long-term student outcomes. This phenomenon may occur due to the pressing short-term challenges related to student well-being and engagement, often prevalent in high-poverty settings, which demand immediate attention and resources.
+This observation points towards a potential resource disparity where schools in lower-income areas grapple with the challenge of investing in critical teacher training and resources needed for effective curriculum implementation. That is, schools with paid accounts (i.e., receiving teacher training on how to effectively use Zearn), display smaller initial policy weights. Training teachers is likely an effective way to improve teachers' pedagogical strategies. However, implementing a comprehensive math curriculum like Zearn becomes particularly daunting in economically disadvantaged areas where financial constraints may obstruct proper training.
 
 These findings underscore the complex challenges facing schools in lower-income and high-poverty areas. They illuminate the complexities teachers must navigate when adapting to new teaching habits and implementing curricula, which are only magnified by demographic and school-specific factors.
 
@@ -4614,19 +4620,13 @@ Third, our findings highlight the potential of RL models as tools for understand
 
 Finally, our results have policy implications. They suggest that policies aimed at improving student achievement should consider not only the resources available to schools but also teachers' behaviors and decision-making processes. Policies should support teachers' learning and adaptation processes by providing professional development opportunities or creating supportive learning environments.
 
-## Limitations
+## Future Directions
 
-The insights derived from this study potentially have broader implications, extending beyond the confines of Louisiana, given the universal teaching and learning principles underpinning our analysis.
+While our findings contribute significantly to educational technology and teacher behavior analysis, they are not without limitations. The focus on Zearn Math, while providing a rich dataset for analysis, limits the generalizability of our conclusions. Future research should explore the applicability of our findings across different subjects, educational platforms, and learning environments. Additionally, our study opens new avenues for integrating RL models with other analytical approaches, such as machine learning and predictive analytics, to further enhance our understanding of effective teaching strategies in digital contexts.
 
-Note that, although extensive, the set of actions was not comprehensive.
+Future research should explore the applicability of advanced RL models across diverse educational contexts and populations. They should also integrate a broader spectrum of variables, including teacher background and training, to enrich the understanding of teaching and learning's multifaceted nature. Additionally, exploring novel RL models and methodologies promises to uncover more profound insights into the dynamics of educational technologies, guiding the development of more effective and equitable learning environments.
 
-One of this study's limitations is the available data, including teachers only in Louisiana, which can limit the generalizability of our findings. Second, our data were at the weekly level, with approximately 40 weeks per classroom. To fit more optimally, RL models would need more trials, either over a more extended period or with smaller time units (e.g., twice a week or daily). Another major challenge of this study was finding the best characterization of actions, which required various techniques for dimensionality reduction. Third, we did not exhaust all possible RL models, and other models could better fit the data. Future research could explore other RL models and compare their performance in characterizing teacher behavior and predicting student achievement. Finally, our models made certain assumptions and simplifications, such as the characterization of actions, which could affect the accuracy of our results. For instance, our data did not include the variance of classroom scores, only the averages, which limits our ability to answer questions about how teachers adapt to the distribution of student achievement in their classrooms.
-
-## Future Research
-
-Our study opens several avenues for future research. First, our findings could be validated and extended in other educational contexts, such as different grade levels, subjects, or geographical locations. Second, our RL models could be integrated with other models and approaches to provide a more comprehensive understanding of teacher behavior and its impact on student outcomes. Third, future research could expand the scope of variables and data sources considered in the models, such as incorporating additional variables related to teacher background, training, and experience. Similarly, data from other sources and domains could enrich the models and provide a more nuanced understanding of human behavior in the field.
-
-In conclusion, our study provides compelling evidence for the potential of reinforcement learning models to understand and improve teacher behavior and student achievement in the context of online learning platforms like Zearn Math. By shedding light on the complex dynamics of teacher behavior, our findings offer valuable insights for teachers, schools, policymakers, and researchers in the education field. Our work will inspire further research and practical applications of reinforcement learning in education.
+In conclusion, our study represents a significant advancement in applying reinforcement learning (RL) to decode teachers' dynamic and complex behaviors within the Zearn Math online learning platform. By employing sophisticated RL models, including the state-free Q-learning and state-based Actor-Critic models, we have uncovered patterns of adaptive pedagogy crucial for personalized student learning experiences.
 
 # References
 
@@ -4770,7 +4770,8 @@ model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
   x_data$Model <- x[[1]]
 
   x_data
-})) %>% select(Model, Term, Coefficient, Std_Error, Significance) %>%
+})) %>% 
+  dplyr::select(Model, Term, Coefficient, Std_Error, Significance) %>%
   mutate(Model = gsub(" ", "&", Model),
          Model = gsub("Frobenius.NNDSVD_student1", "Badges", Model),
          Model = gsub("Frobenius.NNDSVD_student2", "Struggles", Model),
@@ -4798,12 +4799,12 @@ gt_table <- model_summary %>%
                                   # "Action(t-1)", "Action(t-2)",
                                   "S(t)", "S(t) x \n A(t-1)",
                                   "BIC", "N"))) %>%
-  select(-Coefficient, -Std_Error, -Significance) %>%
+  dplyr::select(-Coefficient, -Std_Error, -Significance) %>%
   # Pivot wider to have one column per model
   pivot_wider(names_from = Model,
               values_from = Estimate,
               names_sep = "_") %>%
-  select(order(names(.))) %>%
+  dplyr::select(order(names(.))) %>%
   arrange(Term) %>%
   gt(rowname_col = "Term") %>%
   sub_missing() %>%
@@ -4897,7 +4898,7 @@ model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
   x_data$Model <- x$Model
 
   x_data
-})) %>% select(Model, Term, Coefficient, Std_Error, Significance) %>%
+})) %>% dplyr::select(Model, Term, Coefficient, Std_Error, Significance) %>%
   mutate(Model = gsub(" ", "&", Model),
          Model = gsub("Frobenius.NNDSVD_student1", "Badges", Model),
          Model = gsub("Frobenius.NNDSVD_student2", "Struggles", Model),
@@ -4925,12 +4926,12 @@ gt_table <- model_summary %>%
                                   # "Action(t-1)", "Action(t-2)",
                                   "S(t-1)", "S(t-1) x \n A(t-2)",
                                   "BIC", "N"))) %>%
-  select(-Coefficient, -Std_Error, -Significance) %>%
+  dplyr::select(-Coefficient, -Std_Error, -Significance) %>%
   # Pivot wider to have one column per model
   pivot_wider(names_from = Model,
               values_from = Estimate,
               names_sep = "_") %>%
-  select(order(names(.))) %>%
+  dplyr::select(order(names(.))) %>%
   arrange(Term) %>%
   gt(rowname_col = "Term") %>%
   sub_missing() %>%
