@@ -140,8 +140,8 @@
   pdftitle={Unveiling Adaptive Pedagogy: Reinforcement Learning Models Illuminate Teacher Decision-Making in an Online Math-Teaching Platform},
   pdfauthor={Marcos Gallo},
   pdfkeywords={Reinforcement Learning, Pedagogical Decision-Making,
-Digital Education Platforms, Teacher Behavioral Dynamics, Empirical
-Field Data, Exploration-Exploitation Dilemma, Instructional Adaptation},
+Digital Education Platforms, Instructional Adaptation, Q-learning,
+Actor-Critic},
   colorlinks=true,
   linkcolor={blue},
   filecolor={Maroon},
@@ -165,23 +165,25 @@ Illuminate Teacher Decision-Making in an Online Math-Teaching Platform}
 
         
 \begin{abstract}
-In the rapidly evolving landscape of education, understanding the
-decision-making process of teachers is crucial. Based on a sample of
-over 2,000 classrooms from the online math-teaching platform Zearn, this
-study leverages reinforcement learning (RL) algorithms to model how
-teachers learn and adapt pedagogical choices. We conceptualize the
-teacher's role as a multi-armed bandit problem, where teachers balance
-their weekly effort against the number of lessons their students
-complete. This exploration-exploitation trade-off is dynamic, with
-teachers continually learning and adapting their strategies. Our
-findings reveal that teachers who favor exploration tend to be more
-adaptive and responsive to student needs, leading to a more personalized
-and effective learning experience. In contrast, those who lean towards
-exploitation often rely on tried-and-true methods, resulting in
-consistent but potentially less innovative teaching strategies. This
-work underscores the potential of RL in providing insights into human
-behavior in real-world settings, with significant implications for
-policy and practice in education.
+This study introduces a new use of reinforcement learning (RL) models to
+gain insight into teachers' decision-making processes on the Zearn
+online math-teaching platform. Analyzing data from 3029 classrooms, our
+approach treats pedagogical decision-making as a complex adaptive
+system, taking into account educators' reward history and the unique
+contexts of their instructional environments. Using Q-learning and
+Actor-Critic models, we identify distinct patterns of teaching behavior.
+Our comparison of RL models with a traditional logistic regression
+baseline demonstrates the superiority of the Actor-Critic model in
+capturing teacher behavior across most classrooms. Importantly, our
+findings reveal a strong positive correlation between the learning rates
+of state value weights and improved student achievement within the
+preferred Actor-Critic model. This finding highlights educators'
+adaptability in meeting their students' evolving needs in the digital
+learning landscape, ultimately leading to better learning outcomes. By
+demonstrating the relevance of RL models in the educational domain, our
+study introduces a new approach to exploring teacher decision-making and
+showcases their potential to inform the development of more effective,
+adaptive teaching strategies.
 \end{abstract}
 
 
@@ -190,11 +192,10 @@ policy and practice in education.
 
 \begin{keyword}
     Reinforcement Learning, Pedagogical Decision-Making, Digital
-Education Platforms, Teacher Behavioral Dynamics, Empirical Field Data,
-Exploration-Exploitation Dilemma, Instructional Adaptation \sep 
+Education Platforms, Instructional Adaptation, Q-learning,
+Actor-Critic \sep 
     Reinforcement Learning, Pedagogical Decision-Making, Digital
-Education Platforms, Teacher Behavioral Dynamics, Empirical Field Data,
-Exploration-Exploitation Dilemma, Instructional Adaptation
+Education Platforms, Instructional Adaptation, Q-learning, Actor-Critic
 \end{keyword}
 \end{frontmatter}
     
@@ -1347,6 +1348,10 @@ auto-correlation.
 \subsubsection{Reinforcement Learning Model
 Estimation}\label{reinforcement-learning-model-estimation}
 
+For the initial model selection, we fit the data from 295 classrooms due
+to computational constraints. After selecting the optimal model, we
+scale up the analysis to include all classrooms.
+
 \paragraph{State-Free Q-Learning
 Model}\label{state-free-q-learning-model}
 
@@ -1603,8 +1608,10 @@ distinguish model performance reliably.
 
 \subsubsection{Heterogeneity Analysis}\label{heterogeneity-analysis}
 
-We explore the heterogeneity across schools and teachers by analyzing
-individual and group-level parameters as follows:
+After selecting the top-performing model, we re-estimated the parameters
+using the entire dataset of 3029 classrooms. We explore the
+heterogeneity across schools and teachers by analyzing individual and
+group-level parameters as follows:
 
 \begin{itemize}
 \item
