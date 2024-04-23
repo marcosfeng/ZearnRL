@@ -12,8 +12,8 @@ fdata = load('../data/sample_data.mat');
 data  = fdata.data;
 
 % Initialize models and fcbm_maps arrays
-numFiles = numel(dir(fullfile('..', 'zearn_codes', 'ql_wrappers')));
-numFiles = numFiles - 2;
+Files = dir(fullfile('..', 'zearn_codes', 'ql_wrappers'));
+numFiles = sum(startsWith({Files.name}, 'wrapper_'));
 models = cell(1, numFiles);
 fcbm_maps = cell(1, numFiles);
 

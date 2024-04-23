@@ -1,0 +1,83 @@
+cbm_hbi_hbi                                       23-Apr-2024 15:33:00
+Running hierarchical bayesian inference (HBI)- null mode...
+
+HBI has been initialized according to
+	comp_aggr_results/lap_logit3.mat [for model 1]
+	comp_aggr_results/lap_ql3.mat [for model 2]
+	comp_aggr_results/lap_hybrid3.mat [for model 3]
+	comp_aggr_results/lap_hybrid3_15.mat [for model 4]
+ 
+Number of samples: 275
+Number of models: 4
+======================================================================
+Iteration 01
+Iteration 02
+                                                           dL:  128.99
+                                                           dx:    0.14
+Iteration 03
+                                                           dL:   66.83
+                                                           dx:    0.11
+Iteration 04
+                                                           dL:   23.24
+                                                           dx:    0.09
+Iteration 05
+                                                           dL:   17.17
+                                                           dx:    0.08
+Iteration 06
+                                                           dL:   15.25
+                                                           dx:    0.07
+Iteration 07
+                                                           dL:   11.39
+                                                           dx:    0.06
+Iteration 08
+                                                           dL:    7.94
+                                                           dx:    0.05
+Iteration 09
+                                                           dL:    3.83
+                                                           dx:    0.05
+Iteration 10
+                                                           dL:    5.90
+                                                           dx:    0.04
+Iteration 11
+                                                           dL:    3.28
+                                                           dx:    0.04
+Iteration 12
+                                                           dL:    2.79
+                                                           dx:    0.03
+Iteration 13
+                                                           dL:    2.21
+                                                           dx:    0.03
+Iteration 14
+                                                           dL:    2.78
+                                                           dx:    0.02
+Iteration 15
+                                                           dL:   -0.55
+                                                           dx:    0.02
+Iteration 16
+                                                           dL:    2.48
+                                                           dx:    0.02
+Iteration 17
+                                                           dL:    0.66
+                                                           dx:    0.02
+Iteration 18
+                                                           dL:    0.02
+                                                           dx:    0.02
+Iteration 19
+                                                           dL:    2.99
+                                                           dx:    0.01
+Iteration 20
+                                                           dL:   -2.21
+                                                           dx:    0.01
+Iteration 21
+                                                           dL:    2.43
+                                                           dx:    0.01
+Iteration 22
+                                                           dL:    1.63
+                                                           dx:    0.01
+Iteration 23
+                                                           dL:    0.43
+                                                           dx:    0.01
+Iteration 24
+                                                           dL:    0.83
+                                                           dx:    0.01
+                                                          Converged :]

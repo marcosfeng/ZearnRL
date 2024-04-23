@@ -54,7 +54,7 @@ end
 %% Histograms by valid log evidence
 
 model_desc = cell(size(fname));
-valid_subj_all = ones(1,295);
+valid_subj_all = ones(1,281);
 % Loop over each file name to construct the model description
 for i = 1:length(fname)
     loaded_data = load(fname{i});

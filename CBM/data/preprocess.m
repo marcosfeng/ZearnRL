@@ -1,6 +1,6 @@
 % Combine individual data into one struct
-Nsubj = 295;
-% Nsubj = 3034;
+Nsubj = 281;
+% Nsubj = 2813;
 % Initialize an empty cell array to hold the individual subject data
 data = cell(Nsubj, 1);
     

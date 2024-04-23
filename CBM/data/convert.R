@@ -2,7 +2,7 @@
 library(tidyverse)
 library(data.table)
 library(R.matlab)
-rng(37909890)
+set.seed(37909890)
 # © 1998-2023 RANDOM.ORG
 # Timestamp: 2023-10-04 18:38:28 UTC
 
@@ -79,19 +79,22 @@ all_vars <- grep("Frobenius.NNDSVD_student", names(df), value = TRUE)
 
 df <- df %>%
   arrange(Classroom.ID, week) %>%
-  as.data.table() %>%
-  .[Classroom.ID %in%
-      sample(unique(Classroom.ID),
-             size = length(unique(Classroom.ID)) * 0.10)
-    ] %>%
-  setorder(Classroom.ID, week) %>%
-  .[, row_n := seq_len(.N), by = .(Classroom.ID)] %>%
-  # Filter out Classroom.IDs with sd = 0 for Scaffolding
-  .[, .SD[!apply(.SD[, FR_cols[2], with = FALSE], 2, sd) == 0],
-    by = Classroom.ID] %>%
-  # Filter out Classroom.IDs with sd = 0 for Activities
-  .[, .SD[!apply(.SD[, FR_cols[3], with = FALSE], 2, sd) == 0],
-    by = Classroom.ID]
+  as.data.table()
+setorder(df, Classroom.ID, week)
+# Filter out Classroom.IDs with less than 12 total rows of data
+df <- df[, .SD[.N >= 12], by = Classroom.ID]
+# Filter out Classroom.IDs with sd = 0 for Scaffolding
+df <- df[, .SD[!apply(.SD[, FR_cols[2], with = FALSE], 2, sd) == 0],
+         by = Classroom.ID]
+# Filter out Classroom.IDs with sd = 0 for Activities
+df <- df[, .SD[!apply(.SD[, FR_cols[3], with = FALSE], 2, sd) == 0],
+         by = Classroom.ID]
+# Label the weeks
+df[, row_n := seq_len(.N), by = .(Classroom.ID)]
+# Sample 10% of the data
+df <- df[Classroom.ID %in%
+           sample(unique(Classroom.ID),
+                  size = length(unique(Classroom.ID)) * 0.10)]
 
 stan_data <- list(
   N = length(unique(df$Classroom.ID)), # Number of teachers

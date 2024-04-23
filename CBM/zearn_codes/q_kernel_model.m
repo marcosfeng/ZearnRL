@@ -1,4 +1,4 @@
-function [loglik] = q_model(parameters, subj)
+function [loglik] = q_kernel_model(parameters, subj)
     % Extract parameters
     nd_alpha = parameters(1);
     alpha = 1 / (1 + exp(-nd_alpha));

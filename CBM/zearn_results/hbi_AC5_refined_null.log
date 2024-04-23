@@ -1,164 +1,164 @@
-cbm_hbi_hbi                                       20-Mar-2024 09:22:20
+cbm_hbi_hbi                                       22-Apr-2024 14:23:49
 Running hierarchical bayesian inference (HBI)- null mode...
 
 HBI has been initialized according to
-	ac_refine/filtered_ac_2.mat [for model 1]
-	ac_refine/filtered_ac_13.mat [for model 2]
-	ac_refine/filtered_ac_43.mat [for model 3]
-	ac_refine/filtered_ac_51.mat [for model 4]
-	ac_refine/filtered_ac_35.mat [for model 5]
+	ac_refine/filtered_ac_43.mat [for model 1]
+	ac_refine/filtered_ac_29.mat [for model 2]
+	ac_refine/filtered_ac_15.mat [for model 3]
+	ac_refine/filtered_ac_8.mat [for model 4]
+	ac_refine/filtered_ac_3.mat [for model 5]
  
-Number of samples: 272
+Number of samples: 259
 Number of models: 5
 ======================================================================
 Iteration 01
 Iteration 02
-                                                           dL: -296.28
-                                                           dx:    0.05
+                                                           dL: -199.48
+                                                           dx:    0.07
 Iteration 03
-                                                           dL:   -1.05
-                                                           dx:    0.04
+                                                           dL: -280.26
+                                                           dx:    0.06
 Iteration 04
-                                                           dL:  148.82
-                                                           dx:    0.16
+                                                           dL:  -69.73
+                                                           dx:    0.06
 Iteration 05
-                                                           dL:  976.61
-                                                           dx:    0.05
+                                                           dL:   24.81
+                                                           dx:    0.10
 Iteration 06
-                                                           dL: 1567.64
+                                                           dL:  133.85
                                                            dx:    0.05
 Iteration 07
-                                                           dL:  410.97
-                                                           dx:    0.10
+                                                           dL:  557.97
+                                                           dx:    0.06
 Iteration 08
-                                                           dL:  176.90
-                                                           dx:    0.05
+                                                           dL:  447.18
+                                                           dx:    0.06
 Iteration 09
-                                                           dL:   92.86
+                                                           dL:  114.79
                                                            dx:    0.06
 Iteration 10
-                                                           dL: -282.82
-                                                           dx:    0.06
+                                                           dL:  169.21
+                                                           dx:    0.07
 Iteration 11
-                                                           dL:  -35.65
-                                                           dx:    0.16
+                                                           dL:  248.45
+                                                           dx:    0.08
 Iteration 12
-                                                           dL: 1114.96
-                                                           dx:    0.06
+                                                           dL:  149.66
+                                                           dx:    0.08
 Iteration 13
-                                                           dL:  918.33
-                                                           dx:    0.06
+                                                           dL:   15.45
+                                                           dx:    0.08
 Iteration 14
-                                                           dL:  157.27
+                                                           dL:  241.62
                                                            dx:    0.07
 Iteration 15
-                                                           dL:  742.64
+                                                           dL:  108.58
                                                            dx:    0.07
 Iteration 16
-                                                           dL:  647.07
-                                                           dx:    0.06
+                                                           dL: -110.20
+                                                           dx:    0.12
 Iteration 17
-                                                           dL:  -78.17
-                                                           dx:    0.06
+                                                           dL:  135.79
+                                                           dx:    0.10
 Iteration 18
-                                                           dL:  111.06
-                                                           dx:    0.07
+                                                           dL:   -0.39
+                                                           dx:    0.06
 Iteration 19
-                                                           dL:  350.41
-                                                           dx:    0.06
+                                                           dL:  -21.09
+                                                           dx:    0.08
 Iteration 20
-                                                           dL: -293.10
-                                                           dx:    0.06
+                                                           dL: -189.88
+                                                           dx:    0.05
 Iteration 21
-                                                           dL: -102.83
+                                                           dL:  -29.92
                                                            dx:    0.08
 Iteration 22
-                                                           dL: -313.98
-                                                           dx:    0.05
+                                                           dL:  -84.26
+                                                           dx:    0.09
 Iteration 23
-                                                           dL: -215.98
+                                                           dL:   32.25
                                                            dx:    0.07
 Iteration 24
-                                                           dL:  -34.06
-                                                           dx:    0.05
+                                                           dL:   37.69
+                                                           dx:    0.33
 Iteration 25
-                                                           dL: -474.05
-                                                           dx:    0.06
-Iteration 26
-                                                           dL:  -29.06
-                                                           dx:    0.04
-Iteration 27
-                                                           dL:  -64.05
-                                                           dx:    0.05
-Iteration 28
-                                                           dL:  -45.99
-                                                           dx:    0.05
-Iteration 29
-                                                           dL:   30.63
+                                                           dL:  -43.47
                                                            dx:    0.08
-Iteration 30
-                                                           dL:  116.80
-                                                           dx:    0.14
-Iteration 31
-                                                           dL:  -62.24
+Iteration 26
+                                                           dL:  -54.82
+                                                           dx:    0.12
+Iteration 27
+                                                           dL:  -24.73
+                                                           dx:    0.06
+Iteration 28
+                                                           dL:  -32.38
                                                            dx:    0.07
+Iteration 29
+                                                           dL:    9.91
+                                                           dx:    0.07
+Iteration 30
+                                                           dL:  -36.23
+                                                           dx:    0.17
+Iteration 31
+                                                           dL:  -81.82
+                                                           dx:    0.08
 Iteration 32
-                                                           dL:   -9.11
+                                                           dL:  -51.46
                                                            dx:    0.08
 Iteration 33
-                                                           dL: -391.11
-                                                           dx:    0.08
-Iteration 34
-                                                           dL: -136.08
-                                                           dx:    0.17
-Iteration 35
-                                                           dL:  169.64
+                                                           dL:  -46.73
                                                            dx:    0.07
+Iteration 34
+                                                           dL:  -44.77
+                                                           dx:    0.07
+Iteration 35
+                                                           dL:   61.56
+                                                           dx:    0.09
 Iteration 36
-                                                           dL: -386.20
-                                                           dx:    0.06
+                                                           dL:  -87.90
+                                                           dx:    0.10
 Iteration 37
-                                                           dL:  206.68
+                                                           dL:   29.55
                                                            dx:    0.06
 Iteration 38
-                                                           dL:  -51.21
-                                                           dx:    0.08
+                                                           dL:  -16.28
+                                                           dx:    0.06
 Iteration 39
-                                                           dL: -118.21
-                                                           dx:    0.06
+                                                           dL:  -52.13
+                                                           dx:    0.13
 Iteration 40
-                                                           dL:  -33.29
-                                                           dx:    0.08
-Iteration 41
-                                                           dL: -305.31
-                                                           dx:    0.06
-Iteration 42
-                                                           dL: -102.83
-                                                           dx:    0.04
-Iteration 43
-                                                           dL: -259.49
-                                                           dx:    0.04
-Iteration 44
-                                                           dL: -215.07
-                                                           dx:    0.05
-Iteration 45
-                                                           dL: -253.56
+                                                           dL:  -25.59
                                                            dx:    0.07
-Iteration 46
-                                                           dL:  -86.08
+Iteration 41
+                                                           dL:  -24.74
+                                                           dx:    0.07
+Iteration 42
+                                                           dL:   45.80
                                                            dx:    0.06
-Iteration 47
-                                                           dL: -105.96
+Iteration 43
+                                                           dL:  -72.52
+                                                           dx:    0.22
+Iteration 44
+                                                           dL:   16.36
+                                                           dx:    0.09
+Iteration 45
+                                                           dL:   -3.53
                                                            dx:    0.05
+Iteration 46
+                                                           dL:   42.38
+                                                           dx:    0.05
+Iteration 47
+                                                           dL:   54.29
+                                                           dx:    0.12
 Iteration 48
-                                                           dL:   89.81
-                                                           dx:    0.04
+                                                           dL:    5.64
+                                                           dx:    0.06
 Iteration 49
-                                                           dL:  -80.62
+                                                           dL:  -87.87
                                                            dx:    0.06
 Iteration 50
-                                                           dL: -101.87
-                                                           dx:    0.05
+                                                           dL:  -11.93
+                                                           dx:    0.36
 Iteration 51
-                                                           dL:  225.42
-                                                           dx:    0.09
+                                                           dL:   57.71
+                                                           dx:    0.05
