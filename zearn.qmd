@@ -12,6 +12,7 @@ format:
       - text: |
           \usepackage{dcolumn}
           \usepackage{typearea}
+          \usepackage{longtable}
     journal:
       formatting: preprint
       model: 3p
@@ -41,6 +42,7 @@ library(gridExtra)
 library(scales)
 library(gtsummary)
 library(gtExtras)
+library(kableExtra)
 library(PerformanceAnalytics)
 library(doParallel)
 library(foreach)
@@ -1261,7 +1263,7 @@ After analyzing the NMF data, we identified four significant components for teac
 ```{r}
 #| cache: true
 #| label: fig-nmf-heatmap
-#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for teacher and student data. The rows represent the original variables, while the columns correspond to the individual components. The color gradient from light to dark indicates the increasing weights or importance of variables within each component."
+#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for teacher and student data. The rows represent the original variables, and the columns correspond to the components. The color gradient indicates the relative importance of each variable within a component based on the proportion of the component's total weight attributed to that variable. These proportions were calculated by normalizing each variable weight within a component so that they all sum to 1. To provide context, the heatmaps label examples of low, moderate, and high proportion values."
 #| fig-subcap:
 #| - "Teacher Data. Component 1 (Assessments) focuses on using supplemental materials for student evaluation; Component 2 (Pedagogical Knowledge) emphasizes developing subject-specific teaching strategies; Component 3 (Group Instruction) centers on collaborative and whole-class teaching methods; Component 4 (Curriculum Planning) highlights planning and lesson preparation."
 #| - "Student Data. Component 1 (Badges) measures curriculum engagement and progression; Component 2 (Struggles) indicates the need for additional academic support; Component 3 (Number of Students) tracks student participation within the platform; Component 4 (Activity) reflects the overall time spent and frequency of platform usage."
@@ -1325,31 +1327,56 @@ df_heatmap_teachers <- df_heatmap_teachers %>%
 df_heatmap_students <- df_heatmap_students %>%
   arrange(-`Comp 1`, -`Comp 2`, -`Comp 3`, -`Comp 4`)
 
-color_scheme <- colorRampPalette(
-  c("#F7F7F7",RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"))
-  )(40)
-breaks <- seq(0, 0.8, by = 0.02)
-pheatmap(df_heatmap_teachers %>%
-           mutate(across(everything(), ~ .x / sum(.x))),
-         cluster_rows = FALSE, cluster_cols = FALSE,
-         angle_col = 0,
-         # main = "Loadings of NMF components",
-         color = color_scheme,  # Use the color scheme defined above
-         breaks = breaks,  # Use breaks defined above
-         border_color = NA,
-         show_colnames = TRUE,
-         show_rownames = TRUE)
+# Normalize by column sums to show proportion of contribution from each variable
+df_heatmap_teachers <- df_heatmap_teachers %>%
+  mutate(across(everything(), ~ round(.x / sum(.x), 3)))
+df_heatmap_students <- df_heatmap_students %>%
+  mutate(across(everything(), ~ round(.x / sum(.x), 3)))
 
-pheatmap(df_heatmap_students %>%
-           mutate(across(everything(), ~ .x / sum(.x))),
+# Define color scheme and breaks
+breaks <- seq(0, max(df_heatmap_students,df_heatmap_teachers),
+              by = round(max(df_heatmap_students,df_heatmap_teachers)/50,2))
+color_scheme <- colorRampPalette(
+  c("#F7F7F7", brewer.pal(n = 11, name = "RdYlBu")[6:1])
+  )(length(breaks))
+
+# Calculate annotations for both dataframes
+calculate_annotations <- function(df) {
+  data <- unlist(df)
+  data <- data[data > breaks[4]]
+  high <- max(data)
+  low <- min(data)
+  median <- ifelse(any(data == median(data)), median(data),
+                   data[which.min(abs(data - median(data)))])
+  return(df %>%
+           mutate(across(everything(),
+                         ~ if_else(. == low | . == high | . == median,
+                                   ., 0))) %>%
+           mutate(across(everything(), ~ as.character(.))) %>%
+           mutate(across(everything(), ~ if_else(. == "0", "", .))) %>%
+           as.matrix())
+}
+
+pheatmap(df_heatmap_teachers,
          cluster_rows = FALSE, cluster_cols = FALSE,
          angle_col = 0,
-         # main = "Loadings of NMF components",
          color = color_scheme,  # Use the color scheme defined above
          breaks = breaks,  # Use breaks defined above
          border_color = NA,
-         show_colnames = TRUE,
-         show_rownames = TRUE)
+         show_colnames = TRUE, show_rownames = TRUE,
+         display_numbers = calculate_annotations(df_heatmap_teachers),
+         number_color = RColorBrewer::brewer.pal(n = 11, name = "RdYlBu")[11])
+
+pheatmap(df_heatmap_students,
+         cluster_rows = FALSE, cluster_cols = FALSE,
+         angle_col = 0,
+         color = color_scheme,  # Use the color scheme defined above
+         breaks = breaks,  # Use breaks defined above
+         border_color = NA,
+         show_colnames = TRUE, show_rownames = TRUE,
+         display_numbers = calculate_annotations(df_heatmap_students),
+         number_color = RColorBrewer::brewer.pal(n = 11, name = "RdYlBu")[11],
+         fontsize = 15)
 
 ```
 
@@ -1393,12 +1420,23 @@ write.csv(df_components, "./Bayesian/df.csv")
 
 ```{r load dimension reduction}
 #| include: false
+
 df <- read.csv(file = "./Bayesian/df.csv") %>%
-    mutate(across(where(is.numeric),
-                  ~ ifelse(. < .Machine$double.eps, 0, .)))
-# Clean environment
-rm(list = setdiff(ls(), c("df", "random_py")))
-gc(verbose = FALSE)
+  mutate(across(where(is.numeric),
+                ~ ifelse(. < .Machine$double.eps, 0, .))) %>%
+  arrange(Classroom.ID, week) %>%
+  group_by(Classroom.ID) %>%
+  filter(n() >= 12)
+
+FR_cols <- grep("Frobenius.NNDSVD_teacher", names(df), value = TRUE)
+df <- df %>%
+  filter(sd(!!sym(FR_cols[1])) != 0) %>%
+  filter(sd(!!sym(FR_cols[2])) != 0) %>%
+  filter(sd(!!sym(FR_cols[3])) != 0) %>%
+  filter(sd(!!sym(FR_cols[4])) != 0) %>%
+  mutate(row_n = row_number()) %>%
+  ungroup()
+    
 ```
 
 ```{r helper-functions}
@@ -1671,7 +1709,7 @@ Our investigation into temporal dynamics confirmed the impact of lagged rewards 
 
 ```{r}
 #| label: fig-panel-bic
-#| fig-cap: "BIC and AUC variations across lags for fixed-effects panel logistic regression models. The plot shows model prediction accuracy and fit for different lag periods, with one-week lag as the baseline. The optimal lag period is determined based on the 'elbow' in the AUC curves and the minima in the BIC curves."
+#| fig-cap: "BIC and AUC variations across lags for fixed-effects panel logistic regression models. The plots show the percent change in model prediction accuracy (AUC) and fit (BIC) for different lag periods compared to the one-week lag baseline. The thin lines represent the percent change for each combination of reward functions and methods, while the dashed gray lines represent their average. The shaded bands around the average lines indicate the standard error. The optimal lag period can be determined based on the 'elbow' in the AUC curves (where increasing lags yields diminishing improvements in AUC) and the minima in the BIC curves (lower BIC indicates better model fit when penalizing for complexity)."
 #| fig-subcap: 
 #|   - "BIC state-free"
 #|   - "AUC state-free"
@@ -1735,13 +1773,15 @@ generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
                                # group = interaction(State, Reward, Method),
                                color = Method),
               linewidth = 0.3) +
+    scale_color_brewer(palette = "Set2") +
     geom_ribbon(data = data_se,
                 aes(x = Lag, ymin = !!sym(metric_name) - !!sym(metric_se_name),
                     ymax = !!sym(metric_name) + !!sym(metric_se_name)),
-                fill = "lightblue", alpha = 0.3) +
+                fill = brewer.pal(n = 8, name = "Set2")[8], alpha = 0.3) +
     geom_line(data = data_se,
               aes(x = Lag, y = !!sym(metric_name)),
-              linewidth = 1, color = "blue") +
+              linewidth = 1, linetype = "dashed",
+              color = brewer.pal(n = 8, name = "Dark2")[8]) +
     theme_minimal() +
     labs(y = y_label, x = "Lag") +
     scale_y_continuous(labels = percent_format()) +
@@ -1817,13 +1857,15 @@ generate_plots_with_se <- function(data, data_se, metric_name, metric_se_name) {
                                group = interaction(State, Reward, Method),
                                color = Method),
               linewidth = 0.3) +
+    scale_color_brewer(palette = "Set2") +
     geom_ribbon(data = data_se,
                 aes(x = Lag, ymin = !!sym(metric_name) - !!sym(metric_se_name),
                     ymax = !!sym(metric_name) + !!sym(metric_se_name)),
-                fill = "lightblue", alpha = 0.3) +
+                fill = brewer.pal(n = 8, name = "Set2")[8], alpha = 0.3) +
     geom_line(data = data_se,
               aes(x = Lag, y = !!sym(metric_name)),
-              linewidth = 1, color = "blue") +
+              linewidth = 1, linetype = "dashed",
+              color = brewer.pal(n = 8, name = "Dark2")[8]) +
     theme_minimal() +
     labs(y = y_label, x = "Lag") +
     scale_y_continuous(labels = percent_format()) +
@@ -2190,10 +2232,6 @@ rm(cl)
 save(results, file = "Regressions/fe-restricted-results.RData")
 
 ```
-
-This section delves into the performance of our model within the framework of fixed effects (FE) and varying coefficients. Our analysis reveals the complexities and variations in the Zearn data on predicting teacher behavior based on previous student performances. @tbl-RL-exploration synthesizes our model performance scores, revealing that the fixed-effect area under the receiver operating characteristic curve (FE AUC) averages 0.81. We found that "Assessments" emerged as the most influential action and "Number of Students" as the leading reward in the state-free context. The Fixed Effects Bayesian Information Criterion (FE BIC) also reflects a mean of approximately 93.06 x 10\^3. The lowest BIC values correspond with "Scaffolding" as a pivotal action and "Struggle" as a salient reward variable in the state-free approach.
-
-Furthermore, the average teacher-specific AUC, a metric derived from the varying coefficient models, is 0.70. Notably, "Scaffolding" continues to be a consistent influencing factor for both state-free and state-based models, with "Number of Sessions" as the corresponding reward. The average out-of-sample teacher-specific log-likelihood, also derived from varying coefficients, shows an average of -262.63. In the state-based scenario, "Planning Guides" and "Activities" are the top-performing actions, aligning with "Struggle" and "Completion" as state variables.
 
 ```{r panel-model-states-restricted}
 #| eval: false
@@ -2749,7 +2787,7 @@ save(results, file = "Regressions/me-results-restricted.RData")
 
 ```
 
-```{r}
+```{r, results='asis'}
 #| label: table-RL-exploration
 
 library(gtExtras)
@@ -2773,12 +2811,14 @@ top_fits_df <- do.call(rbind, lapply(results, function(x) {
       #        ~ sd(., na.rm = T)/sqrt(n()), .names = "{.col}_se"),
       across(c(auc_out, auc_in, logLik_ind),
              ~ list(mean(., na.rm = T))),
-      total = n())
+      total = n()) %>%
+    mutate(
+      Action = x$Method,
+      Reward = x$Reward,
+      State = coalesce(x$State, "None")
+    )
   # top_fits$AUC <- x$AUC
   # top_fits$BIC <- x$bic
-  top_fits$Action <- x$Method
-  top_fits$Reward <- x$Reward
-  top_fits$State <- ifelse(is.null(x$State), "None", x$State)
   return(top_fits)
 })) %>%
   mutate(across(c(auc_out, auc_in, logLik_ind), ~ unlist(.))) %>%
@@ -2799,68 +2839,81 @@ top_fits_df <- top_fits_df %>%
                             . == "Frobenius.NNDSVD_teacher4" ~ "Curriculum Planning",
                             .default = .)))
   
-top_statefree <- rbind(
-  top_fits_df %>% filter(State == "None") %>%
-    arrange(desc(auc)) %>% slice_head(n = 1) %>% select(Action, Reward),
-  top_fits_df %>% filter(State == "None") %>%
-    arrange(bic) %>% slice_head(n = 1) %>% select(Action, Reward),
-  top_fits_df %>% filter(State == "None") %>%
-    arrange(desc(auc_out)) %>% slice_head(n = 1) %>% select(Action, Reward),
-  top_fits_df %>% filter(State == "None") %>%
-    arrange(desc(logLik_ind)) %>% slice_head(n = 1) %>% select(Action, Reward)
-)
-top_statebased <- rbind(
-  top_fits_df %>% filter(State != "None") %>%
-    arrange(desc(auc)) %>% slice_head(n = 1) %>% select(Action, Reward, State),
-  top_fits_df %>% filter(State != "None") %>%
-    arrange(bic) %>% slice_head(n = 1) %>% select(Action, Reward, State),
-  top_fits_df %>% filter(State != "None") %>%
-    arrange(desc(auc_out)) %>% slice_head(n = 1) %>% select(Action, Reward, State),
-  top_fits_df %>% filter(State != "None") %>%
-    arrange(desc(logLik_ind)) %>% slice_head(n = 1) %>% select(Action, Reward, State)
-)
+# top_statefree <- rbind(
+#   top_fits_df %>% filter(State == "None") %>%
+#     arrange(desc(auc)) %>% slice_head(n = 1) %>% select(Action, Reward),
+#   top_fits_df %>% filter(State == "None") %>%
+#     arrange(bic) %>% slice_head(n = 1) %>% select(Action, Reward),
+#   top_fits_df %>% filter(State == "None") %>%
+#     arrange(desc(auc_out)) %>% slice_head(n = 1) %>% select(Action, Reward),
+#   top_fits_df %>% filter(State == "None") %>%
+#     arrange(desc(logLik_ind)) %>% slice_head(n = 1) %>% select(Action, Reward)
+# )
+# top_statebased <- rbind(
+#   top_fits_df %>% filter(State != "None") %>%
+#     arrange(desc(auc)) %>% slice_head(n = 1) %>% select(Action, Reward, State),
+#   top_fits_df %>% filter(State != "None") %>%
+#     arrange(bic) %>% slice_head(n = 1) %>% select(Action, Reward, State),
+#   top_fits_df %>% filter(State != "None") %>%
+#     arrange(desc(auc_out)) %>% slice_head(n = 1) %>% select(Action, Reward, State),
+#   top_fits_df %>% filter(State != "None") %>%
+#     arrange(desc(logLik_ind)) %>% slice_head(n = 1) %>% select(Action, Reward, State)
+# )
 
 top_fits_df %>%
   mutate(bic = bic/1000) %>%
   select(auc, bic, auc_out, logLik_ind) %>%
   rename("FE AUC" = auc,
          "FE BIC (x10<sup>3</sup>)" = bic,
-         "Avg. Hiearchical AUC" = auc_out,
-         "Avg. Hiearchical Log Likelihood" = logLik_ind) %>%
-  gt_plt_summary(title = "Model Performance") %>%
-  fmt_markdown() %>%
+         "Avg. Individual AUC" = auc_out,
+         "Avg. Individual Log Likelihood" = logLik_ind) %>%
+  gt_plt_summary() %>%
   # Remove "Missing" column
   cols_hide(n_missing) %>%
+  tab_header(
+    title = "",
+    subtitle = ""
+  ) %>%
+  cols_label(
+    name = "Performance Score",
+    value = "Histogram"
+  ) %>%
+  fmt_markdown() %>%
   fmt_number(
     columns = c(Mean, Median, SD),
     decimals = 2
-  ) %>%
-  # Add columns for top models
-  cols_add(
-    top_action = top_statefree$Action,
-    top_reward = top_statefree$Reward,
-    top_action_st = top_statebased$Action,
-    top_reward_st = top_statebased$Reward,
-    top_state = top_statebased$State) %>%
-  cols_label(
-    top_action = "Top Action",
-    top_reward = "Top Reward",
-    top_action_st = "Top Action",
-    top_reward_st = "Top Reward",
-    top_state = "Top State"
-  ) %>%
-  tab_spanner(
-    label = "State-Free",
-    columns = c(top_action, top_reward)
-  ) %>%
-  tab_spanner(
-    label = "State-Based",
-    columns = c(top_action_st, top_reward_st, top_state)
-  ) %>% gt::gtsave(filename = "images/tbl-RL-exploration.png")
+  )
+  # # Add columns for top models
+  # cols_add(
+  #   top_action = top_statefree$Action,
+  #   top_reward = top_statefree$Reward,
+  #   top_action_st = top_statebased$Action,
+  #   top_reward_st = top_statebased$Reward,
+  #   top_state = top_statebased$State) %>%
+  # cols_label(
+  #   top_action = "Top Action",
+  #   top_reward = "Top Reward",
+  #   top_action_st = "Top Action",
+  #   top_reward_st = "Top Reward",
+  #   top_state = "Top State"
+  # ) %>%
+  # tab_spanner(
+  #   label = "State-Free",
+  #   columns = c(top_action, top_reward)
+  # ) %>%
+  # tab_spanner(
+  #   label = "State-Based",
+  #   columns = c(top_action_st, top_reward_st, top_state)
+  # ) %>%
+  # gt::gtsave(filename = "images/tbl-RL-exploration.png")
 
 ```
 
-![Summary of Fixed Effects and Varying Coefficients Models](images/tbl-RL-exploration.png){#tbl-RL-exploration}
+![Comparison of performance metrics for fixed-effects (FE) and varying-coefficient (VC) models predicting student outcomes. The FE models estimate a single set of coefficients, while the VC models allow coefficients to vary across teachers. FE AUC represents the area under the receiver operating characteristic (ROC) curve for the fixed-effects models. Higher values (up to 1) indicate better predictive power. FE BIC represents the Bayesian Information Criterion (in thousands) for the fixed effects models, balancing model fit and complexity. Lower values indicate a preferred model. Avg. Individual AUC is the mean of the predictive power scores across all classrooms in each VC model. Avg. Individual Log is the mean of model fit scores across all classrooms in each VC model. Lower (less negative) values indicate better fit. The table shows the distributions of each metric across different model specifications, along with their mean, median, and standard deviation (SD).](images/tbl-RL-exploration.png){#tbl-RL-exploration}
+
+<!-- Our analysis of fixed effects (FE) and varying coefficients (VC) models reveals the complexities and variations in the Zearn data on predicting teacher behavior based on previous student performances. @tbl-RL-exploration synthesizes our model performance scores, revealing that the fixed-effect area under the receiver operating characteristic curve (FE AUC) averages 0.81. We found that "Assessments" emerged as the most influential action and "Number of Students" as the leading reward in the state-free context. The Fixed Effects Bayesian Information Criterion (FE BIC) also reflects a mean of approximately 93.06 x 10\^3. The lowest BIC values correspond with "Scaffolding" as a pivotal action and "Struggle" as a salient reward variable in the state-free approach. -->
+
+<!-- Furthermore, the average teacher-specific AUC, a metric derived from the varying coefficient models, is 0.70. Notably, "Scaffolding" continues to be a consistent influencing factor for both state-free and state-based models, with "Number of Sessions" as the corresponding reward. The average out-of-sample teacher-specific log-likelihood, also derived from varying coefficients, shows an average of -262.63. In the state-based scenario, "Planning Guides" and "Activities" are the top-performing actions, aligning with "Struggle" and "Completion" as state variables. -->
 
 #### Model Performance
 
@@ -2872,7 +2925,7 @@ These visualizations highlight "Scaffolding" and "Activities" as best-fit action
 
 ```{r}
 #| label: fig-RL-exploration
-#| fig-cap: "Selection of Actions, Rewards, and States for Reinforcement Learning Analysis. The plots show the performance metrics of logistic regression models designed to capture characteristics similar to reinforcement learning models. The AUC and BIC values are plotted separately for state-free and state-dependent contexts. Models closest to the upper-left corners indicate a more optimal balance between parsimony and accuracy in capturing RL-like teacher behaviors."
+#| fig-cap: "Selection of Actions, Rewards, and States for Reinforcement Learning (RL) Analysis. The plots compare the performance of various logistic regression models designed to capture RL-like teacher behaviors. Area Under the ROC Curve (AUC) measures discrimination accuracy, with higher values indicating better predictive power. Bayesian Information Criterion (BIC) assesses model parsimony, balancing goodness of fit with model complexity, with lower values preferred. Each point represents a model specification, with different combinations of actions (pedagogical practices) and rewards (student outcomes). State-dependent models also incorporate variables describing the classroom state, selected from the pool of student variables not already chosen as the reward variable for that model. Models closest to the top left corner achieve the best trade-off between accuracy (high AUC) and parsimony (low BIC)."
 #| fig-subcap: 
 #|   - "State-free"
 #|   - "State-dependent"
@@ -2880,10 +2933,10 @@ These visualizations highlight "Scaffolding" and "Activities" as best-fit action
 
 # Select top models by BIC (lower is better) and AUC (higher is better)
 
-# Keep models for later analysis
-selected_models <- top_fits_df %>%
-  filter(State == "None") %>%
-  filter(auc_out > 0.7, bic < 90000)
+# # Keep models for later analysis
+# selected_models <- top_fits_df %>%
+#   filter(State == "None") %>%
+#   filter(auc_out > 0.7, bic < 90000)
 
 ## State-free
 plot1 <- top_fits_df %>%
@@ -2898,24 +2951,24 @@ plot1 <- top_fits_df %>%
     expand = .02,
     label.buffer = unit(0.1, "mm")
   ) +
-  # Draw a segment for the x-line up to y = 90000
-  geom_segment(x = 84000, y = 0.7, xend = 90000, yend = 0.7,
-               linetype = "dashed", color = "darkgray") +
-  # Draw a segment for the y-line starting from x = 0.7
-  geom_segment(x = 90000, y = 0.7, xend = 90000, yend = 0.72,
-               linetype = "dashed", color = "darkgray") +
+  # # Draw a segment for the x-line up to y = 90000
+  # geom_segment(x = 84000, y = 0.7, xend = 90000, yend = 0.7,
+  #              linetype = "dashed", color = "darkgray") +
+  # # Draw a segment for the y-line starting from x = 0.7
+  # geom_segment(x = 90000, y = 0.7, xend = 90000, yend = 0.72,
+  #              linetype = "dashed", color = "darkgray") +
   theme_minimal() +
   theme(legend.position = "none") +
-  labs(x = "BIC F.E.", y = "Avg. Teacher AUC",
-       title = paste(nrow(selected_models), "Models Selected"))
+  labs(x = "BIC F.E.", y = "Avg. Teacher AUC")
+       # title = paste(nrow(selected_models), "Models Selected"))
 
-# Join with selected_models
-selected_models <- bind_rows(
-  selected_models,
-  top_fits_df %>%
-    filter(State != "None") %>%
-    filter(auc_out > 0.7, bic < 90000)
-  )
+# # Join with selected_models
+# selected_models <- bind_rows(
+#   selected_models,
+#   top_fits_df %>%
+#     filter(State != "None") %>%
+#     filter(auc_out > 0.7, bic < 90000)
+#   )
 
 ## State-based
 plot2 <- top_fits_df %>%
@@ -2931,16 +2984,16 @@ plot2 <- top_fits_df %>%
     expand = .02,
     label.buffer = unit(0.1, "mm")
   ) +
-  # Draw a segment for the x-line up to y = 90000
-  geom_segment(x = 84000, y = 0.7, xend = 90000, yend = 0.7,
-               linetype = "dashed", color = "darkgray") +
-  # Draw a segment for the y-line starting from x = 0.7
-  geom_segment(x = 90000, y = 0.7, xend = 90000, yend = 0.72,
-               linetype = "dashed", color = "darkgray") +
+  # # Draw a segment for the x-line up to y = 90000
+  # geom_segment(x = 84000, y = 0.7, xend = 90000, yend = 0.7,
+  #              linetype = "dashed", color = "darkgray") +
+  # # Draw a segment for the y-line starting from x = 0.7
+  # geom_segment(x = 90000, y = 0.7, xend = 90000, yend = 0.72,
+  #              linetype = "dashed", color = "darkgray") +
   theme_minimal() +
-  labs(x = "BIC F.E.", y = "Avg. Teacher AUC",
-       title = paste(nrow(selected_models %>% filter(State != "None")),
-                     "Models Selected"))
+  labs(x = "BIC F.E.", y = "Avg. Teacher AUC")
+       # title = paste(nrow(selected_models %>% filter(State != "None")),
+       #               "Models Selected"))
 
 plot1
 plot2
@@ -2954,11 +3007,11 @@ plot2
 
 library(fixest)
 
-create_model <- function(formula, data) {
+create_model <- function(formula, data, iter = 25) {
   # Fit a logistic regression model with fixed effects
   model <- feglm(formula, data = data, family = binomial, 
                  panel.id = c("Teacher.User.ID", "week"),
-                 glm.iter = 50, mem.clean = TRUE)
+                 glm.iter = iter, mem.clean = TRUE)
   return(model)
 }
 
@@ -3008,24 +3061,33 @@ params2 <- crossing(
                                 paste0(reward, collapse = "|"))]
 ) %>%
   filter(rwd != st) %>%
-  unique() %>%
-  semi_join(
-    selected_models %>%
-      select(Action, Reward, State) %>%
-      mutate(across(c(Action, Reward, State),
-                    ~ case_when(. == "Badges" ~ "Frobenius.NNDSVD_student1",
-                                . == "Struggles" ~ "Frobenius.NNDSVD_student2",
-                                . == "No. Students" ~ "Frobenius.NNDSVD_student3",
-                                . == "Activity" ~ "Frobenius.NNDSVD_student4",
-                                . == "Assessments" ~ "Frobenius.NNDSVD_teacher1",
-                                . == "Pedagogical Knowledge" ~ "Frobenius.NNDSVD_teacher2",
-                                . == "Group Instruction" ~ "Frobenius.NNDSVD_teacher3",
-                                . == "Curriculum Planning" ~ "Frobenius.NNDSVD_teacher4",
-                                . == "None" ~ "NA",
-                                .default = .))),
-    by = c("act" = "Action", "rwd" = "Reward", "st" = "State"))
+  unique()
+  # semi_join(
+  #   selected_models %>%
+  #     select(Action, Reward, State) %>%
+  #     mutate(across(c(Action, Reward, State),
+  #                   ~ case_when(. == "Badges" ~ "Frobenius.NNDSVD_student1",
+  #                               . == "Struggles" ~ "Frobenius.NNDSVD_student2",
+  #                               . == "No. Students" ~ "Frobenius.NNDSVD_student3",
+  #                               . == "Activity" ~ "Frobenius.NNDSVD_student4",
+  #                               . == "Assessments" ~ "Frobenius.NNDSVD_teacher1",
+  #                               . == "Pedagogical Knowledge" ~ "Frobenius.NNDSVD_teacher2",
+  #                               . == "Group Instruction" ~ "Frobenius.NNDSVD_teacher3",
+  #                               . == "Curriculum Planning" ~ "Frobenius.NNDSVD_teacher4",
+  #                               . == "None" ~ "NA",
+  #                               .default = .))),
+  #   by = c("act" = "Action", "rwd" = "Reward", "st" = "State"))
 
 # Data and Variables
+load("Regressions/me-results.RData")
+teachers <- intersect(
+  Reduce(union, sapply(results, function(x) {
+    x$perform_df$Teacher.User.ID
+    })),
+  Reduce(intersect, sapply(results, function(x) {
+    names(x$recoef$Teacher.User.ID)
+    }))
+  )
 df_bin <- as.data.table(
   df %>%
     mutate(across(dplyr::starts_with(action),
@@ -3064,7 +3126,13 @@ results <- foreach(i = 1:nrow(params2),
                      fmla <- create_formula(action = act, reward = rwd,
                                             state = st)
                      model <- create_model(as.formula(fmla), train_data)
-
+                     mult <- 1
+                     while (!model$convStatus || mult < 5) {
+                       model <- create_model(as.formula(fmla), train_data,
+                                             mult * 200)
+                       mult <- mult + 1
+                     }
+                     
                      # Out-of-Sample Predictions
                      predictions <- predict(model, newdata = test_data)
                      perform_df <- cbind(test_data, predictions) %>%
@@ -3107,7 +3175,8 @@ results <- foreach(i = 1:nrow(params2),
                           bic = BIC(model),
                           perform_df = perform_df,
                           fecoef = summary(model)$coeftable,
-                          recoef = fixef(model))
+                          recoef = fixef(model),
+                          convergence = model$convStatus)
                    }
 # Stop the cluster
 stopCluster(cl)
@@ -3127,22 +3196,17 @@ In contrast, @fig-RL-exploration favors models that occupy the upper-left quadra
 
 These configurations highlight teacher individual differences and support the idea that using a hybrid modeling approach could improve the process of fitting RL.
 
-```{=tex}
-\newpage
-\KOMAoptions{paper=landscape,pagesize}
-\recalctypearea
-{\areaset[current]{\dimexpr\textwidth\relax}{\textheight}
-\setlength{\marginparwidth}{0pt}
-\scriptsize
-```
-```{r}
+{{< pagebreak >}}
+
+```{r, results='asis'}
 #| label: tbl-re-estimation-statefree
-#| tbl-cap: "State-Free Mixed Effects Logistic Regression Results"
+#| tbl-cap: "Summary statistics of coefficients from state-free mixed effects logistic regression models predicting teacher actions. Each row group represents a predictor variable: R(t-1) x A(t-1) is the interaction between the reward at time t-1 and the action taken at time t-1, R(t-1) x A(t-2) is the interaction between the reward at t-1 and action at t-2, and R(t-2) x A(t-2) is the interaction between the reward and action at time t-2. Columns represent different combinations of action, reward, and state, where the actions are teacher NMF components, and the rewards are student NMF components. Cell values show the mean, standard deviation, quartiles, and proportion of teachers that show RL-like coefficients (i.e., those in the direction predicted by reinforcement learning: positive for positive rewards and negative for negative rewards)."
 
 load("Regressions/me-standardized-coef.RData")
 
 filtered_results <- lapply(results, function(x) {
   if (!is.null(x$State)) return(NULL)
+  if (!x$convergence) return(NULL)
   temp <- data.frame(
     Action = x$Method,
     Reward = x$Reward,
@@ -3158,10 +3222,10 @@ filtered_results <- lapply(results, function(x) {
                             . == "Frobenius.NNDSVD_teacher3" ~ "Group Instruction",
                             . == "Frobenius.NNDSVD_teacher4" ~ "Curriculum Planning",
                             .default = .)))
-  if(nrow(
-    temp %>%
-    semi_join(selected_models, by = c("Action", "Reward", "State"))
-    ) == 0) return(NULL)
+  # if(nrow(
+  #   temp %>%
+  #   semi_join(selected_models, by = c("Action", "Reward", "State"))
+  #   ) == 0) return(NULL)
   if(x$AUC < 0.5) return(NULL)
   x$recoef <- do.call(cbind, x$recoef[-c(1, length(x$recoef))]) %>%
     as.data.frame() %>%
@@ -3324,7 +3388,7 @@ model_summary_long %>%
     "N")) %>%
   fmt_markdown(columns = "variable") %>%
   fmt_number(decimals = 2) %>%
-  fmt_integer(rows = variable == "No. Teachers") %>%
+  fmt_integer(rows = variable == "N") %>%
   fmt_percent(rows = statistic == "RL-like") %>%
   # cols_hide(starts_with("Assessments_No. Students")) %>%
   sub_missing() %>%
@@ -3334,16 +3398,16 @@ model_summary_long %>%
   ) %>%
   tab_options(
     table.font.size = "small"
-  )
-  # as_latex()
+  ) %>%
+  as_latex()
 
 ```
 
 {{< pagebreak >}}
 
-```{r}
+```{r, results='asis'}
 #| label: tbl-re-estimation
-#| tbl-cap: "State-Based Mixed Effects Logistic Regression Results"
+#| tbl-cap: "Summary statistics of coefficients from state-based mixed effects logistic regression models predicting teacher actions. Each row group represents a predictor variable: R(t-1) x A(t-1) is the interaction between the reward at time t-1 and the action taken at time t-1, R(t-1) x A(t-2) is the interaction between the reward at t-1 and action at t-2, R(t-2) x A(t-2) is the interaction between the reward and action at time t-2, S(t) is the state at time t, and S(t) x A(t-1) is the interaction between the current state and the previous action. Columns represent different combinations of action, reward, and state, where the actions are teacher NMF components, and the rewards and states are student NMF components (but the state is never the same component as its associated reward). Cell values show the mean, standard deviation, quartiles, and proportion of teachers that show RL-like coefficients (i.e., those in the direction predicted by reinforcement learning: positive for positive rewards and negative for negative rewards)."
 
 load("Regressions/me-standardized-coef.RData")
 
@@ -3555,17 +3619,13 @@ model_summary_long %>%
   ) %>%
   tab_options(
     table.font.size = "small"
-  )
-  # as_latex()
+  ) %>%
+  as_latex()
 
 ```
 
-```{=tex}
-}
-\newpage
-\KOMAoptions{paper=portrait,pagesize}
-\recalctypearea
-```
+{{< pagebreak >}}
+
 ## Estimating RL Models
 
 This section aims to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the log evidence, a metric that balances model fit against complexity, similar to the Bayesian Information Criterion. This metric is critical as it provides a common ground for comparing models with varying degrees of freedom, ensuring that our selection process favors models that capture the essential patterns without overfitting. Our first step will be to choose the most suitable model based on this performance score. Then, we will carefully analyze it for any discernible patterns that may help us understand the teaching strategies present in our dataset.
