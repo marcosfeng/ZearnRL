@@ -61,5 +61,7 @@ py-zearn/
 /CBM/data/individual_all
 /CBM/zearn_results/comp_results
 /CBM/zearn_results/top_results/ac
+/CBM/zearn_results/top_results/logit
+/CBM/zearn_results/top_results/ql
 /CBM/Archive
 *filtered*.mat
