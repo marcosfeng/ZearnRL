@@ -46,7 +46,7 @@ function [loglik] = actor_critic_model(parameters, subj)
         product = s * theta * tau;
         % Define a threshold for 'large' theta
         if product < -8
-            p(t) = p(t) - product*a';
+            p(t) = p(t) + product*a';
         elseif product > 8
             p(t) = p(t) + (1-product)*(1-a)';
         else
