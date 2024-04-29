@@ -129,12 +129,12 @@ end
 %% Compare between QL and logit models
 
 fname_hbi = {'top_results/hbi_compare_ql.mat', ...
-    'top_results/hbi_compare_logit_ql7.mat',
+    'top_results/hbi_compare_logit_ql7.mat', ...
     'top_results/hbi_compare_logit_ql3.mat'};
 % Indeces for comparisons
 idx = [5,6; % Compare QL models
     1,5;
-    1,6];   % Compare AC models
+    1,6];   
 idx_fname = [2,3;1,2;1,3];
 parfor i = 1:size(idx,1)
     cbm_hbi(filtered_data, models(idx(i,:)), ...
@@ -142,57 +142,14 @@ parfor i = 1:size(idx,1)
     cbm_hbi_null(filtered_data, fname_hbi{i});
 end
 
+%% Compare Logit + QL 7 + QL 3
 
-%% Compare between top QL and top AC
+cbm_hbi(filtered_data, models([1,5,6]), ...
+        fname(1:3), 'top_results/hbi_logit_ql7_ql3.mat');
+cbm_hbi_null(filtered_data, 'top_results/hbi_logit_ql7_ql3.mat');
 
-fname_hbi = {'top_results/hbi_compare_ql_ac.mat', ...
-    'top_results/hbi_compare_ac.mat'};
-% Indeces for comparisons
-idx = [,; % Compare QL models
-    7,8];   % Compare AC models
-idx_fname = [,;1,];
-parfor i = 1:size(idx,1)
-    cbm_hbi(filtered_data, models(idx(i,:)), ...
-        fname(idx_fname(i,:)), fname_hbi{i});
-    cbm_hbi_null(filtered_data, fname_hbi{i});
-end
+%% Compare between top QL and AC
 
-%% Plotting
-
-fname_hbi = 'top_results/hbi_ac.mat';
-
-cbm = load(fname_hbi).cbm;
-cbm.output
-
-model_names = {'Logit', 'Actor-Critic'};
-param_names = {'\alpha_w','\alpha_\theta', '\gamma', ...
-    '\tau', '\theta_{t=1}', 'w_{t=1}', 'Cost'};
-transform = {'sigmoid','sigmoid','sigmoid',...
-    'exp', 'none', 'none', 'exp'};
-
-cbm_hbi_plot(fname_hbi, model_names, param_names, transform)
-
-%% Posterior predictive check
-
-fname_hbi = 'top_results/hbi_ac.mat';
-cbm = load(fname_hbi).cbm;
-
-loglik = zeros(length(filtered_data), 1);
-prob = cell(length(filtered_data), 1);
-theta = cell(length(filtered_data), 1);
-w = cell(length(filtered_data), 1);
-
-for i = 1:length(filtered_data)
-    subj = filtered_data{i};
-    subj.outcome = subj.NNDSVD_student2;
-    % Action variable: NNDSVD_teacher2
-    subj.action = subj.NNDSVD_teacher2;
-    % State variables: NNDSVD_student1 
-    subj.state = [subj.NNDSVD_student1 ];
-    [loglik(i),prob{i},theta{i},w{i}] = ...
-        actor_critic_posterior(cbm.output.parameters{2, 1}(i,:), subj);
-end
-
-
-st_test = [ones(length(subj.action), 1), subj.state];
-st_test(7, :) * theta(:,7) * exp(cbm.output.parameters{2, 1}(1,4))
+cbm_hbi(filtered_data, models([5,7,8]), ...
+        fname([2,4,5]), 'top_results/hbi_ql_ac.mat');
+cbm_hbi_null(filtered_data, 'top_results/hbi_ql_ac.mat');

@@ -4336,7 +4336,7 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 <!-- FE Logit State-free -->
 
 ```{r, results='asis'}
-#| label: tbl-fe-results-statefree
+#| label: tbl-fe-results-statefree-full
 #| tbl-cap: "State-Free Panel Logistic Regression Results"
 
 # Load the results from both subset and restricted analyses
@@ -4476,7 +4476,7 @@ gt_table %>% as_latex()
 <!-- FE Logit State-based -->
 
 ```{r}
-#| label: tbl-fe-results
+#| label: tbl-fe-results-full
 #| tbl-cap: "State-Based Panel Logistic Regression Results"
 
 load("Regressions/fe-state-subset-results.RData")
@@ -4597,7 +4597,7 @@ gt_table
 <!-- VC Logit Model Summary -->
 
 ```{r, results='asis'}
-#| label: tbl-re-estimation-statefree
+#| label: tbl-re-estimation-statefree-full
 #| tbl-cap: "Summary statistics of coefficients from state-free mixed effects logistic regression models predicting teacher actions. Each row group represents a predictor variable: R(t-1) x A(t-1) is the interaction between the reward at time t-1 and the action taken at time t-1, R(t-1) x A(t-2) is the interaction between the reward at t-1 and action at t-2, and R(t-2) x A(t-2) is the interaction between the reward and action at time t-2. Columns represent different combinations of action, reward, and state, where the actions are teacher NMF components, and the rewards are student NMF components. Cell values show the mean, standard deviation, quartiles, and proportion of teachers that show RL-like coefficients (i.e., those in the direction predicted by reinforcement learning: positive for positive rewards and negative for negative rewards)."
 
 load("Regressions/me-standardized-coef.RData")
@@ -4819,7 +4819,7 @@ model_summary_long %>%
 {{< pagebreak >}}
 
 ```{r, results='asis'}
-#| label: tbl-re-estimation
+#| label: tbl-re-estimation-full
 #| tbl-cap: "Summary statistics of coefficients from state-based mixed effects logistic regression models predicting teacher actions. Each row group represents a predictor variable: R(t-1) x A(t-1) is the interaction between the reward at time t-1 and the action taken at time t-1, R(t-1) x A(t-2) is the interaction between the reward at t-1 and action at t-2, R(t-2) x A(t-2) is the interaction between the reward and action at time t-2, S(t) is the state at time t, and S(t) x A(t-1) is the interaction between the current state and the previous action. Columns represent different combinations of action, reward, and state, where the actions are teacher NMF components, and the rewards and states are student NMF components (but the state is never the same component as its associated reward). Cell values show the mean, standard deviation, quartiles, and proportion of teachers that show RL-like coefficients (i.e., those in the direction predicted by reinforcement learning: positive for positive rewards and negative for negative rewards)."
 
 load("Regressions/me-standardized-coef.RData")
