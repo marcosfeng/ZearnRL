@@ -1,4 +1,4 @@
-function [loglik] = q_model(parameters, subj)
+function [loglik] = q_model_0init(parameters, subj)
     % Extract parameters
     nd_alpha = parameters(1);
     alpha = 1 / (1 + exp(-nd_alpha));
@@ -19,7 +19,7 @@ function [loglik] = q_model(parameters, subj)
     C = length(cost);  % Number of choices
     ev = zeros(C);  % Expected value (Q-value) for both actions initialized at 0
 
-    % To save log probability of choice. Currently zeros, will be filled below
+    % Save log probability of choice
     log_p = zeros(Tsubj, 1);
     log_p(1) = log_p(1) + ...
         choice(1)*(-log1p(exp(-tau * ev))) + ...
@@ -32,27 +32,27 @@ function [loglik] = q_model(parameters, subj)
         w_t = week(t);  % Week on this trial
         w_t_prev = week(t-1); % Week on next trial
 
-        % Log probability of choice
-        logit_val = tau * ev;
-        if logit_val < -8
-            log_p(t) = log_p(t) + a*(-logit_val);
-        elseif logit_val > 8
-            log_p(t) = log_p(t) + (1 - a)*(logit_val);
-        else
-            log_p(t) = log_p(t) + ...
-                a*(-log1p(exp(-logit_val))) + ...
-                (1 - a)*(-log1p(exp(logit_val)));
-        end
-
         if choice(t-1) == 1
             % Update expected value (ev) if choice was made
             delta = gamma^(double(w_t) - double(w_t_prev)) * ...
-                outcome(t) - cost - ev;
+                (outcome(t) - cost) - ev;
             ev = ev + (alpha * delta);
         elseif choice(t-1) == 0
             % Update expected value (ev) relative to outside option
             delta = gamma^(double(w_t) - double(w_t_prev)) * outcome(t);
             ev = ev - (alpha * delta);
+        end
+
+        % Log probability of choice
+        logit_val = tau * ev;
+        if logit_val < -8
+            log_p(t) = log_p(t) + a*logit_val;
+        elseif logit_val > 8
+            log_p(t) = log_p(t) + (1 - a)*(-logit_val);
+        else
+            log_p(t) = log_p(t) + ...
+                a*(-log1p(exp(-logit_val))) + ...
+                (1 - a)*(-log1p(exp(logit_val)));
         end
     end
     
