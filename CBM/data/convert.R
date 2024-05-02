@@ -67,8 +67,12 @@ convert_to_subj_struct <- function(i, stan_data) {
 df <- read.csv(file = "Bayesian/df.csv") %>%
   mutate(across(where(is.numeric),
                 ~ ifelse(. < .Machine$double.eps, 0, .))) %>%
+  group_by(Classroom.ID) %>%
+  filter(if_any(dplyr::starts_with("Frobenius.NNDSVD_teacher"),
+                ~ sum(.>0) > 6)) %>%
+  ungroup() %>%
   mutate(across(dplyr::starts_with("Frobenius.NNDSVD_teacher"),
-                ~ if_else(.>median(.),1,0)))
+                ~ if_else(.>0,1,0)))
 
 FR_cols <- grep("Frobenius.NNDSVD_teacher", names(df), value = TRUE)
 
@@ -83,6 +87,9 @@ df <- df %>%
 setorder(df, Classroom.ID, week)
 # Filter out Classroom.IDs with less than 12 total rows of data
 df <- df[, .SD[.N >= 12], by = Classroom.ID]
+# # Filter out Classroom.IDs with sd = 0 for Choices
+# df <- df[, .SD[!any(apply(.SD[, FR_cols, with = FALSE], 2, sd) == 0)],
+#          by = Classroom.ID]
 # Filter out Classroom.IDs with sd = 0 for Scaffolding
 df <- df[, .SD[!apply(.SD[, FR_cols[2], with = FALSE], 2, sd) == 0],
          by = Classroom.ID]
