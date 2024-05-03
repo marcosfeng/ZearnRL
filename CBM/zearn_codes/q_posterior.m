@@ -36,7 +36,7 @@ function [loglik, prob, q_values] = q_posterior(parameters, subj)
         if choice(t-1) == 1
             % Update Q-value if choice was made
             delta = gamma^(double(w_t) - double(w_t_prev)) * ...
-                (outcome(t) - cost) - q_values(:,t-1);
+                outcome(t) - cost - q_values(:,t-1);
             q_values(:,t) = q_values(:,t-1) + (alpha * delta);
         elseif choice(t-1) == 0
             % Update Q-value relative to outside option

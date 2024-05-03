@@ -36,7 +36,7 @@ function [loglik] = q_model(parameters, subj)
         if choice(t-1) == 1
             % Update expected value (ev) if choice was made
             delta = gamma^(double(w_t) - double(w_t_prev)) * ...
-                (outcome(t) - cost) - ev;
+                outcome(t) - cost - ev;
             ev = ev + (alpha * delta);
         elseif choice(t-1) == 0
             % Update expected value (ev) relative to outside option
