@@ -2822,7 +2822,7 @@ top_fits_df <- top_fits_df %>%
 
 top_fits_df %>%
   mutate(bic = bic/1000) %>%
-  select(auc, bic, auc_out, logLik_ind) %>%
+  dplyr::select(auc, bic, auc_out, logLik_ind) %>%
   rename("FE AUC" = auc,
          "FE BIC (x10<sup>3</sup>)" = bic,
          "Avg. Individual AUC" = auc_out,
@@ -2894,15 +2894,15 @@ These visualizations highlight "Scaffolding" and "Activities" as best-fit action
 
 # Select top models by BIC (lower is better) and AUC (higher is better)
 
-# # Keep models for later analysis
-# selected_models <- top_fits_df %>%
-#   filter(State == "None") %>%
-#   filter(auc_out > 0.7, bic < 90000)
+# Keep models for later analysis
+selected_models <- top_fits_df %>%
+  filter(State == "None") %>%
+  filter(auc_out > 0.7, bic < 61000)
 
 ## State-free
 plot1 <- top_fits_df %>%
   filter(State == "None") %>%
-  select(Action, Reward, bic, auc_out) %>%
+  dplyr::select(Action, Reward, bic, auc_out) %>%
   ggplot(aes(x = bic, y = auc_out, color = Reward)) +
   geom_point() +
   geom_mark_ellipse(
@@ -2923,18 +2923,18 @@ plot1 <- top_fits_df %>%
   labs(x = "BIC F.E.", y = "Avg. Teacher AUC")
        # title = paste(nrow(selected_models), "Models Selected"))
 
-# # Join with selected_models
-# selected_models <- bind_rows(
-#   selected_models,
-#   top_fits_df %>%
-#     filter(State != "None") %>%
-#     filter(auc_out > 0.7, bic < 90000)
-#   )
+# Join with selected_models
+selected_models <- bind_rows(
+  selected_models,
+  top_fits_df %>%
+    filter(State != "None") %>%
+    filter(auc_out > 0.7, bic < 90000)
+  )
 
 ## State-based
 plot2 <- top_fits_df %>%
   filter(State != "None") %>%
-  select(Action, Reward, State, bic, auc_out) %>%
+  dplyr::select(Action, Reward, State, bic, auc_out) %>%
   ggplot(aes(x = bic, y = auc_out, color = Reward, shape = State)) +
   geom_point() +
   theme(legend.position = "bottom") +
@@ -2966,7 +2966,7 @@ plot2
 ```{r RL-me-interpretation}
 #| eval: false
 
-create_model <- function(formula, data, iter = 25) {
+reate_model <- function(formula, data, iter = 25) {
   # Fit a logistic regression model with fixed effects
   model <- feglm(formula, data = data, family = binomial, 
                  panel.id = c("Teacher.User.ID", "week"),
@@ -3020,22 +3020,22 @@ params2 <- crossing(
                                 paste0(reward, collapse = "|"))]
 ) %>%
   filter(rwd != st) %>%
-  unique()
-  # semi_join(
-  #   selected_models %>%
-  #     select(Action, Reward, State) %>%
-  #     mutate(across(c(Action, Reward, State),
-  #                   ~ case_when(. == "Badges" ~ "Frobenius.NNDSVD_student1",
-  #                               . == "Struggles" ~ "Frobenius.NNDSVD_student2",
-  #                               . == "No. Students" ~ "Frobenius.NNDSVD_student3",
-  #                               . == "Activity" ~ "Frobenius.NNDSVD_student4",
-  #                               . == "Assessments" ~ "Frobenius.NNDSVD_teacher1",
-  #                               . == "Pedagogical Knowledge" ~ "Frobenius.NNDSVD_teacher2",
-  #                               . == "Group Instruction" ~ "Frobenius.NNDSVD_teacher3",
-  #                               . == "Curriculum Planning" ~ "Frobenius.NNDSVD_teacher4",
-  #                               . == "None" ~ "NA",
-  #                               .default = .))),
-  #   by = c("act" = "Action", "rwd" = "Reward", "st" = "State"))
+  unique() %>%
+  semi_join(
+    selected_models %>%
+      select(Action, Reward, State) %>%
+      mutate(across(c(Action, Reward, State),
+                    ~ case_when(. == "Badges" ~ "Frobenius.NNDSVD_student1",
+                                . == "Struggles" ~ "Frobenius.NNDSVD_student2",
+                                . == "No. Students" ~ "Frobenius.NNDSVD_student3",
+                                . == "Activity" ~ "Frobenius.NNDSVD_student4",
+                                . == "Assessments" ~ "Frobenius.NNDSVD_teacher1",
+                                . == "Pedagogical Knowledge" ~ "Frobenius.NNDSVD_teacher2",
+                                . == "Group Instruction" ~ "Frobenius.NNDSVD_teacher3",
+                                . == "Curriculum Planning" ~ "Frobenius.NNDSVD_teacher4",
+                                . == "None" ~ "NA",
+                                .default = .))),
+    by = c("act" = "Action", "rwd" = "Reward", "st" = "State"))
 
 # Data and Variables
 load("Regressions/me-results.RData")
@@ -3067,14 +3067,19 @@ for (col in c(action, reward)) {
 train_data <- as.data.frame(df_bin[set == "train"])
 test_data <- as.data.frame(df_bin[set == "test"])
 
+library(doSNOW)
 cl <- makeCluster(min(nrow(params2), detectCores()-1))
-registerDoParallel(cl)
+registerDoSNOW(cl)
+pb <- txtProgressBar(max = nrow(params2), style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
 results <- foreach(i = 1:nrow(params2),
                    .multicombine = TRUE,
                    .errorhandling = "remove",
                    .noexport = c("formula", "model",
                                  "residuals", "predictions"),
-                   .packages = c("fixest", "pROC", "dplyr")) %dopar% {
+                   .packages = c("fixest", "pROC", "dplyr"),
+                   .options.snow = opts) %dopar% {
                      act <- as.character(params2$act[i])
                      lag <- params2$lag[i]
                      st <- NULL
@@ -3138,6 +3143,7 @@ results <- foreach(i = 1:nrow(params2),
                           convergence = model$convStatus)
                    }
 # Stop the cluster
+close(pb)
 stopCluster(cl)
 rm(cl)
 
@@ -5654,6 +5660,7 @@ ggplot(data, aes(x = LogEvidence, fill = ModelType)) +
 Previous research has explored how teacher effort affects student achievement. In particular, economists have studied the "education production function," in which educational outcomes are a function of various inputs, including teacher effort, student effort, school resources, and family background [@hedges1994]. This function serves as a theoretical framework for understanding how different factors contribute to educational achievement and how interventions can be designed to improve outcomes.
 
 One of the key inputs in the education production function is teacher effort, as teachers play a crucial role in shaping students' learning experiences and outcomes. Their effort, which encompasses their time, energy, dedication, and instructional strategies, can significantly influence students' academic achievement [@rivkin2005]. However, measuring teacher effort and its impact on student outcomes can be challenging due to the complex and multifaceted nature of teaching.
+<!-- ## Education production function -->
 
 To address this challenge, researchers have employed various strategies to identify the effects of teacher effort on student achievement. One common approach is to manipulate the conditions under which teachers operate, thereby changing the levels of teacher effort. For instance, @duflo2011 conducted a randomized controlled trial in Kenya to examine the effects of tracking, a practice of grouping students based on their ability levels. Tracking has been a prominent tool in the sociology of education and assumes that teacher inputs will depend on the ability level of the students. This tailoring of teaching strategies and content potentially enhances the instructor's effectiveness.
 
