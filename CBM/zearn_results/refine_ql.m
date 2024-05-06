@@ -20,7 +20,7 @@ fname = cell(1, length(ranked_indices));
 
 % Update the prior structure for Q-learning models
 v = 1;
-num_parameters = 4;
+num_parameters = 5;
 prior_ql = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
 for i = 1:length(ranked_indices)
@@ -55,7 +55,7 @@ end
 %% Histograms by valid log evidence
 
 model_desc = cell(size(fname));
-valid_subj_all = ones(1,281);
+valid_subj_all = ones(1,length(data));
 % Loop over each file name to construct the model description
 for i = 1:length(fname)
     loaded_data = load(fname{i});
@@ -168,7 +168,9 @@ for i = 1:4
 end
 
 fname_hbi = 'ql_refine/hbi_QL4_refined.mat';
-cbm_hbi(filtered_data, models(top4_indices), filtered_name, fname_hbi);
+pconfig = struct();
+pconfig.maxiter = 200;
+cbm_hbi(filtered_data, models(top4_indices), filtered_name, fname_hbi, pconfig);
 cbm_hbi_null(filtered_data, fname_hbi);
 
 % Load the HBI results and display them
@@ -184,10 +186,10 @@ model_names = {'R: 4', ...
     'R: 3'};
 
 % Define parameter names specific to Q-learning models
-param_names = {'\alpha', '\gamma', '\tau', 'C'};
+param_names = {'\alpha', '\gamma', '\tau', 'Q_1', 'C'};
 
 % Define transformation functions for parameters
-transform = {'sigmoid', 'sigmoid', 'exp', 'exp'};
+transform = {'sigmoid', 'sigmoid', 'exp', 'none', 'exp'};
 
 % Plot HBI analysis results
 cbm_hbi_plot(fname_hbi, model_names, param_names, transform);

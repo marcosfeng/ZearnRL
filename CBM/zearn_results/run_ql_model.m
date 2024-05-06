@@ -21,7 +21,7 @@ fcbm_maps = cell(1, numFiles);
 v = 2;
 
 % Determine the number of parameters in your model.
-num_parameters = 4;
+num_parameters = 5;
 
 % Create the prior structure for your model
 prior_ql = struct('mean', zeros(num_parameters, 1), 'variance', v);
