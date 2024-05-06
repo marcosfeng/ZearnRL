@@ -17,24 +17,38 @@ data  = fdata.data;
 
 models = cell(1,10);
 fname = cell(1,10);
+priors = cell(1,10);
 
 % Create the prior structure for your new model
 v = 6.25/2;
-num_parameters = 7;
-% Create the prior structure from previous estimation
-prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
 for i = 1:10
     models{i} = str2func(sprintf('wrapper_function_%d', top10_indices(i)));
     fname{i} = sprintf('ac_subj_results/lap_ac_%d.mat', top10_indices(i));
+    
+    % Determine the number of parameters in your model.
+    % Read the contents of the wrapper function file
+    file_contents = fileread( ...
+        sprintf('wrapper_function_%d.m', top10_indices(i)));
+    % Find the subj.state assignment line
+    state_line = regexp(file_contents, ...
+        'subj\.state\s*=\s*\[.*?\]', 'match', 'once');
+    % Extract the elements inside the square brackets
+    elements = regexp(state_line, 'subj\.\w+', 'match');
+    % Count the number of parameters
+    num_states = numel(elements);
+    num_parameters = 5 + 2*num_states;
+
+    % Create the prior structure from previous estimation
+    priors{i} = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
     loaded_data = load(fname{i});
-    prior_ac.mean = prior_ac.mean + ...
-        mean(loaded_data.cbm.output.parameters,1)';
-    fname{i} = sprintf('ac_refine/refine_ac_%d.mat', top10_indices(i));
+    priors{i}.mean = mean(loaded_data.cbm.output.parameters,1)';
+    fname{i} = sprintf('ac_refine/subj/refine_ac_%d', top10_indices(i));
+    fname{i} = strcat(fname{i}, '_%d.mat');
 end
-prior_ac.mean = prior_ac.mean/10;
 
 % Populate the top models and their corresponding fcbm_maps
+num_parameters = 13;
 % Create the PCONFIG struct
 pconfig = struct();
 pconfig.numinit = min(140*num_parameters, 2000);
@@ -46,15 +60,39 @@ pconfig.tolgrad_liberal = 0.005;
 if isempty(gcp('nocreate'))
     parpool;
 end
-parfor i = 1:10
-    % Run the cbm_lap function for your new model
-    cbm_lap(data, models{i}, prior_ac, fname{i}, pconfig);
+num_subjects = length(data);
+parfor i = 1:(10*num_subjects)
+    model_idx = floor((i-1)/num_subjects) + 1;
+    subj_idx = mod(i-1, num_subjects) + 1;
+
+    % Construct filename for saving output
+    fname_subj = sprintf(fname{model_idx}, subj_idx);
+    % if you need to re-run models
+    if exist(fname_subj,"file") == 2
+        continue;
+    end
+
+    % Run the cbm_lap function for the current model and subject
+    cbm_lap(data(subj_idx), models{model_idx}, ...
+        priors{model_idx}, fname_subj, pconfig);
+end
+
+fname_subjs = cell(num_subjects,length(models));
+for m = 1:length(models)
+    fname{m} = sprintf('ac_refine/subj/refine_ac_%d', top10_indices(m));
+    % Aggregate results for each subject
+    for subj = 1:num_subjects
+        % Construct the filename for the current subject's results
+        fname_subjs{subj,m} = sprintf(strcat(fname{m}, '_%d.mat'), subj);
+    end
+    fname{m} = strcat(fname{m}, '.mat');
+    cbm_lap_aggregate(fname_subjs(:,m),fname{m});
 end
 
 %% Histograms by valid log evidence
 
 model_desc = cell(size(fname));
-valid_subj_all = ones(1,281);
+valid_subj_all = ones(1,length(data));
 % Loop over each file name to construct the model description
 for i = 1:length(fname)
     loaded_data = load(fname{i});
