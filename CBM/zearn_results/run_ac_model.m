@@ -7,14 +7,6 @@ addpath(fullfile('..','codes'));
 addpath(fullfile('..','zearn_codes'));
 addpath(fullfile('..','zearn_codes','ac_wrappers'));
 
-% Define the prior variance
-v = 6.25;
-% Determine the number of parameters in your model.
-num_parameters = 7;
-
-% Create the prior structure for your new model
-prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
-
 % Load the common data for all datasets
 fdata = load('../data/sample_data.mat');
 data  = fdata.data;
@@ -25,21 +17,39 @@ numFiles = numFiles - 2;
 models = cell(1, numFiles);
 fcbm_maps = cell(1, numFiles);
 
-% Create the PCONFIG struct
-pconfig = struct();
-pconfig.numinit = min(70*num_parameters, 1000);
-pconfig.numinit_med = 1000;
-pconfig.numinit_up = 10000;
-pconfig.tolgrad = 1e-4;
-pconfig.tolgrad_liberal = 0.01;
 % Initialize a parallel pool if it doesn't already exist
 if isempty(gcp('nocreate'))
     parpool;
 end
-% Loop through each of the 75 wrapper functions
+% Define the prior variance
+v = 6.25;
+% Loop through each of the wrapper functions
 parfor wrapper_num = 1:numFiles
+    % Determine the number of parameters in your model.
+    % Read the contents of the wrapper function file
+    file_contents = fileread( ...
+        sprintf('wrapper_function_%d.m', wrapper_num));
+    % Find the subj.state assignment line
+    state_line = regexp(file_contents, ...
+        'subj\.state\s*=\s*\[.*?\]', 'match', 'once');
+    % Extract the elements inside the square brackets
+    elements = regexp(state_line, 'subj\.\w+', 'match');
+    % Count the number of parameters
+    num_states = numel(elements);
+    num_parameters = 5 + 2*num_states;
+
+    % Create the prior structure for your new model
+    prior_ac = struct('mean', zeros(num_parameters, 1), 'variance', v);
+    % Create the PCONFIG struct
+    pconfig = struct();
+    pconfig.numinit = min(70*num_parameters, 1000);
+    pconfig.numinit_med = 1000;
+    pconfig.numinit_up = 10000;
+    pconfig.tolgrad = 1e-4;
+    pconfig.tolgrad_liberal = 0.01;
+
     % Specify the file-address for saving the output
-    fname = sprintf('ac_subj_results/lap_ac_%d.mat', wrapper_num);  % Laplace results for actor-critic model
+    fname = sprintf('ac_subj_results/lap_ac_%d.mat', wrapper_num);
     
     % Get the function handle for the current wrapper function
     wrapper_func = str2func(sprintf('wrapper_function_%d', wrapper_num));
