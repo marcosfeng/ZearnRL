@@ -12,25 +12,23 @@ function [loglik] = hybrid_ql_logit(parameters, subj)
     gamma = 1 / (1 + exp(-nd_gamma));
     nd_tau = parameters(3);
     tau = exp(nd_tau);
-    nd_cost = parameters(4);
+    ev_init = parameters(4);
+    nd_cost = parameters(5);
     cost = exp(nd_cost);
 
     % Initialize Q-value for each action
     C = length(cost);  % Number of choices
-    ev = zeros(C);
+    ev = ev_init*ones(C);  % Expected value (Q-value)
 
     % To save log probability of choice.
     pred1 = zeros(Tsubj, 1);
     pred1(1) = 1 / (1 + exp(-tau * ev));
-
+    
     % Loop through trials
     for t = 2:Tsubj
         % Read info for the current trial
         w_t = week(t);  % Week on this trial
         w_t_prev = week(t-1); % Week on next trial
-
-        % Log probability of choice
-        pred1(t) = 1 / (1 + exp(-tau * ev));
 
         if choice(t-1) == 1
             % Update expected value (ev) if choice was made
@@ -42,6 +40,9 @@ function [loglik] = hybrid_ql_logit(parameters, subj)
             delta = gamma^(double(w_t) - double(w_t_prev)) * outcome(t);
             ev = ev - (alpha * delta);
         end
+
+        % Log probability of choice
+        pred1(t) = 1 / (1 + exp(-tau * ev));
     end
 
     %% Logit
@@ -62,7 +63,7 @@ function [loglik] = hybrid_ql_logit(parameters, subj)
         interaction11, interaction12, interaction22];
     
     % Extract parameters
-    beta = reshape(parameters(6:end), [size(X,2),1]);
+    beta = reshape(parameters(7:end), [size(X,2),1]);
 
     % Compute the linear combination of X and beta
     linear_comb = X * beta;
@@ -70,7 +71,7 @@ function [loglik] = hybrid_ql_logit(parameters, subj)
     pred2 = 1 ./ (1 + exp(-linear_comb));
 
     %% Hybrid
-    nd_weight = parameters(5);
+    nd_weight = parameters(6);
     weight = 1 / (1 + exp(-nd_weight));
     pred_hybrid = weight * pred1 + (1 - weight) * pred2;
 
