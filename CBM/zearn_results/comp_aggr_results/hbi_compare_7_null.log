@@ -1,0 +1,79 @@
+cbm_hbi_hbi                                       13-May-2024 11:26:15
+Running hierarchical bayesian inference (HBI)- null mode...
+
+HBI has been initialized according to
+	comp_aggr_results/lap_logit7.mat [for model 1]
+	comp_aggr_results/lap_ql7.mat [for model 2]
+	comp_aggr_results/lap_hybrid7.mat [for model 3]
+ 
+Number of samples: 78
+Number of models: 3
+======================================================================
+Iteration 01
+Iteration 02
+                                                           dL:   27.85
+                                                           dx:    0.16
+Iteration 03
+                                                           dL:    8.74
+                                                           dx:    0.15
+Iteration 04
+                                                           dL:    7.59
+                                                           dx:    0.13
+Iteration 05
+                                                           dL:    4.05
+                                                           dx:    0.12
+Iteration 06
+                                                           dL:    2.34
+                                                           dx:    0.11
+Iteration 07
+                                                           dL:    1.40
+                                                           dx:    0.09
+Iteration 08
+                                                           dL:  -12.38
+                                                           dx:    0.08
+Iteration 09
+                                                           dL:   10.09
+                                                           dx:    0.07
+Iteration 10
+                                                           dL:    1.29
+                                                           dx:    0.06
+Iteration 11
+                                                           dL:  -14.42
+                                                           dx:    0.06
+Iteration 12
+                                                           dL:    1.37
+                                                           dx:    0.05
+Iteration 13
+                                                           dL:   -1.31
+                                                           dx:    0.05
+Iteration 14
+                                                           dL:   -2.82
+                                                           dx:    0.05
+Iteration 15
+                                                           dL:   -5.62
+                                                           dx:    0.06
+Iteration 16
+                                                           dL:  -40.93
+                                                           dx:    0.06
+Iteration 17
+                                                           dL:  -23.69
+                                                           dx:    0.05
+Iteration 18
+                                                           dL:   -5.08
+                                                           dx:    0.04
+Iteration 19
+                                                           dL:   -7.61
+                                                           dx:    0.05
+Iteration 20
+                                                           dL:   22.36
+                                                           dx:    0.02
+Iteration 21
+                                                           dL:    2.53
+                                                           dx:    0.02
+Iteration 22
+                                                           dL:   -7.99
+                                                           dx:    0.02
+Iteration 23
+                                                           dL:    2.73
+                                                           dx:    0.01
+                                                          Converged :]
