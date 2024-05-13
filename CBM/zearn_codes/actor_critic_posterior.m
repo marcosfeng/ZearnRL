@@ -1,4 +1,4 @@
-function [loglik,prob,theta,w] = actor_critic_posterior(parameters, subj)
+function [loglik,prob,choice,theta,w] = actor_critic_posterior(parameters, subj)
     % Unpack data
     choice = subj.action; % Binary action
     Tsubj = length(choice);
@@ -83,5 +83,6 @@ function [loglik,prob,theta,w] = actor_critic_posterior(parameters, subj)
     end
     % Compute sum of the log-likelihoods
     loglik = double(sum(log_p));
-    prob = log_p;
+    prob = exp(log_p) .* choice + (1 - exp(log_p)) .* (1 - choice);
+    prob = [1-prob, prob];
 end

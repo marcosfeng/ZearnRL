@@ -1,4 +1,4 @@
-function [loglik, prob, q_values] = q_posterior(parameters, subj)
+function [loglik, prob, choice, q_values] = q_posterior(parameters, subj)
     % Extract parameters
     nd_alpha = parameters(1);
     alpha = 1 / (1 + exp(-nd_alpha));
@@ -12,18 +12,17 @@ function [loglik, prob, q_values] = q_posterior(parameters, subj)
     
     % Unpack data
     Tsubj = length(subj.action);
-    choice = subj.action; % dummy
+    choice = subj.action;  % dummy
     outcome = subj.outcome;
     week = subj.simmed.week;
     
     % Initialize Q-value for each action
-    C = length(cost); % Number of choices
+    C = length(cost);  % Number of choices
     q_values = ev_init * ones(C, Tsubj); % Q-values for each action and trial
     
     % Save log probability of choice
-    log_p = zeros(Tsubj, 1);
-    log_p(1) = log_p(1) + ...
-        choice(1) * (-log1p(exp(-tau * q_values(:,1)))) + ...
+    log_p = nan(Tsubj, 1);
+    log_p(1) = choice(1) * (-log1p(exp(-tau * q_values(:,1)))) + ...
         (1 - choice(1)) * (-log1p(exp(tau * q_values(:,1))));
     
     % Loop through trials
@@ -47,17 +46,17 @@ function [loglik, prob, q_values] = q_posterior(parameters, subj)
         % Log probability of choice
         logit_val = tau * q_values(:,t);
         if logit_val < -8
-            log_p(t) = log_p(t) + a * logit_val;
+            log_p(t) = a * logit_val;
         elseif logit_val > 8
-            log_p(t) = log_p(t) + (1 - a) * (-logit_val);
+            log_p(t) = (1 - a) * (-logit_val);
         else
-            log_p(t) = log_p(t) + ...
-                a * (-log1p(exp(-logit_val))) + ...
+            log_p(t) = a * (-log1p(exp(-logit_val))) + ...
                 (1 - a) * (-log1p(exp(logit_val)));
         end
     end
     
     % Log-likelihood is defined as the sum of log-probability of choice data
-    loglik = sum(log_p);
-    prob = log_p;
+    loglik = sum(log_p,"omitmissing");
+    prob = exp(log_p) .* choice + (1 - exp(log_p)) .* (1 - choice);
+    prob = [1-prob, prob];
 end
