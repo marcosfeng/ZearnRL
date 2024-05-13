@@ -1,0 +1,96 @@
+cbm_hbi_hbi                                       12-May-2024 12:08:08
+Running hierarchical bayesian inference (HBI)...
+
+HBI has been initialized according to
+	ac_refine/cmb_forHBI_23.mat [for model 1]
+	ac_refine/cmb_forHBI_13.mat [for model 2]
+ 
+Number of samples: 180
+Number of models: 2
+======================================================================
+Iteration 01
+Iteration 02
+	model frequencies (percent)
+	model 1: 36.4| model 2: 63.6| 
+                                                           dL:  -99.35
+                                                           dm:   36.44
+                                                           dx:    0.03
+Iteration 03
+	model frequencies (percent)
+	model 1: 22.9| model 2: 77.1| 
+                                                           dL: -119.86
+                                                           dm:   13.51
+                                                           dx:    0.04
+Iteration 04
+	model frequencies (percent)
+	model 1: 11.0| model 2: 89.0| 
+                                                           dL:  -82.35
+                                                           dm:   11.93
+                                                           dx:    0.07
+Iteration 05
+	model frequencies (percent)
+	model 1: 5.1| model 2: 94.9| 
+                                                           dL: -121.08
+                                                           dm:    5.87
+                                                           dx:    0.14
+Iteration 06
+	model frequencies (percent)
+	model 1: 4.7| model 2: 95.3| 
+                                                           dL: -148.65
+                                                           dm:    0.43
+                                                           dx:    0.12
+Iteration 07
+	model frequencies (percent)
+	model 1: 7.1| model 2: 92.9| 
+                                                           dL: -266.93
+                                                           dm:    2.40
+                                                           dx:    0.10
+Iteration 08
+	model frequencies (percent)
+	model 1: 11.2| model 2: 88.8| 
+                                                           dL: -324.80
+                                                           dm:    4.05
+                                                           dx:    0.09
+Iteration 09
+	model frequencies (percent)
+	model 1: 10.8| model 2: 89.2| 
+                                                           dL: -355.17
+                                                           dm:    0.33
+                                                           dx:    0.13
+Iteration 10
+	model frequencies (percent)
+	model 1: 10.9| model 2: 89.1| 
+                                                           dL: -333.20
+                                                           dm:    0.12
+                                                           dx:    0.09
+Iteration 11
+	model frequencies (percent)
+	model 1: 11.1| model 2: 88.9| 
+                                                           dL: -423.36
+                                                           dm:    0.16
+                                                           dx:    0.07
+Iteration 12
+	model frequencies (percent)
+	model 1: 11.4| model 2: 88.6| 
+                                                           dL: -102.34
+                                                           dm:    0.27
+                                                           dx:    0.28
+Iteration 13
+	model frequencies (percent)
+	model 1: 12.3| model 2: 87.7| 
+                                                           dL: -981.73
+                                                           dm:    0.93
+                                                           dx:    0.50
+Iteration 14
+	model frequencies (percent)
+	model 1: 11.9| model 2: 88.1| 
+                                                           dL: -789.28
+                                                           dm:    0.42
+                                                           dx:    0.01
+Iteration 15
+	model frequencies (percent)
+	model 1: 10.7| model 2: 89.3| 
+                                                           dL: -266.54
+                                                           dm:    1.16
+                                                           dx:    0.01
+                                                          Converged :]

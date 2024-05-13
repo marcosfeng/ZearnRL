@@ -21,6 +21,7 @@ priors = cell(1,10);
 
 % Create the prior structure for your new model
 v = 6.25/2;
+max_num_parameters = 0;
 for i = 1:10
     models{i} = str2func(sprintf('wrapper_function_%d', top10_indices(i)));
     fname{i} = sprintf('ac_subj_results/lap_ac_%d.mat', top10_indices(i));
@@ -37,6 +38,7 @@ for i = 1:10
     % Count the number of parameters
     num_states = numel(elements);
     num_parameters = 5 + 2*num_states;
+    max_num_parameters = max(max_num_parameters, num_parameters);
 
     % Create the prior structure from previous estimation
     priors{i} = struct('mean', zeros(num_parameters, 1), 'variance', v);
@@ -47,70 +49,59 @@ for i = 1:10
     fname{i} = strcat(fname{i}, '_%d.mat');
 end
 
-% Populate the top models and their corresponding fcbm_maps
-num_parameters = 13;
-% Create the PCONFIG struct
+% PCONFIG structure with refined setup (2x default)
 pconfig = struct();
-pconfig.numinit = min(140*num_parameters, 2000);
-pconfig.numinit_med = 2000;
-pconfig.numinit_up = 20000;
-pconfig.tolgrad = 5e-5;
-pconfig.tolgrad_liberal = 0.005;
+pconfig.numinit = min(7 * max_num_parameters, 100) * 2;
+pconfig.numinit_med = 70 * 2;
+pconfig.numinit_up = 100 * 2;
+pconfig.tolgrad = .001001 / 2;
+pconfig.tolgrad_liberal = .1 / 2;
+pconfig.prior_for_bads = 0;
+
 % Initialize a parallel pool if it doesn't already exist
 if isempty(gcp('nocreate'))
     parpool;
 end
 num_subjects = length(data);
-parfor i = 1:(10*num_subjects)
+success = nan(num_subjects*length(models),1);
+parfor i = 1:(length(models)*num_subjects)
     model_idx = floor((i-1)/num_subjects) + 1;
     subj_idx = mod(i-1, num_subjects) + 1;
 
     % Construct filename for saving output
     fname_subj = sprintf(fname{model_idx}, subj_idx);
-    % if you need to re-run models
-    if exist(fname_subj,"file") == 2
-        continue;
-    end
+    % % if you need to re-run models
+    % if exist(fname_subj,"file") == 2
+    %     continue;
+    % end
 
     % Run the cbm_lap function for the current model and subject
-    cbm_lap(data(subj_idx), models{model_idx}, ...
+    [~, success(i)] = ...
+        cbm_lap(data(subj_idx), models{model_idx}, ...
         priors{model_idx}, fname_subj, pconfig);
 end
-
-fname_subjs = cell(num_subjects,length(models));
-for m = 1:length(models)
-    fname{m} = sprintf('ac_refine/subj/refine_ac_%d', top10_indices(m));
-    % Aggregate results for each subject
-    for subj = 1:num_subjects
-        % Construct the filename for the current subject's results
-        fname_subjs{subj,m} = sprintf(strcat(fname{m}, '_%d.mat'), subj);
-    end
-    fname{m} = strcat(fname{m}, '.mat');
-    cbm_lap_aggregate(fname_subjs(:,m),fname{m});
-end
+success = reshape(success,[num_subjects,length(models)]);
+success = logical(success);
+save("ac_refine/success.mat","success");
 
 %% Histograms by valid log evidence
 
-model_desc = cell(size(fname));
-valid_subj_all = ones(1,length(data));
-% Loop over each file name to construct the model description
-for i = 1:length(fname)
-    loaded_data = load(fname{i});
+load("ac_refine/success.mat");
 
-    % 1) Create a logical index for valid subjects
-    valid_subjects = ~isnan(loaded_data.cbm.math.logdetA) ...
-        & ~isinf(loaded_data.cbm.math.logdetA) ...
-        & (loaded_data.cbm.math.logdetA ~= 0);
-    % Calculate the mean and SD of logdetA for valid subjects
-    mean_logdetA = mean(loaded_data.cbm.math.logdetA(valid_subjects));
-    std_logdetA = std(loaded_data.cbm.math.logdetA(valid_subjects));
-    % Add the condition for logdetA values within 3 SDs of the mean
-    valid_subjects = valid_subjects & ...
-        (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= ...
-        3 * std_logdetA);
-    valid_subj_all = valid_subj_all & valid_subjects;
+fname_subjs = cell(num_subjects,length(models));
+for m = 1:length(models)
+    fname{m} = sprintf('refine_ac_%d', top10_indices(m));
+    % Aggregate results for each subject
+    for subj = 1:num_subjects
+        % Construct the filename for the current subject's results
+        fname_subjs{subj,m} = sprintf(strcat('ac_refine/subj/', ...
+            fname{m}, '_%d.mat'), subj);
+    end
+    fname{m} = strcat('ac_refine/', fname{m}, '.mat');
+    cbm_lap_aggregate(fname_subjs(success(:,m),m),fname{m});
 end
 
+model_desc = cell(size(fname));
 for i = 1:length(fname)
     % 2) Create a cell array for the model descriptions
     % Extract the number from the filename
@@ -154,12 +145,12 @@ for i = 1:length(fname)
 end
 
 % Convert the log evidence to non-scientific notation using a cell array
-log_evidence = zeros(1, 10);
+log_evidence = zeros(1, length(fname));
 log_evidence_non_sci = cell(size(log_evidence));
 for i = 1:length(log_evidence)
     loaded_data = load(fname{i});
     log_evidence(i) = ...
-        sum(loaded_data.cbm.output.log_evidence(valid_subj_all));
+        sum(loaded_data.cbm.output.log_evidence);
     log_evidence_non_sci{i} = num2str(log_evidence(i), '%.2f');
 end
 % Create the table with the model description and log evidence
@@ -169,45 +160,89 @@ T = table(model_desc(:), log_evidence_non_sci(:), ...
 % Display the table
 disp(T);
 
-%% Run cbm_hbi for top models
+%% Individual HBI to get BICs
 
 % Rank the models by log evidence and get the indices of the top 5
-[~, top5_indices] = sort(log_evidence, 'descend');
+[~, top5_indices] = sort(log_evidence ./ sum(success), 'descend');
 top5_indices = top5_indices(1:5);
 
-filtered_data = data(valid_subj_all);
-filtered_name = cell(1,5);
-for i = 1:5
-    % Load the saved output for this model
-    loaded_data = load(fname{top5_indices(i)});
-
-    loaded_data.cbm.profile.optim.flag = ...
-        loaded_data.cbm.profile.optim.flag(valid_subj_all);
-    loaded_data.cbm.profile.optim.gradient = ...
-        loaded_data.cbm.profile.optim.gradient(:, valid_subj_all);
-    loaded_data.cbm.math.A = ...
-        loaded_data.cbm.math.A(valid_subj_all);
-    loaded_data.cbm.math.Ainvdiag = ...
-        loaded_data.cbm.math.Ainvdiag(valid_subj_all);
-    loaded_data.cbm.math.lme = ...
-        loaded_data.cbm.math.lme(valid_subj_all);
-    loaded_data.cbm.math.logdetA = ...
-        loaded_data.cbm.math.logdetA(valid_subj_all);
-    loaded_data.cbm.math.loglik = ...
-        loaded_data.cbm.math.loglik(valid_subj_all);
-    loaded_data.cbm.math.theta = ...
-        loaded_data.cbm.math.theta(valid_subj_all);
-    loaded_data.cbm.output.log_evidence = ...
-        loaded_data.cbm.output.log_evidence(valid_subj_all);
-    loaded_data.cbm.output.parameters = ...
-        loaded_data.cbm.output.parameters(valid_subj_all, :);
-
-    % Save the modified loaded_data back to the same file
-    filtered_name{i} = sprintf('ac_refine/filtered_ac_%d.mat', top10_indices(top5_indices(i)));
-    save(filtered_name{i}, '-struct', 'loaded_data');
+fname_hbi = compose( ...
+    'ac_refine/hbi_ac%d.mat',top10_indices(top5_indices));
+pconfig = struct();
+pconfig.maxiter = 300;
+parfor i = 1:length(fname_hbi)
+    cbm_hbi(data(success(:,top5_indices(i))), models(top5_indices(i)), ...
+        fname(top5_indices(i)), fname_hbi{i}, pconfig);
 end
-fname_hbi = 'ac_refine/hbi_AC5_refined.mat';
-cbm_hbi(filtered_data, models(top5_indices), filtered_name, fname_hbi);
+
+%% Posteriors from top models
+prob = struct([]);
+auc = nan(length(data),length(fname_hbi));
+roc = struct([]);
+loglik = nan(length(data),length(fname_hbi));
+for i = 1:length(fname_hbi)
+    hbi_model = load(fname_hbi{i});
+    % hbi_model = load(fname{i});
+    wrapper = str2func( ...
+        sprintf('wrapper_post_%d', top10_indices(top5_indices(i))));
+    for j = 1:length(data)
+        if ~success(j,top5_indices(i)), continue, end
+        [loglik(j,i), prob{j,i}, choice, theta, w] = wrapper( ...
+            hbi_model.cbm.output.parameters{1, 1}( ...
+            j - sum(~success(1:j,top5_indices(i))),:), ...
+            data{j});
+        roc{j,i} = rocmetrics(choice,prob{j,i},[0,1]);
+        auc(j,i) = roc{j,i}.AUC(1);
+    end
+end
+
+%% Run cbm_hbi for top models
+
+% Top AUC
+[~, top_auc] = sort(mean(auc,"omitmissing"), 'descend'); % Get largest AUC
+num_parameters = nan(length(fname_hbi),1);
+for i = 1:length(fname_hbi)
+    num_parameters(i) = length(priors{top5_indices(i)}.mean);
+end
+[~, top_avgbic] = sort( ...
+    (num_parameters' .* log(sum(success(:,top5_indices))) - ...
+    2*sum(loglik,"omitmissing")) ./ sum(success(:,top5_indices)), ...
+    'ascend'); % Get smallest BIC
+% Check data is the same size:
+% sum(success(:,top5_indices(top_auc(1)))) == ...
+%     sum(success(:,top5_indices(top_avgbic(1))))
+success_hbi = success(:,top5_indices(top_auc(1))) & ...
+    success(:,top5_indices(top_avgbic(1)));
+
+fname_subjs = cell(sum(success_hbi),2);
+fname = compose('refine_ac_%d', ...
+    top10_indices([top5_indices(top_auc(1)),top5_indices(top_avgbic(1))]));
+fname_cbm_hbi = strcat('ac_refine/', ...
+    compose('cmb_forHBI_%d', ...
+    top10_indices([top5_indices(top_auc(1)),top5_indices(top_avgbic(1))])), ...
+    '.mat');
+for m = 1:2
+    % Aggregate results for each subject
+    for subj = 1:num_subjects
+        if ~success_hbi(subj), continue, end
+        % Construct the filename for the current subject's results
+        fname_subjs{subj-sum(~success_hbi(1:subj)),m} = ...
+            sprintf(strcat('ac_refine/subj/', ...
+            fname{m}, '_%d.mat'), subj);
+    end
+    cbm_lap_aggregate(fname_subjs(:,m),fname_cbm_hbi{m});
+end
+
+fname_hbi = 'ac_refine/hbi_topAC.mat';
+pconfig = struct();
+pconfig.maxiter = 500;
+cbm_hbi(data(success_hbi), ...
+    models(top5_indices([top_auc(1),top_avgbic(1)])), ...
+    fname_cbm_hbi, fname_hbi, pconfig);
+cbm_hbi_null(data(success_hbi), fname_hbi);
+
+cbm_hbi(data, models([top_auc(1),top_avgbic(1)]), ...
+    fname([top_auc(1),top_avgbic(1)]), fname_hbi, pconfig);
 cbm_hbi_null(filtered_data, fname_hbi);
 
 % Load the HBI results and display them
