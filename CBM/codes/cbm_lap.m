@@ -157,7 +157,7 @@ for n=1:N
             A_n       = A{n};  % new
             G_n       = nan(1,d);
         else
-            cbm     = sprintf(fid,'No minimum found for subject %02d\n',n);
+            cbm     = sprintf('No minimum found for subject %02d\n',n);
             success = 0;
             return;
         end
