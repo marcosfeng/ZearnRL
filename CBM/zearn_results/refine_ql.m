@@ -19,14 +19,16 @@ models = cell(1, length(ranked_indices));
 fname = cell(1, length(ranked_indices));
 
 % Update the prior structure for Q-learning models
-v = 1;
+v = 6.25/2;
 num_parameters = 5;
 prior_ql = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
 for i = 1:length(ranked_indices)
     index = ranked_indices(i); % Get the model index
     models{i} = str2func(sprintf('wrapper_function_%d', index));
-    fname{i} = sprintf('ql_refine/refine_ql_%d.mat', index);
+    fname{i} = strcat( ...
+        sprintf('ql_refine/subj/refine_ql_%d_', index), ...
+        '%d.mat');
 
     % Load previously saved results for mean updates
     loaded_data = load(sprintf('ql_subj_results/lap_ql_%d.mat', index));
@@ -35,45 +37,50 @@ for i = 1:length(ranked_indices)
 end
 prior_ql.mean = prior_ql.mean / length(ranked_indices);
 
-% PCONFIG structure with refined setup for Q-learning models
+% PCONFIG structure with refined setup (2x default)
 pconfig = struct();
-pconfig.numinit = min(140 * num_parameters, 2000);
-pconfig.numinit_med = 2000;
-pconfig.numinit_up = 20000;
-pconfig.tolgrad = 5e-5;
-pconfig.tolgrad_liberal = 0.005;
+pconfig.numinit = min(7 * num_parameters, 100) * 2;
+pconfig.numinit_med = 70 * 2;
+pconfig.numinit_up = 100 * 2;
+pconfig.tolgrad = .001001 / 2;
+pconfig.tolgrad_liberal = .1 / 2;
+pconfig.prior_for_bads = 0;
 
-% Ensure a parallel pool is available
-if isempty(gcp('nocreate'))
-    parpool;
-end
+num_subjects = length(data);
+success = nan(num_subjects*length(ranked_indices),1);
 % Refined estimation loop
-parfor i = 1:length(ranked_indices)
-    cbm_lap(data, models{i}, prior_ql, fname{i}, pconfig);
+parfor i = 1:(length(ranked_indices)*num_subjects)
+    model_idx = floor((i-1)/num_subjects) + 1;
+    subj_idx = mod(i-1, num_subjects) + 1;
+
+    fname_subj = sprintf(fname{model_idx}, subj_idx);
+
+    [~, success(i)] = ...
+        cbm_lap(data(subj_idx), models{model_idx}, ...
+        prior_ql, fname_subj, pconfig);
 end
+success = reshape(success,[num_subjects,length(ranked_indices)]);
+success = logical(success);
+save("ql_refine/success.mat","success");
 
 %% Histograms by valid log evidence
 
-model_desc = cell(size(fname));
-valid_subj_all = ones(1,length(data));
-% Loop over each file name to construct the model description
-for i = 1:length(fname)
-    loaded_data = load(fname{i});
+load("ql_refine/success.mat");
 
-    % Create a logical index for valid subjects
-    valid_subjects = ~isnan(loaded_data.cbm.math.logdetA) ...
-        & ~isinf(loaded_data.cbm.math.logdetA) ...
-        & (loaded_data.cbm.math.logdetA ~= 0);
-    % Calculate the mean and SD of logdetA for valid subjects
-    mean_logdetA = mean(loaded_data.cbm.math.logdetA(valid_subjects));
-    std_logdetA = std(loaded_data.cbm.math.logdetA(valid_subjects));
-    % Add the condition for logdetA values within 3 SDs of the mean
-    valid_subjects = valid_subjects & ...
-        (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= ...
-        3 * std_logdetA);
-    valid_subj_all = valid_subj_all & valid_subjects;
+fname_subjs = cell(num_subjects,length(models));
+for m = 1:length(models)
+    fname{m} = sprintf('refine_ql_%d', ranked_indices(m));
+    % Aggregate results for each subject
+    for subj = 1:num_subjects
+        % Construct the filename for the current subject's results
+        fname_subjs{subj,m} = sprintf(strcat('ql_refine/subj/', ...
+            fname{m}, '_%d.mat'), subj);
+    end
+    fname{m} = strcat('ql_refine/', fname{m}, '.mat');
+    cbm_lap_aggregate(fname_subjs(success(:,m),m),fname{m});
 end
 
+model_desc = cell(size(fname));
 for i = 1:length(fname)
     % Create a cell array for the model descriptions
     % Extract the number from the filename
@@ -118,7 +125,7 @@ log_evidence_non_sci = cell(size(log_evidence));
 for i = 1:length(log_evidence)
     loaded_data = load(fname{i});
     log_evidence(i) = ...
-        sum(loaded_data.cbm.output.log_evidence(valid_subj_all));
+        sum(loaded_data.cbm.output.log_evidence);
     log_evidence_non_sci{i} = num2str(log_evidence(i), '%.2f');
 end
 
@@ -129,67 +136,55 @@ T = table(model_desc(:), log_evidence_non_sci(:), ...
 % Display the table
 disp(T);
 
-%% Run cbm_hbi for top models
+%% Individual HBI to get BICs
 
 % Rank the models by log evidence and get the indices of the top 4
 [~, top4_indices] = sort(log_evidence, 'descend');
-
-filtered_data = data(valid_subj_all);
-filtered_name = cell(1, 4);
-for i = 1:4
-    % Load the saved output for this model
-    loaded_data = load(fname{top4_indices(i)});
-
-    loaded_data.cbm.profile.optim.flag = ...
-        loaded_data.cbm.profile.optim.flag(valid_subj_all);
-    loaded_data.cbm.profile.optim.gradient = ...
-        loaded_data.cbm.profile.optim.gradient(:, valid_subj_all);
-    loaded_data.cbm.math.A = ...
-        loaded_data.cbm.math.A(valid_subj_all);
-    loaded_data.cbm.math.Ainvdiag = ...
-        loaded_data.cbm.math.Ainvdiag(valid_subj_all);
-    loaded_data.cbm.math.lme = ...
-        loaded_data.cbm.math.lme(valid_subj_all);
-    loaded_data.cbm.math.logdetA = ...
-        loaded_data.cbm.math.logdetA(valid_subj_all);
-    loaded_data.cbm.math.loglik = ...
-        loaded_data.cbm.math.loglik(valid_subj_all);
-    loaded_data.cbm.math.theta = ...
-        loaded_data.cbm.math.theta(valid_subj_all);
-    loaded_data.cbm.output.log_evidence = ...
-        loaded_data.cbm.output.log_evidence(valid_subj_all);
-    loaded_data.cbm.output.parameters = ...
-        loaded_data.cbm.output.parameters(valid_subj_all, :);
-
-    % Save the modified loaded_data back to the same file
-    filtered_name{i} = sprintf('ql_refine/filtered_ql_%d.mat', ...
-        ranked_indices(top4_indices(i)));
-    save(filtered_name{i}, '-struct', 'loaded_data');
+fname_hbi = compose( ...
+    'ql_refine/hbi_ql%d.mat',ranked_indices);
+pconfig = struct();
+pconfig.maxiter = 300;
+parfor i = 1:length(fname_hbi)
+    cbm_hbi(data(success(:,i)), models(i), fname(i), fname_hbi{i}, pconfig);
 end
 
-fname_hbi = 'ql_refine/hbi_QL4_refined.mat';
+%% Posteriors from top models
+prob = struct([]);
+auc = nan(length(fname_hbi),length(data));
+roc = struct([]);
+loglik = nan(length(fname_hbi),length(data));
+for i = 1:length(fname_hbi)
+    hbi_model = load(fname_hbi{i});
+    % hbi_model = load(fname{i});
+    filtered_data = data(success(:,i));
+    wrapper = str2func(sprintf('wrapper_post_%d', ranked_indices(i)));
+    for j = 1:length(filtered_data)
+        [loglik(i,j), prob{i,j}, choice, q_values] = wrapper( ...
+            hbi_model.cbm.output.parameters{1, 1}(j,:), ...
+            filtered_data{j});
+        roc{i,j} = rocmetrics(choice,prob{i,j},[0,1]);
+        auc(i,j) = roc{i,j}.AUC(1);
+    end
+end
+
+%% Run cbm_hbi for top models
+
+% Top AUC
+[~, top_auc] = sort(mean(auc, 2), 'descend'); % Get largest AUC
+[~, top_avgbic] = sort( ...
+    (num_parameters*log(length(data))-2*sum(loglik, 2))/length(data), ...
+    'ascend'); % Get smallest BIC
+% Check data is the same size:
+% sum(success(:,top_auc(1))) == sum(success(:,top_avgbic(1)))
+
+fname_hbi = 'ql_refine/hbi_topQL.mat';
 pconfig = struct();
-pconfig.maxiter = 200;
-cbm_hbi(filtered_data, models(top4_indices), filtered_name, fname_hbi, pconfig);
-cbm_hbi_null(filtered_data, fname_hbi);
+pconfig.maxiter = 500;
+cbm_hbi(data, models([top_auc(1),top_avgbic(1)]), ...
+    fname([top_auc(1),top_avgbic(1)]), fname_hbi, pconfig);
+cbm_hbi_null(data, fname_hbi);
 
 % Load the HBI results and display them
 fname_hbi_loaded = load(fname_hbi);
 hbi_results = fname_hbi_loaded.cbm;
 hbi_results.output
-
-hbi_results.input.models
-
-model_names = {'R: 4', ...
-    'R: 2', ...
-    'R: 1', ...
-    'R: 3'};
-
-% Define parameter names specific to Q-learning models
-param_names = {'\alpha', '\gamma', '\tau', 'Q_1', 'C'};
-
-% Define transformation functions for parameters
-transform = {'sigmoid', 'sigmoid', 'exp', 'none', 'exp'};
-
-% Plot HBI analysis results
-cbm_hbi_plot(fname_hbi, model_names, param_names, transform);

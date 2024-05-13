@@ -13,17 +13,15 @@ data  = fdata.data;
 
 % Initialize models and fcbm_maps arrays
 Files = dir(fullfile('..', 'zearn_codes', 'ql_wrappers'));
-numFiles = sum(startsWith({Files.name}, 'wrapper_'));
+numFiles = sum(startsWith({Files.name}, 'wrapper_function'));
 models = cell(1, numFiles);
 fcbm_maps = cell(1, numFiles);
 
 % Define the prior variance
-v = 2;
-
+v = 6.25;
 % Determine the number of parameters in your model.
 num_parameters = 5;
-
-% Create the prior structure for your model
+% Create the prior structure for the model
 prior_ql = struct('mean', zeros(num_parameters, 1), 'variance', v);
 
 if isempty(gcp('nocreate'))
@@ -62,26 +60,12 @@ for wrapper_num = 1:numFiles
     valid_subjects = ~isnan(loaded_data.cbm.math.logdetA) ...
         & ~isinf(loaded_data.cbm.math.logdetA) ...
         & (loaded_data.cbm.math.logdetA ~= 0);
-    % Calculate the mean and standard deviation of logdetA for valid subjects
-    mean_logdetA = mean(loaded_data.cbm.math.logdetA(valid_subjects));
-    std_logdetA = std(loaded_data.cbm.math.logdetA(valid_subjects));
     
-    % Add the condition for logdetA values within 3 standard deviations of the mean
-    valid_subjects = valid_subjects & ...
-        (abs(loaded_data.cbm.math.logdetA - mean_logdetA) <= 2 * std_logdetA);
-
     % Filter out invalid subjects from the log-likelihood array
     log_evidence(wrapper_num) = ...
         sum(loaded_data.cbm.output.log_evidence(valid_subjects));
     valid_subj_cell{wrapper_num} = valid_subjects;
 end
-
-% Create a histogram of the log evidences
-figure;
-histogram(log_evidence);
-title('Histogram of Log Evidences');
-xlabel('Log Evidence');
-ylabel('Frequency');
 
 % Rank the models by log evidence
 [~, ranked_indices] = sort(log_evidence, 'descend');
