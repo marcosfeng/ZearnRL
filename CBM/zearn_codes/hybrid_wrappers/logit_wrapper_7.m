@@ -1,5 +1,4 @@
 function [loglik] = logit_wrapper_7(parameters, subj)
-%LOGIT_WRAPPER_1
 % Outcome variable: NNDSVD_student4
 subj.outcome = subj.NNDSVD_student4;
 % Action variable: NNDSVD_teacher2
