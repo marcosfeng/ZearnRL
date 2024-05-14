@@ -14,55 +14,58 @@ data  = fdata.data;
 %% Models
 
 models = {
+    @logit_wrapper_1, ...
     @logit_wrapper_7, ...
-    @logit_wrapper_3, ...
-    @logit_wrapper_44s, ...
-    @logit_wrapper_3s, ...
+    @logit_wrapper_51s, ...
+    @logit_wrapper_13s, ...
+    @ql_wrapper_1, ...
     @ql_wrapper_7, ...
-    @ql_wrapper_3, ...
-    @ac_wrapper_44, ...
-    @ac_wrapper_3, ...
+    @ac_wrapper_51, ...
+    @ac_wrapper_13, ...
+    @hybrid_wrapper_1, ...
     @hybrid_wrapper_7, ...
-    @hybrid_wrapper_3, ...
-    @hybrid_wrapper_44s, ...
-    @hybrid_wrapper_3s, ...
-    @hybrid_wrapper_7_44, ...
-    @hybrid_wrapper_7_3};
+    @hybrid_wrapper_51s, ...
+    @hybrid_wrapper_13s, ...
+    @hybrid_wrapper_7_51, ...
+    @hybrid_wrapper_1_13};
 num_parameters = [
-    8  * ones(1,2), 10 * ones(1,2), ...
-    4  * ones(1,2),  7 * ones(1,2), ...
-    13 * ones(1,2), 18 * ones(1,2), ...
-    12 * ones(1,2)];
+    8  * ones(1,2), 12 * ones(1,1), 14 * ones(1,1), ...
+    5  * ones(1,2), 11 * ones(1,1), 13 * ones(1,1), ...
+    14 * ones(1,2), 24 * ones(1,1), 28 * ones(1,1), ...
+    17 * ones(1,1), 19 * ones(1,1)];
 
 %% Estimate all relevant models
 
 % Indeces:
-idx = [1, ... % Logit
-    5,6, ...  % QL
-    7,8];     % AC
+idx = [2,3, ... % Logit
+    6, ...  % QL
+    7];     % AC
 fname_template = {
     'top_results/logit/lap_logit7_%d.mat', ... % Logit
+    'top_results/logit/lap_logit51s_%d.mat', ...
     'top_results/ql/lap_ql7_%d.mat', ...  % Q-learning
-    'top_results/ql/lap_ql3_%d.mat', ...
-    'top_results/ac/lap_ac44_%d.mat', ... % Actor-Critic
-    'top_results/ac/lap_ac3_%d.mat'};
+    'top_results/ac/lap_ac51_%d.mat'}; % Actor-Critic
 
 % Define the prior variance
 v = 6.25;
+num_subjects = length(data);
 priors = struct([]);
 for i = 1:length(num_parameters(idx))
     priors{i} = struct('mean', zeros(num_parameters(idx(i)), 1), ...
                        'variance', v);
 end
 
-num_subjects = length(data);
-% Create the PCONFIG struct
+% PCONFIG structure with refined setup (with multiplier)
+mult = 8;
 pconfig = struct();
-pconfig.numinit = min(70*max(num_parameters(idx)), 1000);
-pconfig.numinit_med = 1000;
-pconfig.numinit_up = 10000;
-pconfig.tolgrad = 1e-4;
-pconfig.tolgrad_liberal = 0.01;
+pconfig.numinit = min(7 * max(num_parameters), 100) * mult;
+pconfig.numinit_med = 70 * mult;
+pconfig.numinit_up = 100 * mult;
+pconfig.tolgrad = .001001 / mult;
+pconfig.tolgrad_liberal = .1 / mult;
+pconfig.prior_for_bads = 0;
+
+success = nan(num_subjects*length(priors),1);
 parfor i = 1:(length(num_parameters(idx))*num_subjects)
     model_idx = floor((i-1)/num_subjects) + 1;
     subj_idx = mod(i-1, num_subjects) + 1;
@@ -70,86 +73,53 @@ parfor i = 1:(length(num_parameters(idx))*num_subjects)
     % Construct filename for saving output
     fname = sprintf(fname_template{model_idx}, subj_idx);
     % if you need to re-run models
-    if exist(fname,"file") == 2
-        continue;
-    end
+    % if exist(fname,"file") == 2
+    %     continue;
+    % end
 
     % Run the cbm_lap function for the current model and subject
-    cbm_lap(data(subj_idx), models{idx(model_idx)}, ...
+    [~, success(i)] = ...
+        cbm_lap(data(subj_idx), models{idx(model_idx)}, ...
         priors{model_idx}, fname, pconfig);
 end
+success = reshape(success,[num_subjects,length(priors)]);
+success = logical(success);
+save("top_results/success.mat","success");
+
+%% HBI
+
+load("top_results/success.mat");
+% Check data is the same size:
+% sum(success)
+
+fname_hbi = {'top_results/hbi_compare_7.mat', ...
+    'top_results/hbi_compare_51.mat', ...
+    'top_results/hbi_compare_7_51.mat'};
+hbi_idx = [1,3;2,4;3,4];
 
 % Pre-allocate structures to store aggregated results
-fname_subjs = cell(num_subjects,length(models(idx)));
-fname = {
-    'top_results/lap_logit7.mat', ... % Logit
-    'top_results/lap_ql7.mat', ...  % Q-learning
-    'top_results/lap_ql3.mat', ...
-    'top_results/lap_ac44.mat', ... % Actor-Critic
-    'top_results/lap_ac3.mat'};
+fname_subjs = cell(num_subjects,length(fname_template));
+for subj = 1:num_subjects
+    % Construct the filename for the current subject's results
+    fname_subjs(subj,:) = [compose(fname_template, subj)];
+end
 % Aggregate results
-for m = 1:length(models(idx))
+parfor i = 1:size(hbi_idx,1)
+    success_filter = all(success(:,hbi_idx(i,:)),2);
     % Aggregate results for each subject
-    for subj = 1:num_subjects
-        % Construct the filename for the current subject's results
-        fname_subjs{subj,m} = sprintf(fname_template{m}, subj);
+    for m = 1:size(hbi_idx,2)
+        cbm_lap_aggregate( ...
+            fname_subjs(success_filter,hbi_idx(i,m)), ...
+            sprintf( ...
+            replace(fname_template{hbi_idx(i,m)},"/lap_", "_aggr_"), ...
+            i));
     end
-    cbm_lap_aggregate(fname_subjs(:,m),fname{m});
-end
-valid_subj_all = ones(1,num_subjects);
-% Loop over each file name to construct the model description
-for i = 1:length(fname)
-    loaded_data = load(fname{i});
-
-    % 1) Create a logical index for valid subjects
-    valid_subjects = ~isnan(loaded_data.cbm.math.logdetA) ...
-        & ~isinf(loaded_data.cbm.math.logdetA) ...
-        & (loaded_data.cbm.math.logdetA ~= 0) ...
-        & imag(loaded_data.cbm.math.loglik) == 0 ...
-        & imag(loaded_data.cbm.math.lme) == 0;
-    % Calculate the mean and SD of logdetA for valid subjects
-    q25 = quantile(loaded_data.cbm.math.loglik(valid_subjects),0.25);
-    q75 = quantile(loaded_data.cbm.math.loglik(valid_subjects),0.75);
-    % Add the condition for logdetA values within 3 SDs of the mean
-    valid_subjects = valid_subjects & ...
-        loaded_data.cbm.math.loglik >= q25 - 1.5*(q75-q25) & ...
-        loaded_data.cbm.math.loglik <= q75 + 1.5*(q75-q25);
-    valid_subj_all = valid_subj_all & valid_subjects;
+    cbm_hbi(data(success_filter), ...
+        models(idx(hbi_idx(i,:))), ...
+        compose( ...
+            replace(fname_template(hbi_idx(i,:)),"/lap_", "_aggr_"), ...
+        i), ...
+        fname_hbi{i});
+    cbm_hbi_null(data(success_filter), fname_hbi{i});
 end
 
-% Aggregate only valid subjects
-filtered_data = data(valid_subj_all);
-num_subjects = length(filtered_data);
-fname_subjs = fname_subjs(valid_subj_all,:);
-for m = 1:length(models(idx))
-    % Aggregate results for each subject
-    cbm_lap_aggregate(fname_subjs(:,m),fname{m});
-end
-
-%% Compare between QL and logit models
-
-fname_hbi = {'top_results/hbi_compare_ql.mat', ...
-    'top_results/hbi_compare_logit_ql7.mat', ...
-    'top_results/hbi_compare_logit_ql3.mat'};
-% Indeces for comparisons
-idx = [5,6; % Compare QL models
-    1,5;
-    1,6];   
-idx_fname = [2,3;1,2;1,3];
-parfor i = 1:size(idx,1)
-    cbm_hbi(filtered_data, models(idx(i,:)), ...
-        fname(idx_fname(i,:)), fname_hbi{i});
-    cbm_hbi_null(filtered_data, fname_hbi{i});
-end
-
-%% Compare Logit + QL 7 + QL 3
-
-cbm_hbi(filtered_data, models([1,5,6]), ...
-        fname(1:3), 'top_results/hbi_logit_ql7_ql3.mat');
-cbm_hbi_null(filtered_data, 'top_results/hbi_logit_ql7_ql3.mat');
-
-%% Compare between top QL and AC
-
-cbm_hbi(filtered_data, models([5,7,8]), ...
-        fname([2,4,5]), 'top_results/hbi_ql_ac.mat');
-cbm_hbi_null(filtered_data, 'top_results/hbi_ql_ac.mat');

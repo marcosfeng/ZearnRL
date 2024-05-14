@@ -1,0 +1,11 @@
+cbm_hbi_hbi                                       14-May-2024 14:49:15
+Running hierarchical bayesian inference (HBI)...
+
+HBI has been initialized according to
+	top_results/ql_aggr_ql7_3.mat [for model 1]
+	top_results/ac_aggr_ac51_3.mat [for model 2]
+ 
+Number of samples: 1904
+Number of models: 2
+======================================================================
+Iteration 01
