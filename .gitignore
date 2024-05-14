@@ -59,7 +59,7 @@ py-zearn/
 
 # CBM subject files
 /CBM/data/individual_all
-/CBM/zearn_results/comp_results
+/CBM/zearn_results/comp_results/*lap_*.mat
 /CBM/zearn_results/top_results/ac
 /CBM/zearn_results/top_results/logit
 /CBM/zearn_results/top_results/ql
