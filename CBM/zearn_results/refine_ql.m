@@ -150,30 +150,41 @@ end
 
 %% Posteriors from top models
 prob = struct([]);
-auc = nan(length(fname_hbi),length(data));
+auc = nan(length(data),length(fname_hbi));
+auc_conf = nan(length(data),length(fname_hbi));
 roc = struct([]);
-loglik = nan(length(fname_hbi),length(data));
+loglik = nan(length(data),length(fname_hbi));
 for i = 1:length(fname_hbi)
     hbi_model = load(fname_hbi{i});
     % hbi_model = load(fname{i});
     filtered_data = data(success(:,i));
     wrapper = str2func(sprintf('wrapper_post_%d', ranked_indices(i)));
     for j = 1:length(filtered_data)
-        [loglik(i,j), prob{i,j}, choice, q_values] = wrapper( ...
+        [loglik(j,i), prob{j,i}, choice, q_values] = wrapper( ...
             hbi_model.cbm.output.parameters{1, 1}(j,:), ...
             filtered_data{j});
-        roc{i,j} = rocmetrics(choice,prob{i,j},[0,1]);
-        auc(i,j) = roc{i,j}.AUC(1);
+        % roc{i,j} = rocmetrics(choice,prob{i,j},[0,1], ...
+        %     NumBootstraps=100,BootstrapOptions=statset(UseParallel=true), ...
+        %     BootstrapType="student",NumBootstrapsStudentizedSE=100);
+        roc{j,i} = rocmetrics(choice,prob{j,i},[0,1], ...
+            NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
+        auc(j,i) = roc{j,i}.AUC(1,1);
+        auc_conf(j,i) = roc{j,i}.AUC(3,1) - roc{j,i}.AUC(2,1);
     end
 end
+
+% auc_weights = 1./(auc_conf);
+% auc_weights(isinf(auc_weights) | isnan(auc_weights)) = 0;
+% mean(auc, 2, Weights=auc_weights);
 
 %% Run cbm_hbi for top models
 
 % Top AUC
-[~, top_auc] = sort(mean(auc, 2), 'descend'); % Get largest AUC
+[~, top_auc] = sort(mean(auc), 'descend');
+% Smallest BIC
 [~, top_avgbic] = sort( ...
-    (num_parameters*log(length(data))-2*sum(loglik, 2))/length(data), ...
-    'ascend'); % Get smallest BIC
+    (num_parameters*log(length(data))-2*sum(loglik))/length(data), ...
+    'ascend');
 % Check data is the same size:
 % sum(success(:,top_auc(1))) == sum(success(:,top_avgbic(1)))
 

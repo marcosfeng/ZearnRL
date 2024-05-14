@@ -58,10 +58,6 @@ pconfig.tolgrad = .001001 / 2;
 pconfig.tolgrad_liberal = .1 / 2;
 pconfig.prior_for_bads = 0;
 
-% Initialize a parallel pool if it doesn't already exist
-if isempty(gcp('nocreate'))
-    parpool;
-end
 num_subjects = length(data);
 success = nan(num_subjects*length(models),1);
 parfor i = 1:(length(models)*num_subjects)
@@ -178,7 +174,9 @@ end
 %% Posteriors from top models
 prob = struct([]);
 auc = nan(length(data),length(fname_hbi));
+auc_conf = nan(length(data),length(fname_hbi));
 roc = struct([]);
+roc{1,1} = [0,1];
 loglik = nan(length(data),length(fname_hbi));
 for i = 1:length(fname_hbi)
     hbi_model = load(fname_hbi{i});
@@ -191,10 +189,16 @@ for i = 1:length(fname_hbi)
             hbi_model.cbm.output.parameters{1, 1}( ...
             j - sum(~success(1:j,top5_indices(i))),:), ...
             data{j});
-        roc{j,i} = rocmetrics(choice,prob{j,i},[0,1]);
-        auc(j,i) = roc{j,i}.AUC(1);
+        roc{j,i} = rocmetrics(choice,prob{j,i},[0,1], ...
+            NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
+        auc(j,i) = roc{j,i}.AUC(1,1);
+        auc_conf(j,i) = roc{j,i}.AUC(3,1) - roc{j,i}.AUC(2,1);
     end
 end
+
+% auc_weights = 1./(auc_conf);
+% auc_weights(isinf(auc_weights) | isnan(auc_weights)) = 0;
+% mean(auc, 2, Weights=auc_weights);
 
 %% Run cbm_hbi for top models
 
@@ -204,10 +208,11 @@ num_parameters = nan(length(fname_hbi),1);
 for i = 1:length(fname_hbi)
     num_parameters(i) = length(priors{top5_indices(i)}.mean);
 end
+% Smallest BIC
 [~, top_avgbic] = sort( ...
     (num_parameters' .* log(sum(success(:,top5_indices))) - ...
     2*sum(loglik,"omitmissing")) ./ sum(success(:,top5_indices)), ...
-    'ascend'); % Get smallest BIC
+    'ascend'); 
 % Check data is the same size:
 % sum(success(:,top5_indices(top_auc(1)))) == ...
 %     sum(success(:,top5_indices(top_avgbic(1))))
@@ -240,30 +245,3 @@ cbm_hbi(data(success_hbi), ...
     models(top5_indices([top_auc(1),top_avgbic(1)])), ...
     fname_cbm_hbi, fname_hbi, pconfig);
 cbm_hbi_null(data(success_hbi), fname_hbi);
-
-cbm_hbi(data, models([top_auc(1),top_avgbic(1)]), ...
-    fname([top_auc(1),top_avgbic(1)]), fname_hbi, pconfig);
-cbm_hbi_null(filtered_data, fname_hbi);
-
-% Load the HBI results and display them
-fname_hbi_loaded = load(fname_hbi);
-hbi_results = fname_hbi_loaded.cbm;
-hbi_results.output
-
-hbi_results.input.models
-model_names = {'R: 1, S: 3', ...
-    'R: 1, S: 2, 3, 4', ...
-    'R: 4, S: 1', ...
-    'R: 4, S: 2, 3', ...
-    'R: 3, S: 1, 2'};
-param_names = {'\alpha_W','\alpha_\theta','\gamma', ...
-    '\tau', '\theta_0', 'W_0', 'cost'};
-% note the latex format
-% transformation functions associated with each parameter
-transform = {'sigmoid','sigmoid','sigmoid', ...
-    'exp', 'none', 'none', 'exp'};
-
-cbm_hbi_plot(fname_hbi, model_names, param_names, transform);
-% this function creates a model comparison plot
-% (exceedance probability and model frequency)
-% plot of transformed parameters of the most frequent model
