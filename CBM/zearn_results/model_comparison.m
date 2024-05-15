@@ -68,18 +68,16 @@ pconfig.tolgrad = .001001 / mult;
 pconfig.tolgrad_liberal = .1 / mult;
 pconfig.prior_for_bads = 0;
 
-temp=[1,5,9];
-
 success = nan(num_subjects*length(num_parameters),1);
 parfor i = 1:(length(num_parameters)*num_subjects)
     model_idx = floor((i-1)/num_subjects) + 1;
-    if any(model_idx==temp), continue, end
     subj_idx = mod(i-1, num_subjects) + 1;
 
     % Construct filename for saving output
     fname = sprintf(fname_template{model_idx}, subj_idx);
     % % if you need to re-run models
     % if exist(fname,"file") == 2
+    %     success(i) = true;
     %     continue;
     % end
 
