@@ -172,10 +172,10 @@ parfor i = 1:length(fname_hbi)
 end
 
 %% Posteriors from top models
-prob = struct([]);
+prob = cell(length(data),length(fname_hbi));
 auc = nan(length(data),length(fname_hbi));
 auc_conf = nan(length(data),length(fname_hbi));
-roc = struct([]);
+roc = cell(length(data),length(fname_hbi));
 roc{1,1} = [0,1];
 loglik = nan(length(data),length(fname_hbi));
 for i = 1:length(fname_hbi)
@@ -199,6 +199,13 @@ end
 % auc_weights = 1./(auc_conf);
 % auc_weights(isinf(auc_weights) | isnan(auc_weights)) = 0;
 % mean(auc, 2, Weights=auc_weights);
+for i = 1:length(fname_hbi)
+    load(fname_hbi{i});
+    cbm.output.auc = auc(:,i);
+    cbm.output.auc_conf = auc_conf(:,i);
+    cbm.output.loglik = loglik(:,i);
+    save(fname_hbi{i},"cbm");
+end
 
 %% Run cbm_hbi for top models
 
