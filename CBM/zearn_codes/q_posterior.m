@@ -57,5 +57,6 @@ function [loglik, prob, choice, q_values] = q_posterior(parameters, subj)
     
     % Log-likelihood is defined as the sum of log-probability of choice data
     loglik = sum(log_p,"omitmissing");
-    prob = [1-exp(log_p), exp(log_p)];
+    prob = [exp(log_p).*(1-choice) + (1-exp(log_p)).*choice, ...
+        exp(log_p).*choice + (1-exp(log_p)).*(1-choice)];
 end

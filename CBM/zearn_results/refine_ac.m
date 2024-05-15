@@ -176,7 +176,6 @@ prob = cell(length(data),length(fname_hbi));
 auc = nan(length(data),length(fname_hbi));
 auc_conf = nan(length(data),length(fname_hbi));
 roc = cell(length(data),length(fname_hbi));
-roc{1,1} = [0,1];
 loglik = nan(length(data),length(fname_hbi));
 for i = 1:length(fname_hbi)
     hbi_model = load(fname_hbi{i});
