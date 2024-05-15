@@ -112,6 +112,8 @@ for subj = 1:num_subjects
     % Construct the filename for the current subject's results
     fname_subjs(subj,:) = [compose(fname_template, subj)];
 end
+pconfig = struct();
+pconfig.maxiter = 200;
 parfor i = 1:size(idx,1)
     success_filter = all(success(:,idx(i,:)),2);
     % Aggregate results for each subject
@@ -120,14 +122,14 @@ parfor i = 1:size(idx,1)
             fname_subjs(success_filter,idx(i,m)), ...
             sprintf( ...
             replace(fname_template{idx(i,m)},"lap_", "lap_aggr_"), ...
-            i)); % Mark aggregate with 0
+            i));
     end
     cbm_hbi(data(success_filter), ...
         models(idx(i,:)), ...
         compose( ...
             replace(fname_template(idx(i,:)),"lap_", "lap_aggr_"), ...
         i), ...
-        fname_hbi{i});
+        fname_hbi{i}, pconfig);
     cbm_hbi_null(data(success_filter), fname_hbi{i});
 end
 
@@ -146,34 +148,49 @@ end
 
 %% Posteriors
 
-prob = struct([]);
-auc = nan(length(data(success)),numel(idx));
-roc = struct([]);
-loglik = nan(length(data(success)),numel(idx));
+prob = cell(length(data),numel(idx));
+auc = nan(length(data),numel(idx));
+auc_conf = nan(length(data),numel(idx));
+roc = cell(length(data),numel(idx));
+loglik = nan(length(data),numel(idx));
 for hbi_idx = 1:size(idx,1)
     hbi_model = load(fname_hbi{hbi_idx});
-
+    success_filter = all(success(:,idx(hbi_idx,:)),2);
     for model_idx = 1:size(idx,2)
         wrapper = str2func( ...
             sprintf('wrapper_post_%d', idx(hbi_idx,model_idx)));
 
         for j = 1:length(data)
-            if ~success(j), continue, end
+            if ~success_filter(j), continue, end
             [loglik(j,((hbi_idx-1)*size(idx,2)+model_idx)), ...
                 prob{j,((hbi_idx-1)*size(idx,2)+model_idx)}, ...
                 choice] = wrapper( ...
                 hbi_model.cbm.output.parameters{model_idx}( ...
-                j - sum(~success(1:j)),:), ...
+                j - sum(~success_filter(1:j)),:), ...
                 data{j});
             roc{j,((hbi_idx-1)*size(idx,2)+model_idx)} = ...
                 rocmetrics(choice, ...
-                prob{j,((hbi_idx-1)*size(idx,2)+model_idx)}, ...
-                [0,1]);
+                prob{j,((hbi_idx-1)*size(idx,2)+model_idx)}, [0,1], ...
+                NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
             auc(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
-                roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(1);
+                roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(1,1);
+            auc_conf(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
+                roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(3,1) - ...
+                roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(2,1);
         end
     end
 end
+auc_matrix = reshape(mean(auc,"omitmissing"),size(idx'))';
 
-mean(auc,"omitmissing")
-
+for hbi_idx = 1:size(idx,1)
+    load(fname_hbi{hbi_idx});
+    for model_idx = 1:size(idx,2)
+        cbm.output.auc = ...
+            auc(:,((hbi_idx-1)*size(idx,2)+model_idx));
+        cbm.output.auc_conf = ...
+            auc_conf(:,((hbi_idx-1)*size(idx,2)+model_idx));
+        cbm.output.loglik = ...
+            loglik(:,((hbi_idx-1)*size(idx,2)+model_idx));
+        save(fname_hbi{hbi_idx},"cbm");
+    end
+end
