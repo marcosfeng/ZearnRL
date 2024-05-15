@@ -186,6 +186,16 @@ end
 
 %% Run cbm_hbi for top models
 
+auc = nan(length(data),length(fname_hbi));
+auc_conf = nan(length(data),length(fname_hbi));
+loglik = nan(length(data),length(fname_hbi));
+for i = 1:length(fname_hbi)
+    load(fname_hbi{i});
+    auc(:,i) = cbm.output.auc;
+    auc_conf(:,i) = cbm.output.auc_conf;
+    loglik(:,i) = cbm.output.loglik;
+end
+
 % Top AUC
 [~, top_auc] = sort(mean(auc), 'descend');
 % Smallest BIC
