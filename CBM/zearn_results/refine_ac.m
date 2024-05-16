@@ -177,6 +177,7 @@ auc = nan(length(data),length(fname_hbi));
 auc_conf = nan(length(data),length(fname_hbi));
 roc = cell(length(data),length(fname_hbi));
 loglik = nan(length(data),length(fname_hbi));
+bic = nan(length(data),length(fname_hbi));
 for i = 1:length(fname_hbi)
     hbi_model = load(fname_hbi{i});
     % hbi_model = load(fname{i});
@@ -188,6 +189,10 @@ for i = 1:length(fname_hbi)
             hbi_model.cbm.output.parameters{1, 1}( ...
             j - sum(~success(1:j,top5_indices(i))),:), ...
             data{j});
+        bic(j,i) = -2 * loglik(j,i) + ...
+            length(hbi_model.cbm.output.parameters{1, 1}( ...
+            j - sum(~success(1:j,top5_indices(i))),:)) * ...
+            log(length(choice));
         roc{j,i} = rocmetrics(choice,prob{j,i},[0,1], ...
             NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
         auc(j,i) = roc{j,i}.AUC(1,1);
@@ -203,6 +208,7 @@ for i = 1:length(fname_hbi)
     cbm.output.auc = auc(:,i);
     cbm.output.auc_conf = auc_conf(:,i);
     cbm.output.loglik = loglik(:,i);
+    cbm.output.bic = bic(:,i);
     save(fname_hbi{i},"cbm");
 end
 
