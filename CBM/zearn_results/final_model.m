@@ -141,7 +141,6 @@ auc_conf = nan(length(data),numel(hbi_idx));
 roc = cell(length(data),numel(hbi_idx));
 loglik = nan(length(data),numel(hbi_idx));
 
-% Only hbi_compare_7
 for posterior_idx = 1:size(hbi_idx,1)
     hbi_model = load(fname_hbi{posterior_idx});
     success_filter = all(success(:,hbi_idx(posterior_idx,:)),2);
@@ -161,7 +160,7 @@ for posterior_idx = 1:size(hbi_idx,1)
             roc{j,((posterior_idx-1)*size(hbi_idx,2)+model_idx)} = ...
                 rocmetrics(choice, ...
                 prob{j,((posterior_idx-1)*size(hbi_idx,2)+model_idx)}, [0,1], ...
-                NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
+                NumBootstraps=100,BootstrapOptions=statset(UseParallel=true));
             auc(j,((posterior_idx-1)*size(hbi_idx,2)+model_idx)) = ...
                 roc{j,((posterior_idx-1)*size(hbi_idx,2)+model_idx)}.AUC(1,1);
             auc_conf(j,((posterior_idx-1)*size(hbi_idx,2)+model_idx)) = ...
@@ -174,13 +173,11 @@ auc_matrix = reshape(mean(auc,"omitmissing"),size(hbi_idx'))';
 
 for posterior_idx = 1:size(hbi_idx,1)
     load(fname_hbi{posterior_idx});
-    for model_idx = 1:size(hbi_idx,2)
-        cbm.output.auc = ...
-            auc(:,((posterior_idx-1)*size(hbi_idx,2)+model_idx));
-        cbm.output.auc_conf = ...
-            auc_conf(:,((posterior_idx-1)*size(hbi_idx,2)+model_idx));
-        cbm.output.loglik = ...
-            loglik(:,((posterior_idx-1)*size(hbi_idx,2)+model_idx));
-        save(fname_hbi{posterior_idx},"cbm");
-    end
+    cbm.output.auc = ...
+        auc(:,((posterior_idx-1)*size(hbi_idx,2))+(1:size(hbi_idx,2)));
+    cbm.output.auc_conf = ...
+        auc_conf(:,((posterior_idx-1)*size(hbi_idx,2))+(1:size(hbi_idx,2)));
+    cbm.output.loglik = ...
+        loglik(:,((posterior_idx-1)*size(hbi_idx,2))+(1:size(hbi_idx,2)));
+    save(fname_hbi{posterior_idx},"cbm");
 end

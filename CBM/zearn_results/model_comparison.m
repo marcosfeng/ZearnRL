@@ -185,13 +185,11 @@ auc_matrix = reshape(mean(auc,"omitmissing"),size(idx'))';
 
 for hbi_idx = 1:size(idx,1)
     load(fname_hbi{hbi_idx});
-    for model_idx = 1:size(idx,2)
-        cbm.output.auc = ...
-            auc(:,((hbi_idx-1)*size(idx,2)+model_idx));
-        cbm.output.auc_conf = ...
-            auc_conf(:,((hbi_idx-1)*size(idx,2)+model_idx));
-        cbm.output.loglik = ...
-            loglik(:,((hbi_idx-1)*size(idx,2)+model_idx));
-        save(fname_hbi{hbi_idx},"cbm");
-    end
+    cbm.output.auc = ...
+        auc(:,((hbi_idx-1)*size(idx,2))+(1:size(idx,2)));
+    cbm.output.auc_conf = ...
+        auc_conf(:,((hbi_idx-1)*size(idx,2))+(1:size(idx,2)));
+    cbm.output.loglik = ...
+        loglik(:,((hbi_idx-1)*size(idx,2))+(1:size(idx,2)));
+    save(fname_hbi{hbi_idx},"cbm");
 end
