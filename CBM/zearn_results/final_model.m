@@ -74,9 +74,10 @@ parfor i = 1:(length(num_parameters(idx))*num_subjects)
 
     % Construct filename for saving output
     fname = sprintf(fname_template{model_idx}, subj_idx);
-    % if you need to re-run models
+    % % if you need to re-run models
     % if exist(fname,"file") == 2
-    %     continue;
+    %     success(i) = 1;
+    %     continue
     % end
 
     % Run the cbm_lap function for the current model and subject
