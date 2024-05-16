@@ -154,6 +154,7 @@ auc = nan(length(data),length(fname_hbi));
 auc_conf = nan(length(data),length(fname_hbi));
 roc = cell(length(data),length(fname_hbi));
 loglik = nan(length(data),length(fname_hbi));
+bic = nan(length(data),length(fname_hbi));
 for i = 1:length(fname_hbi)
     hbi_model = load(fname_hbi{i});
     % hbi_model = load(fname{i});
@@ -163,9 +164,9 @@ for i = 1:length(fname_hbi)
         [loglik(j,i), prob{j,i}, choice, q_values] = wrapper( ...
             hbi_model.cbm.output.parameters{1, 1}(j,:), ...
             filtered_data{j});
-        % roc{i,j} = rocmetrics(choice,prob{i,j},[0,1], ...
-        %     NumBootstraps=100,BootstrapOptions=statset(UseParallel=true), ...
-        %     BootstrapType="student",NumBootstrapsStudentizedSE=100);
+        bic(j,i) = -2 * loglik(j,i) + ...
+            length(hbi_model.cbm.output.parameters{1, 1}(j,:)) * ...
+            log(length(choice));
         roc{j,i} = rocmetrics(choice,prob{j,i},[0,1], ...
             NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
         auc(j,i) = roc{j,i}.AUC(1,1);
@@ -181,6 +182,7 @@ for i = 1:length(fname_hbi)
     cbm.output.auc = auc(:,i);
     cbm.output.auc_conf = auc_conf(:,i);
     cbm.output.loglik = loglik(:,i);
+    cbm.output.bic = bic(:,i);
     save(fname_hbi{i},"cbm");
 end
 
