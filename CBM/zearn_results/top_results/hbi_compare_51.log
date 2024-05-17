@@ -2,8 +2,8 @@ cbm_hbi_hbi                                       14-May-2024 16:39:16
 Running hierarchical bayesian inference (HBI)...
 
 HBI has been initialized according to
-	top_results/logit_aggr_logit51s_2.mat [for model 1]
-	top_results/ac_aggr_ac51_2.mat [for model 2]
+	top_results/logit_aggr_logit51s_3.mat [for model 1]
+	top_results/ac_aggr_ac51_3.mat [for model 2]
  
 Number of samples: 1904
 Number of models: 2

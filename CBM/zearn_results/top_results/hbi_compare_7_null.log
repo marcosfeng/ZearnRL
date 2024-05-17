@@ -2,8 +2,8 @@ cbm_hbi_hbi                                       14-May-2024 19:30:16
 Running hierarchical bayesian inference (HBI)- null mode...
 
 HBI has been initialized according to
-	top_results/logit_aggr_logit7_1.mat [for model 1]
-	top_results/ql_aggr_ql7_1.mat [for model 2]
+	top_results/logit_aggr_logit7_2.mat [for model 1]
+	top_results/ql_aggr_ql7_2.mat [for model 2]
  
 Number of samples: 1904
 Number of models: 2
