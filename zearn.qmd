@@ -329,7 +329,7 @@ Further, the flexibility of RL makes it an ideal tool to model how teachers addr
 
 ## Selecting a model specification
 
-In analyzing Zearn data spanning an entire academic year, we first establish a framework for actions, rewards, and, optionally, state variables for state-based RL models. In this framework, teacher activities drive the educational process, student achievements result from these efforts, and the constantly changing educational environment represents the states. Our approach involves a large set of candidate models, progressively escalating in complexity, as shown in @tbl-methods. This method enabled us to refine our data processing, analysis, and interpretation methods, effectively addressing the drawbacks of relying solely on one analytical approach. Our goal was to strengthen the reliability of our findings and offer a detailed understanding of the underlying behavioral patterns.
+To analyze Zearn data spanning an entire academic year, we first establish a framework for actions, rewards, and, optionally, state variables for state-based RL models. In this framework, teacher activities drive the educational process, student achievements result from these efforts, and the constantly changing educational environment represents the states. Instead of relying solely on one analytical approach, our strategy involves a large set of candidate models, progressively escalating in complexity, as shown in @tbl-methods. Our overarching goal was to strengthen the reliability of our findings and offer a detailed understanding of the underlying behavioral patterns.
 
 ```{r data prep}
 
@@ -738,7 +738,9 @@ gt_classroom_sum <- school_summary %>%
 
 ```
 
-While comprehensive, directly using the available variables presents certain challenges:
+## Dimensionality Reduction
+
+We first conducted a dimensionality reduction with Non-negative Matrix Factorization (NMF) and four components (see @fig-nmf-pca-comparison for a comparison of different methods by balancing reconstruction accuracy, i.e., R-squared, with clustering clarity, i.e., Silhouette Scores). While our dataset offers many potential action and reward variables, the direct use of these variables presents significant challenges:
 
 1.  **Complexity**: The sheer number of available variables complicates the identification of meaningful patterns and relationships.
 2.  **Dimensionality**: The high-dimensional nature of the data risks diluting important signals due to the "curse of dimensionality."[^3]
@@ -746,17 +748,7 @@ While comprehensive, directly using the available variables presents certain cha
 
 [^3]: Richard Bellman coined this phrase to describe the challenge of optimizing a control process by searching over a discrete multidimensional grid, where the number of grid points increases exponentially with the number of dimensions. He wrote: “In view of all that we have said in the foregoing sections, the many obstacles we appear to have surmounted, what casts the pall over our victory celebration? It is the curse of dimensionality, a malediction that has plagued the scientist from the earliest days” [@bellman2015adaptive].
 
-Given these considerations, we avoid relying solely on single, discrete variables and employ dimensionality reduction techniques.
-
-By reducing the data to a manageable number of components, we can more readily identify underlying patterns of behavior and interaction. Components generated through this technique provide a distilled representation of the data, where each one reflects a combination of behaviors or activities with a potential thematic linkage. To achieve this, we applied Nonnegative Matrix Factorization (NMF) and used the results to define action, reward, and state variables rather than using individual metrics. One desirable feature of NMF is that it produces sparse components. In our case, a median split is equivalent to giving a value of 1 to any positive entry. Given that our chosen RL models require discreet action variables, we choose to split teacher actions into binary variables, following a median split.
-
-In order to pre-select the most appropriate action, reward, and state variables, we used a panel logistic regression model inspired by dynamic analysis [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We followed four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
-
-Herein, the interaction between lagged rewards and actions aimed to capture the reinforcement aspect (a), where prior rewards enhance the likelihood of repeating specific actions. Including current state variables addressed (b) and examining how present educational contexts inform action choices. The interaction between current states and lagged actions encapsulated (c) that actions are deliberately chosen to navigate towards or sustain preferable educational states. Lastly, considering lagged rewards alone, we sought to elucidate (d) the phenomenon where past successes influence future endeavors, indicative of a learning trajectory.
-
-## Dimensionality Reduction
-
-To simplify the complexity of our data, we first conducted a dimensionality reduction exercise, comparing different methods to identify the most essential features. After balancing reconstruction accuracy with clustering clarity, we ultimately selected Non-negative Matrix Factorization (NMF) with four components. We chose this configuration after considering the Reconstruction R-squared and Silhouette Scores, as shown in @fig-nmf-pca-comparison. Although PCA provided a simple approach, NMF, particularly the Frobenius variant, outperformed it with superior silhouette scores (i.e., clustering) for teacher and student data.
+By reducing the data to a manageable number of components, we can more readily identify underlying patterns of behavior and interaction. To achieve this, we applied Nonnegative Matrix Factorization (NMF) and used the results to define action, reward, and state variables rather than using individual metrics. One desirable feature of NMF is that it produces sparse components, providing a distilled representation of the data, where each one reflects a combination of behaviors or activities with a potential thematic linkage. Given that our chosen RL models require discreet action variables, we choose to split teacher actions into binary variables, following a median split. In our case, a median split is equivalent to giving a value of 1 to any positive value. 
 
 ```{r pca nmf data-prep}
 #| include: false
@@ -1498,13 +1490,15 @@ save(results, file = "Regressions/fe-state-results.RData")
 
 ```
 
-We first explore reinforcement learning (RL)-like characteristics within the teacher and classroom usage data. We aimed to uncover patterns indicative of RL, where actors (teachers) select actions (teaching strategies) that historically yield higher rewards (improved student outcomes) and use states (classroom contexts) as signals for action selection. Further, we sought to understand how actions contribute to achieving or maintaining desired states and the extent to which actions exhibit auto-correlation due to incremental learning processes.
+In order to pre-select the most appropriate action, reward, and state variables, we used a panel logistic regression model inspired by dynamic analysis [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We applied four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
 
-## Model Fit and Performance
+Herein, the interaction between lagged rewards and actions aimed to capture the reinforcement aspect (a), where prior rewards enhance the likelihood of repeating specific actions. Including current state variables addressed (b) and examining how present educational contexts inform action choices. The interaction between current states and lagged actions encapsulated (c) that actions are deliberately chosen to navigate towards or sustain preferable educational states. Lastly, considering lagged rewards alone, we sought to elucidate (d) the phenomenon where past successes influence future endeavors, indicative of a learning trajectory.
+
+We first explore reinforcement learning (RL)-like characteristics within the teacher and classroom usage data. We aimed to uncover patterns indicative of RL, where actors (teachers) select actions (teaching strategies) that historically yield higher rewards (improved student outcomes) and use states (classroom contexts) as signals for action selection. Further, we sought to understand how actions contribute to achieving or maintaining desired states and the extent to which actions exhibit auto-correlation due to incremental learning processes.
 
 In order to capture the temporal dynamics of actions influenced by lagged rewards and states, we employed panel logistic regression models across different combinations of variables and lags. We incorporate lagged variables (ranging from one to six weeks) into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. We applied reward and state structures extracted from classroom data via non-negative matrix factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) and actions derived similarly from teacher data. We evaluate these models using the Bayesian Information Criterion (BIC) for model complexity and fit and the Area Under the Receiver Operating Characteristic curve (AUC) for predictive accuracy.
 
-More specifically, we select one teacher component as the action and one student component as the reward. When constructing state-based models, we incorporate an additional student component as the state variable. In total, this choice yields 16 state-free models and 48 state-based models.
+More specifically, we select one teacher component as the action and one student component as the reward. When constructing state-based models, we incorporate an additional student component as the state variable. In total, this choice yields 16 state-free models (4 possible actions and 4 possible rewards) and 48 state-based models (4 possible actions, 4 possible rewards, and 3 possible state variables).
 
 ### Temporal Dynamics
 
@@ -2687,11 +2681,7 @@ knitr::include_graphics("images/tbl-RL-exploration.png")
 
 #### Model Performance
 
-Drawing on the resulting metrics, we strategically narrowed our focus to the action-reward-state configurations that most closely align with Reinforcement Learning (RL) principles. @fig-RL-exploration delineates the top 25 models based on their high fixed-effects Area Under the Curve (AUC) and mean teacher-specific AUC, as well as their parsimonious Bayesian Information Criterion (BIC) and higher mean teacher-specific log-likelihood.
-
-Panel A of the figure highlights six state-free models. Each point on the plot represents a different model, identified by its BIC and average teacher-specific AUC. Within this framework, the actions of "Activities" and "Assessments" stand out, connected to rewards like "Completion," "No. Sessions," and "No. Students." Panel B spotlights 19 state-based models. In this plot, "Scaffolding" and "Activities" also emerge as the primary actions.
-
-These visualizations highlight "Scaffolding" and "Activities" as best-fit actions. However, the choice of associated rewards and states is unclear, suggesting the need to fit RL models using all configurations featuring these two actions.
+Drawing on the resulting metrics, we strategically narrowed our focus to the action-reward-state configurations that most closely align with Reinforcement Learning (RL) principles. @fig-RL-exploration delineates the top models based on their high fixed-effects Area Under the Curve (AUC) and mean teacher-specific AUC, as well as their Fixed Effects Bayesian Information Criterion (BIC) and higher mean teacher-specific log-likelihood. Panel A and B of the figure shows the state-free and state-dependent models, respectively. Each point on the plot represents a different model, identified by its BIC and average teacher-specific AUC. For both classes of models, the actions "Pedagogical Knowledge" and "Group Instruction" stand out. However, the choice of associated rewards and states is unclear, suggesting the need to fit RL models using all configurations featuring these two actions.
 
 ```{r}
 #| label: fig-RL-exploration
@@ -2960,11 +2950,7 @@ save(results, file = "Regressions/me-standardized-coef.RData")
 
 ## Estimating RL Models
 
-This section aims to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the Bayesian Information Criterion, a metric that balances model fit against complexity. This metric is critical as it provides a common ground for comparing models with varying degrees of freedom, ensuring that our selection process favors models that capture the essential patterns without overfitting. Our first step will be to choose the most suitable model based on this performance score. Then, we will carefully analyze it for any discernible patterns that may help us understand the teaching strategies present in our dataset.
-
-#### Standout Models
-
-Our computational analysis identified a distinct group of models that excelled in their low Bayesian Information Criterion (BIC) scores. Interestingly, all top-performing models featured "Pedagogical Knowledge" as their primary action. @tbl-top-CBM provides a breakdown of scores for different combinations of rewards and states under this action, offering insight into the comparative performance of various model setups. Notably, models with "Badges" and "Activity" as their rewards outperform others, as do state-free models, likely due to their higher simplicity.
+The next step is to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the Bayesian Information Criterion (BIC). Our computational analysis identified a distinct group of models that excelled in their low BIC scores. @tbl-top-CBM provides a breakdown of scores for different combinations of rewards and states under this action, offering insight into the comparative performance of various model setups. Notably, all top-performing models featured "Pedagogical Knowledge" as their primary action. models with "Badges" and "Activity" as their rewards outperform others, as do state-free models, likely due to their higher simplicity.
 
 ```{r}
 #| label: tbl-top-CBM
@@ -3047,7 +3033,7 @@ evidence_df %>%
 
 #### Hierarchical Bayesian Inference (HBI) Results and Model Comparison
 
-To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more detailed comparison of the selected models. This statistical approach allows us to compare models not just by their individual fits, but also by their ability to explain data across different subjects. In interpreting the results from HBI, we observed the differential performances of Q-learning (QL) and Actor-Critic (AC) models. @tbl-CBM-HBI provides quantifiable insights into how frequently each model emerged as the best fit across iterations (Model Frequency) and the sum log likelihood across subjects (Log Likelihood). Notably, we see that in both model types, models that used Badges and Activity as their rewards overperformed. The HBI results and corresponding model comparison statistics serve as our basis for selecting the most appropriate RL model.
+To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more detailed comparison of the selected models. This statistical approach allows us to compare models not just by their individual fits, but also by their ability to explain data across different subjects. In interpreting the results from HBI, we observed the differential performances of Q-learning (QL) and Actor-Critic (AC) models. @tbl-CBM-HBI provides quantifiable insights into each model's fit (BIC) and predictive power (AUC, the area under the receiver operating characteristic curve) across teachers. Generally, Q-learning models fit the data better than Actor-Critic models (i.e., lower BIC scores), and AC models outperform in terms of predictive power (higher AUC scores).
 
 ```{r}
 #| label: tbl-CBM-HBI
@@ -3099,7 +3085,7 @@ BIC_sd_ac <- sapply(top_model_ac, FUN = function(x) {
 
 # Create a data frame with each model
 top_models_table <- data.frame(
-  Model = c(rep("QL-learning",4), rep("Actor-Critic",5)),
+  Model = c(rep("Q-learning",4), rep("Actor-Critic",5)),
   Action = rep("Pedagogical Knowledge", 9),
   Reward = c("Struggles", "No. Students", "Activity", "Badges",
              "Struggles", "Struggles", "Struggles", "Activity", "Badges"),
@@ -3170,8 +3156,8 @@ AUC_comp <- sapply(comp_models, FUN = function(x) {
   apply(x[["cbm"]][[5]][[8]], 2, mean, na.rm = TRUE)
 }) %>% t()
 model_freq <- data.frame(cbind(BIC_comp,AUC_comp))
-names(model_freq) <- c(paste0("BIC_",c("Logit", "RL", "Logit-RL Hybrid")),
-                       paste0("AUC_",c("Logit", "RL", "Logit-RL Hybrid")))
+names(model_freq) <- c(paste0("BIC_",c("Logit", "RL", "Hybrid")),
+                       paste0("AUC_",c("Logit", "RL", "Hybrid")))
 
 model_freq$Reward <- c(
   "Struggles", # QL 3
@@ -3225,19 +3211,13 @@ model_freq %>%
   ) %>%
   tab_footnote(
     footnote = "Combines predictions of Logit and RL models through a linear combination.",
-    locations = cells_column_labels(columns = gt::ends_with("Logit-RL Hybrid"))
+    locations = cells_column_labels(columns = gt::ends_with("Hybrid"))
   )
 ```
 
 #### Top Model Selection
 
-In the final stages of our model selection process, we converge on the identification of the top-performing models. By assessing the frequency with which each model provides the best explanation for the observed data, we make an informed decisions about their suitability for capturing teacher behavioral patterns. @tbl-CBM-second distills these results by juxtaposing the models based on the rewards 'Activity' and 'Badges.' The table reveals that the 'Badges' consistently outperforms 'Activity' across logit and actor-critic models, indicating its superior explanatory power in the context of pedagogical knowledge.
-
-## Heterogeneity Analyses
-
-In our investigation of different pedagogical strategies in Zearn, we analyzed the impact of teacher characteristics on the success of reinforcement learning (RL) models.
-
-The histogram of teacher-specific log-likelihoods in @fig-loglik-histogram reveals a centralized distribution, indicating consistency in model performance across teachers. Most teachers' data aligned with the model around the median log-likelihood, suggesting a typical teaching strategy efficacy pattern. This central tendency indicates the model's reliability in capturing the underlying decision-making processes. However, the spread of the histogram also implies variations, highlighting the diversity in teaching strategies, which warrants further investigation into individual differences.
+@tbl-CBM-second also shows that Q-learning consistently outperforms logistic regression and actor-critic models in BIC scores. As such, we further analyze the fit from the top models from this table to the entire dataset. That is, we compare both Q-learning models and the top actor-critic model with their corresponding logistic regression. The histogram of teacher-specific log-likelihoods in @fig-loglik-histogram reveals that the Q-learning model with "Struggles" as the reward has the lowest BIC scores.
 
 ```{r}
 #| label: fig-loglik-histogram
@@ -3316,7 +3296,9 @@ ggplot(data = loglik_df, aes(x = BIC, fill = interaction(Model, Reward),
 
 ```
 
-In addition, we analyzed teacher-specific parameters to capture these individual differences. @fig-params-histogram provides a set of violin plots depicting a range of teacher behaviors and tendencies. We observed a wide range of learning rates, indicating differences in how quickly teachers adjusted their teaching based on student interactions. The distribution of the inverse temperature parameter indicated varying levels of strategic consistency. Initial policy parameters are very close to zero, implying a "blank slate" for educators before making adjustments. Finally, the range in cost parameters pointed to a subjective assessment of resource investment in different teaching actions, revealing differences in perceived effort or resources required for specific teaching approaches.
+## Heterogeneity and Optimality
+
+The spread of BIC scores in @fig-loglik-histogram also implies a diversity in model fit, which warrants further investigation into heterogeneity. We analyzed teacher-specific parameters to capture these individual differences. @fig-params-histogram provides a set of visualizations depicting relationships between teacher-specific parameters and various contextual factors. We observed differences in the cost parameter across poverty levels, with higher poverty schools showing lower cost estimates (a). The learning rate parameter (alpha) also varied across poverty levels (b), with higher poverty schools exhibiting lower learning rates. The number of weeks a teacher used the platform showed a small negative correlation with the estimated cost (r = -0.11, p < .001) (d), while it positively correlated with the inverse temperature parameter (tau) (r = 0.14, p = 1.5e-09) (e). When examining the relationship between the learning rate, inverse temperature, and student outcomes (c, f), we found a positive correlation between inverse temperature and both average badges (r = 0.17, p < .001) and average tower alerts (r = 0.1, p < .001). However, the learning rarte did not significantly correlate with average badges earned (r = 0.03, p = 0.23) or average tower alerts (r = 0.0, p = .85).
 
 ```{r}
 #| label: fig-params-histogram
@@ -3572,11 +3554,7 @@ ggplot(data = full_data, aes(x = exp(tau))) +
 
 ```
 
-Our heterogeneity analysis also included comparing teachers classified into Logit or Actor-Critic models. @tbl-CBM-teachers displays these results; however, no differences were statistically significant after p-value correction.
-
-Additionally, we further differentiated teacher behaviors by splitting the data based on log-likelihood, creating 'Good Fit' and 'Bad Fit' model groups. @tbl-CBM-teachers-full shows the differences between these two groups, and the results indicate overall higher weekly usage for teachers in the Good Fit group. With the exception of the average number of tower alerts (i.e., corrected for number of weeks), teachers in the Good Fit group had higher values across all variables, suggesting a more engaged and effective teaching approach.
-
-## Optimality
+Our heterogeneity analysis also included comparing teachers classified into Logit or Actor-Critic models. @tbl-CBM-teachers displays these results; however, no differences were statistically significant after p-value correction. Additionally, we further differentiated teacher behaviors by splitting the data based on log-likelihood, creating 'Good Fit' and 'Bad Fit' model groups. @tbl-CBM-teachers-full shows the differences between these two groups, and the results indicate overall higher weekly usage for teachers in the Good Fit group. With the exception of the average number of tower alerts (i.e., corrected for number of weeks), teachers in the Good Fit group had higher values across all variables, suggesting a more engaged and effective teaching approach.
 
 To understand what makes a teacher effective in helping students complete their lessons, we carefully examined teachers' performance across various parameters from the previous hierarchical model. We were especially interested in the learning rate ("Alpha") and the inverse temperature ("Tau") because of their potential impact on behavior adaptation and decision consistency. We found that these parameters correlated to the number of weekly badges earned by the average student (i.e., average lesson completion) and Tower Alerts (i.e., students struggling with the material).
 
@@ -3880,7 +3858,6 @@ The general model formulation for state-free and state-based scenarios is as fol
 & + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t 
 \end{align*}
 ```
-
 #### State-Based Model
 
 ```{=tex}
@@ -5727,6 +5704,7 @@ table_df %>%
 
 ```{r Bayesian LOOIC prep}
 #| eval: false
+#| include: false
 # Clean environment
 rm(list = setdiff(ls(), c("df", "random_py", "get_lag_value")))
 gc(verbose = FALSE)
