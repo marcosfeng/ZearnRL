@@ -3306,7 +3306,7 @@ The spread of BIC scores in @fig-loglik-histogram also implies a diversity in mo
 #| fig-subcap:
 #| - "Poverty x Cost"
 #| - "Poverty x Alpha"
-#| - "Student Outcomes x Alpha"
+#| - "Student Outcomes x Gamma"
 #| - "No. of Weeks x Cost"
 #| - "No. of Weeks x Tau"
 #| - "Student Outcomes x Tau"
@@ -3366,7 +3366,8 @@ heterogeneity <- heterogeneity %>%
         ), by = "Classroom.ID"
     ) %>%
   mutate(across(c(Income, Poverty), as.ordered)) %>%
-  rename(`Total Students` = `Students...Total`)
+  rename(`Total Students` = `Students...Total`,
+         `No. of Classes` = n_classes_by_teacher)
 
 # Extract BIC and classify teachers based on median split
 full_data <- heterogeneity %>%
@@ -3386,6 +3387,7 @@ full_data <- heterogeneity %>%
 
 # Update color palette
 color_palette <- brewer.pal(4, "Set2")
+color_palette_dark <- brewer.pal(4, "Dark2")
 
 # Create a transformation for the inverse logit function
 transform_inv_logit <- new_transform(
@@ -3413,6 +3415,14 @@ cor_tests <- data.frame(
   Tau_p = c(
     cor.test(full_data$tau, full_data$`Avg. Badges`)$p.value,
     cor.test(full_data$tau, full_data$`Avg. Tower Alerts`)$p.value
+  ),
+  Gamma_cor = c(
+    cor.test(full_data$gamma, full_data$`Avg. Badges`)$estimate,
+    cor.test(full_data$gamma, full_data$`Avg. Tower Alerts`)$estimate
+  ),
+  Gamma_p = c(
+    cor.test(full_data$gamma, full_data$`Avg. Badges`)$p.value,
+    cor.test(full_data$gamma, full_data$`Avg. Tower Alerts`)$p.value
   )
 )
 
@@ -3424,7 +3434,7 @@ ggplot(data = full_data %>%
          filter(!is.na(Poverty)) %>%
          mutate(cost = exp(cost)),
        aes(x = Poverty, y = cost)) +
-  geom_violin(alpha = 0.6, scale = "count", fill = color_palette[4]) +
+  geom_violin(alpha = 0.6, scale = "count", fill = color_palette[3]) +
   geom_boxplot(width = 0.025, outlier.shape = NA) +
   theme_minimal() +
   labs(x = "Poverty", y = "Cost") +
@@ -3451,60 +3461,103 @@ ggplot(data = full_data %>%
 
 ## [1,3]
 
-ggplot(data = full_data, aes(x = 1/(1+exp(-alpha)))) +
-  geom_point(aes(y = `Avg. Badges`),
-             color = color_palette[2], alpha = 0.1) +
+# ggplot(data = full_data, aes(x = 1/(1+exp(-alpha)))) +
+#   geom_point(aes(y = `Avg. Badges`),
+#              color = color_palette[2], alpha = 0.1) +
+#   geom_smooth(aes(y = `Avg. Badges`), method = "lm",
+#               color = color_palette[2], fill = color_palette[2]) +
+#   geom_point(aes(y = `Avg. Tower Alerts`),
+#              color = color_palette[1], alpha = 0.1) +
+#   geom_smooth(aes(y = `Avg. Tower Alerts`), method = "lm",
+#               color = color_palette[1], fill = color_palette[1]) +
+#   scale_x_continuous(name = "Alpha", transform = "logit") +
+#   scale_y_continuous(name = "Avg. Badges / Tower Alerts") +
+#   theme_minimal() +
+#   labs(color = "Variable") +
+#   geom_text(data = cor_tests[1,], 
+#             aes(x = min(1/(1+exp(-full_data$alpha))),
+#                 y = mean(full_data$`Avg. Badges`), 
+#                 label = paste0("r = ", round(Alpha_cor, 2),
+#                                ", p = ", signif(Alpha_p, 2))),
+#             color = color_palette[2], vjust = -1.5, hjust = 0) +
+#   geom_text(data = cor_tests[2,],
+#             aes(x = min(1/(1+exp(-full_data$alpha))),
+#                 y = mean(full_data$`Avg. Tower Alerts`),
+#                 label = paste0("r = ", round(Alpha_cor, 2),
+#                                ", p = ", signif(Alpha_p, 2))),
+#             color = color_palette[1], vjust = -1.5, hjust = 0)
+
+ggplot(data = full_data, aes(x = exp(gamma))) +
+  geom_point(aes(y = `Avg. Badges`), size = 0.4,
+             color = color_palette[2], alpha = 0.19,
+             position = position_jitter(width = 0.1, height = 0)) +
   geom_smooth(aes(y = `Avg. Badges`), method = "lm",
               color = color_palette[2], fill = color_palette[2]) +
-  geom_point(aes(y = `Avg. Tower Alerts`),
-             color = color_palette[1], alpha = 0.1) +
+  geom_point(aes(y = `Avg. Tower Alerts`), size = 0.4,
+             color = color_palette[1], alpha = 0.19,
+             position = position_jitter(width = 0.1, height = 0)) +
   geom_smooth(aes(y = `Avg. Tower Alerts`), method = "lm",
               color = color_palette[1], fill = color_palette[1]) +
-  scale_x_continuous(name = "Alpha", transform = "logit") +
+  scale_x_continuous(name = "Gamma", transform = "log") +
   scale_y_continuous(name = "Avg. Badges / Tower Alerts") +
   theme_minimal() +
   labs(color = "Variable") +
   geom_text(data = cor_tests[1,], 
-            aes(x = min(1/(1+exp(-full_data$alpha))),
+            aes(x = min(exp(full_data$gamma)),
                 y = mean(full_data$`Avg. Badges`), 
-                label = paste0("r = ", round(Alpha_cor, 2),
-                               ", p = ", signif(Alpha_p, 2))),
-            color = color_palette[2], vjust = -1.5, hjust = 0) +
+                label = paste0("r = ", round(Gamma_cor, 2),
+                               ", p ", ifelse(Gamma_p > 0.001,
+                                                paste0("= ", signif(Gamma_p, 2)),
+                                                " < 0.001"))),
+            color = color_palette_dark[2], vjust = 1.5, hjust = 0) +
   geom_text(data = cor_tests[2,],
-            aes(x = min(1/(1+exp(-full_data$alpha))),
+            aes(x = min(exp(full_data$gamma)),
                 y = mean(full_data$`Avg. Tower Alerts`),
-                label = paste0("r = ", round(Alpha_cor, 2),
-                               ", p = ", signif(Alpha_p, 2))),
-            color = color_palette[1], vjust = -1.5, hjust = 0)
+                label = paste0("r = ", round(Gamma_cor, 2),
+                               ", p ", ifelse(Gamma_p > 0.001,
+                                                paste0("= ", signif(Gamma_p, 2)),
+                                                " < 0.001"))),
+            color = color_palette_dark[1], vjust = 1.5, hjust = 0)
 
 
 # [2,1:2]
 
 ggplot(data = full_data, aes(x = `No. of Weeks`, y = exp(cost))) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", color = color_palette[1], fill = color_palette[1]) +
+  geom_point(alpha = 0.2, position = position_jitter(width = 0, height = 0.01)) +
+  geom_smooth(method = "lm", color = color_palette[3], fill = color_palette[3]) +
   theme_minimal() +
   labs(x = "No. of Weeks", y = "Cost") +
   geom_text(aes(x = max(`No. of Weeks`), y = min(exp(cost)),
                 label = paste0("r = ",
                                round(cor.test(full_data$`No. of Weeks`,
                                               full_data$cost)$estimate, 2),
-                               ", p = ",
-                               signif(cor.test(full_data$`No. of Weeks`,
-                                               full_data$cost)$p.value, 2))),
+                               ", p ",
+                               ifelse(cor.test(full_data$`No. of Weeks`,
+                                               full_data$cost)$p.value > 0.001,
+                                                paste0("= ", signif(
+                                                  cor.test(full_data$`No. of Weeks`,
+                                                           full_data$cost)$p.value, 2)),
+                                                " < 0.001"))),
+                color = color_palette_dark[3],
             vjust = -1.5, hjust = 1)
 
 ggplot(data = full_data, aes(x = `No. of Weeks`, y = exp(tau))) +
-  geom_point(alpha = 0.2) +
-  geom_smooth(method = "lm", color = color_palette[2], fill = color_palette[2]) +
+  geom_point(alpha = 0.2, position = position_jitter(width = 0, height = 0.1)) +
+  geom_smooth(method = "lm", color = color_palette[4], fill = color_palette[4]) +
   scale_y_continuous(trans = "log", breaks = c(1, 2, 4, 8, 16, 32)) +
   theme_minimal() +
   labs(x = "No. of Weeks", y = "Tau") +
   geom_text(aes(x = max(`No. of Weeks`), y = min(exp(tau)),
                 label = paste0("r = ", round(cor.test(full_data$`No. of Weeks`,
                                                       full_data$tau)$estimate, 2),
-                               ", p = ", signif(cor.test(full_data$`No. of Weeks`,
-                                                         full_data$tau)$p.value, 2))),
+                               ", p ",
+                               ifelse(cor.test(full_data$`No. of Weeks`,
+                                               full_data$tau)$p.value > 0.001,
+                                                paste0("= ", signif(
+                                                  cor.test(full_data$`No. of Weeks`,
+                                                           full_data$tau)$p.value, 2)),
+                                                " < 0.001"))),
+                color = color_palette_dark[4],
             vjust = -1.5, hjust = 1)
 
 # ggplot(data = full_data %>% mutate(gamma = 1/(1+exp(-gamma))), 
@@ -3526,12 +3579,14 @@ ggplot(data = full_data, aes(x = `No. of Weeks`, y = exp(tau))) +
 # [2,3]
 
 ggplot(data = full_data, aes(x = exp(tau))) +
-  geom_point(aes(y = `Avg. Badges`),
-             color = color_palette[2], alpha = 0.1) +
+  geom_point(aes(y = `Avg. Badges`), size = 0.4,
+             color = color_palette[2], alpha = 0.19,
+             position = position_jitter(width = 0.1, height = 0)) +
   geom_smooth(aes(y = `Avg. Badges`), method = "lm",
               color = color_palette[2], fill = color_palette[2]) +
-    geom_point(aes(y = `Avg. Tower Alerts`),
-             color = color_palette[1], alpha = 0.1, size = 2) +  
+    geom_point(aes(y = `Avg. Tower Alerts`), size = 0.4,
+             color = color_palette[1], alpha = 0.19,
+             position = position_jitter(width = 0.1, height = 0)) +  
   geom_smooth(aes(y = `Avg. Tower Alerts`), method = "lm",
               color = color_palette[1], fill = color_palette[1]) +
   scale_x_continuous(name = "Tau", transform = "log",
@@ -3543,14 +3598,18 @@ ggplot(data = full_data, aes(x = exp(tau))) +
             aes(x = min(exp(full_data$tau)),
                 y = mean(full_data$`Avg. Badges`),
                 label = paste0("r = ", round(Tau_cor, 2),
-                               ", p = ", signif(Tau_p, 2))),
-            color = color_palette[2], vjust = 0.5, hjust = 0) +
+                               ", p ", ifelse(Tau_p > 0.001,
+                                                paste0("= ", signif(Tau_p, 2)),
+                                                " < 0.001"))),
+            color = color_palette_dark[2], vjust = 0.5, hjust = 0) +
   geom_text(data = cor_tests[2,],
             aes(x = min(exp(full_data$tau)),
                 y = mean(full_data$`Avg. Tower Alerts`),
                 label = paste0("r = ", round(Tau_cor, 2),
-                               ", p = ", signif(Tau_p, 2))),
-            color = color_palette[1], vjust = 0.5, hjust = 0)
+                               ", p ", ifelse(Tau_p > 0.001,
+                                                paste0("= ", signif(Tau_p, 2)),
+                                                " < 0.001"))),
+            color = color_palette_dark[1], vjust = 0.5, hjust = 0)
 
 ```
 
@@ -4757,11 +4816,12 @@ model_summary_long %>%
 heterogeneity %>%
   filter(!is.na(Teacher.User.ID)) %>%
   dplyr::select(Model, `Charter School`, `Paid Account`, Poverty, 
-         `No. of Weeks`, `Total Students`,
+         `No. of Weeks`, `Total Students`, `No. of Classes`,
          `Active Students`, `Avg. Badges`, `Avg. Tower Alerts`, 
          Action, Reward, State) %>%
   tbl_summary(
     by = Model,  # Grouping variable
+    type = list(`No. of Classes` ~ "continuous"),
     statistic = list(all_continuous() ~ "{mean} ({sd})",
                      all_categorical() ~ "{p}%")
   ) %>%
@@ -4779,11 +4839,12 @@ heterogeneity %>%
 # T-tests for differences in means by model type and fit group
 full_data %>%
   dplyr::select(FitGroup, `Charter School`, `Paid Account`, Poverty, 
-         `No. of Weeks`, `Total Students`,
+         `No. of Weeks`, `Total Students`, `No. of Classes`,
          `Active Students`, `Avg. Badges`, `Avg. Tower Alerts`, 
          Action, Reward, State) %>%
   tbl_summary(
     by = c("FitGroup"), # Grouping variables
+    type = list(`No. of Classes` ~ "continuous"),
     statistic = list(all_continuous() ~ "{mean} ({sd})",
                      all_categorical() ~ "{p}%")
   ) %>%
@@ -4829,22 +4890,20 @@ full_data <- full_data %>%
 model1 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init,
              data = full_data)
 model2 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
-               `Total Students` + n_classes_by_teacher,
+               BIC + `No. of Weeks` + `Total Students` + `No. of Classes`,
              data = full_data)
 model3 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
-               `Total Students` + n_classes_by_teacher +
-               grade + `No. of Weeks` + Poverty +
-               `Charter School` + `Paid Account`,
+               BIC + `No. of Weeks` + `Total Students` + `No. of Classes` +
+               grade +  Poverty + `Charter School` + `Paid Account`,
              data = full_data)
 model4 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init,
              data = full_data)
 model5 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init  +
-               `Total Students` + n_classes_by_teacher,
+               BIC + `No. of Weeks` + `Total Students` + `No. of Classes`,
              data = full_data)
 model6 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init +
-               `Total Students` + n_classes_by_teacher +
-               grade + `No. of Weeks` + Poverty +
-               `Charter School` + `Paid Account`,
+               BIC + `No. of Weeks` + `Total Students` + `No. of Classes` +
+               grade +  Poverty + `Charter School` + `Paid Account`,
              data = full_data)
 
 # # Gather tidy summaries of each model
@@ -4902,15 +4961,17 @@ stargazer(model1, model2, model3,
           align = TRUE,
           covariate.labels = c("$\\alpha$", "$\\gamma$",
                                "$\\tau$", "Cost", "Starting Q-value",
-                               "No. of Students",
-                               "No. of Classes", "No. of Weeks",
+                               "No. of Weeks", "No. of Students",
+                               "No. of Classes",
                                "Charter School", "Paid Zearn Account"),
-          omit = c("grade", "Poverty"),
+          omit = c("BIC", "grade", "Poverty"),
           dep.var.labels = "Badges",
           star.cutoffs = c(.05, .01, .001), 
           star.char = c("*", "**", "***"),
-          add.lines = list(c("Control for Grade Level",
+          add.lines = list(c("Control for BIC",
                              "", "Yes", "Yes", "", "Yes", "Yes"),
+                           c("Control for Grade Level",
+                             "", "", "Yes", "", "", "Yes"),
                            c("Control for Poverty Level",
                              "", "", "Yes", "", "", "Yes")))
 
@@ -4927,15 +4988,17 @@ stargazer(model4, model5, model6,
           align = TRUE,
           covariate.labels = c("$\\alpha$", "$\\gamma$",
                                "$\\tau$", "Cost", "Starting Q-value",
-                               "No. of Students",
-                               "No. of Classes", "No. of Weeks",
+                               "No. of Weeks", "No. of Students",
+                               "No. of Classes",
                                "Charter School", "Paid Zearn Account"),
-          omit = c("grade", "Poverty"),
+          omit = c("BIC", "grade", "Poverty"),
           dep.var.labels = "Tower Alerts",
           star.cutoffs = c(.05, .01, .001), 
           star.char = c("*", "**", "***"),
-          add.lines = list(c("Control for Grade Level",
+          add.lines = list(c("Control for BIC",
                              "", "Yes", "Yes", "", "Yes", "Yes"),
+                           c("Control for Grade Level",
+                             "", "", "Yes", "", "", "Yes"),
                            c("Control for Poverty Level",
                              "", "", "Yes", "", "", "Yes")))
 
