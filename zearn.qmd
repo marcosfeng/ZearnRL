@@ -3047,8 +3047,6 @@ evidence_df %>%
 
 To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more detailed comparison of the selected models. This statistical approach allows us to compare models not just by their individual fits but also by their ability to explain data across different subjects. In interpreting the results from HBI, we observed the differential performances of Q-learning (QL) and Actor-Critic (AC) models. @tbl-CBM-HBI provides quantifiable insights into each model's fit (BIC) and predictive power (AUC, the area under the receiver operating characteristic curve) across teachers. Generally, Q-learning models fit the data better than Actor-Critic models (i.e., lower BIC scores), and AC models outperform in terms of predictive power (higher AUC scores).
 
-
-
 <!-- tbl-CBM-HBI -->
 
 ```{r}
@@ -3879,12 +3877,12 @@ In this study, we take an agnostic approach, allowing the following student vari
 -   As a state variable, "Active Students" provides information about the current level of student participation, which can influence a teacher's decision.
 -   As a reward variable, a high number of active students could be considered a positive outcome, indicating successful student engagement.
 
-2.  "Student Logins": This variable tallies the frequency of students entering the platform, potentially serving as an engagement metric [@zearnaf].
+2.  "Student Logins": This variable tallies the frequency of students entering the platform, potentially serving as an engagement metric [@zearn2024].
 
 -   As a state variable, "Student Logins" offers insights into the consistency of student participation, another aspect of the learning environment state.
 -   As a reward variable, a high frequency of student logins could be viewed as a positive outcome, reflecting consistent student engagement.
 
-3.  "Badges (on grade)" and "Badges": These metrics reflect the number of new lessons completed weekly at students' grade level and in general [@zearnae].
+3.  "Badges (on grade)" and "Badges": These metrics reflect the number of new lessons completed weekly at students' grade level and in general [@zearn2024a].
 
 -   As state variables, these metrics provide information about the current level of student progress through the curriculum.
 -   As reward variables, accumulating badges can serve as a positive signal, indicating students' mastery of the curriculum.
@@ -3894,7 +3892,7 @@ In this study, we take an agnostic approach, allowing the following student vari
 -   As a state variable, "Minutes per active student" offers insights into the current level of student engagement and time spent on learning activities.
 -   As a reward variable, achieving or exceeding the expected minutes can be considered a positive outcome, while falling short may be viewed as a negative outcome.
 
-5.  "Tower Alerts": These alerts signal instances when students repeatedly encounter difficulties within the same lesson [@zearnad].
+5.  "Tower Alerts": These alerts signal instances when students repeatedly encounter difficulties within the same lesson [@zearn2024b].
 
 -   As state variables, "Tower Alerts" provide information about the current level of student struggle and areas where additional support may be needed.
 -   As reward variables, "Tower Alerts" could be viewed as a negative signal, indicating that the current teaching strategies may not be effective in addressing student difficulties.
@@ -4088,32 +4086,32 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 
 ### Teacher Variables
 
-| **Variable**                                               | **Description**                                                                                                                                                                                                                 |
+| **Variable**                                                        | **Description**                                                                                                                                                                                                                 |
 |---------------------------|---------------------------------------------|
-| PD Course Guide Download [@zearnaa; @zearnab]              | Detailed agenda for Professional Development (PD) courses focusing on classroom implementation, leadership, supporting diverse learners, using data to inform teaching practices, and accelerating student learning.            |
-| PD Course Notes Download [@zearnaa; @zearnab]              | Professional development session notes offering insights into effectively using Zearn's curriculum.                                                                                                                             |
-| Curriculum Map Download [@zearna]                          | Detailed outline of learning objectives and content. Presents a sequence of interconnected math concepts across grades, aligning with states' instructional requirements.                                                       |
-| Assessments Download [@zearnb]                             | Assessments to evaluate student understanding of the material, including ongoing formative assessments, digital daily checks, and paper-based unit assessments.                                                                 |
-| Assessments Answer Key Download [@zearnc]                  | Solutions for assessments to aid in grading and feedback. Provides detailed rubrics for mission-level assessments.                                                                                                              |
-| Elementary Schedule Download [@zearne]                     | A recommended schedule for elementary school-level Zearn curriculum activities to guide daily and weekly instructional planning, ensuring comprehensive coverage of curriculum content.                                         |
-| Grade Level Overview Download [@zearnf]                    | Provides a summary of learning objectives, pacing guidance, key grade-level terminology, a list of required materials, and details on the standards covered by each lesson.                                                     |
-| Kindergarten Schedule Download [@zearng]                   | Recommended schedules for Kindergarten, supporting structured instruction planning.                                                                                                                                             |
-| Kindergarten Mission Download [@zearnh]                    | Details interactive activities focused on kindergarten-level concepts and their learning objectives.                                                                                                                            |
-| Mission Overview Download [@zearnf]                        | Outlines a mission's (i.e., learning module) flow of topics, lessons, and assessments; highlights foundational concepts introduced earlier; lists recently introduced terms and required materials for teacher-led instruction. |
-| Optional Homework Download [@zearnj]                       | Assignments for additional practice, enhancing student learning outside of class.                                                                                                                                               |
-| Optional Problem Sets Download [@zearnk]                   | Exercises for extra practice, tailored to reinforce lesson concepts.                                                                                                                                                            |
-| Small Group Lesson Download [@zearnl]                      | Lessons designed for small-group engagement.                                                                                                                                                                                    |
-| Student Notes and Exit Tickets Download [@zearnz; @zearny] | Student notes supplement digital lessons with paper-and-pencil activities. Exit tickets are lesson-level assessments for teachers to monitor daily learning.                                                                    |
-| Teaching and Learning Approach Download [@zearnn]          | Resources outlining Zearn's pedagogical methods.                                                                                                                                                                                |
-| Whole Group Fluency Download [@zearno]                     | Lesson-aligned practice activities to build math fluency through whole-class engagement.                                                                                                                                        |
-| Whole Group Word Problems Download [@zearnl]               | Word problem-solving activities intended for collaborative, whole-class engagement.                                                                                                                                             |
-| Fluency Completed [@lesson-a]                              | Indicates teacher completed a fluency activity, typically given to students before their daily digital lessons.                                                                                                                 |
-| Guided Practice Completed [@zearnr]                        | Indicates teacher completed a guided practice segment, where students learn new concepts. These include videos with on-screen teachers, interactive activities, and paper-and-pencil Student Notes.                             |
-| Kindergarten Activity Completed [@zearns]                  | Indicates teacher completed an activity within the Kindergarten curriculum.                                                                                                                                                     |
-| Number Gym Activity Completed [@zearnt]                    | Indicates teacher completed a Number Gym, an individually adaptive activity that builds number sense, reinforces previously learned skills, and addresses areas of unfinished learning.                                         |
-| Tower Completed [@zearnu]                                  | Indicates teacher completed a Tower of Power, an activity that requires full mastery of lesson objectives and that students must complete independently.                                                                        |
-| Tower Struggled [@zearnac]                                 | Indicates teacher committed a mistake when engaging with the Tower of Power activity in a student role, triggering a "boost" (scaffolding remediation).                                                                         |
-| Tower Stage Failed [@zearnad]                              | Indicates teacher received three consecutive "boosts" due to repeated errors when engaging with the Tower of Power in a student role.                                                                                           |
+| PD Course Guide Download [@zearn2023; @zearn2024c]                  | Detailed agenda for Professional Development (PD) courses focusing on classroom implementation, leadership, supporting diverse learners, using data to inform teaching practices, and accelerating student learning.            |
+| PD Course Notes Download [@zearn2023; @zearn2024c]                  | Professional development session notes offering insights into effectively using Zearn's curriculum.                                                                                                                             |
+| Curriculum Map Download [@zearn2024d]                               | Detailed outline of learning objectives and content. Presents a sequence of interconnected math concepts across grades, aligning with states' instructional requirements.                                                       |
+| Assessments Download [@zearn2024e]                                  | Assessments to evaluate student understanding of the material, including ongoing formative assessments, digital daily checks, and paper-based unit assessments.                                                                 |
+| Assessments Answer Key Download [@zearn2024f]                       | Solutions for assessments to aid in grading and feedback. Provides detailed rubrics for mission-level assessments.                                                                                                              |
+| Elementary Schedule Download [@zearn2024g]                          | A recommended schedule for elementary school-level Zearn curriculum activities to guide daily and weekly instructional planning, ensuring comprehensive coverage of curriculum content.                                         |
+| Grade Level Overview Download [@zearn2024h]                         | Provides a summary of learning objectives, pacing guidance, key grade-level terminology, a list of required materials, and details on the standards covered by each lesson.                                                     |
+| Kindergarten Schedule Download [@zearn2024i]                        | Recommended schedules for Kindergarten, supporting structured instruction planning.                                                                                                                                             |
+| Kindergarten Mission Download [@zearn2024j]                         | Details interactive activities focused on kindergarten-level concepts and their learning objectives.                                                                                                                            |
+| Mission Overview Download [@zearn2024h]                             | Outlines a mission's (i.e., learning module) flow of topics, lessons, and assessments; highlights foundational concepts introduced earlier; lists recently introduced terms and required materials for teacher-led instruction. |
+| Optional Homework Download [@zearn2024k]                            | Assignments for additional practice, enhancing student learning outside of class.                                                                                                                                               |
+| Optional Problem Sets Download [@zearn2024l]                        | Exercises for extra practice, tailored to reinforce lesson concepts.                                                                                                                                                            |
+| Small Group Lesson Download [@zearn2024m]                           | Lessons designed for small-group engagement.                                                                                                                                                                                    |
+| Student Notes and Exit Tickets Download [@zearn2024n; \@zearn2024o] | Student notes supplement digital lessons with paper-and-pencil activities. Exit tickets are lesson-level assessments for teachers to monitor daily learning.                                                                    |
+| Teaching and Learning Approach Download [@zearn2024p]               | Resources outlining Zearn's pedagogical methods.                                                                                                                                                                                |
+| Whole Group Fluency Download [@zearn2024q]                          | Lesson-aligned practice activities to build math fluency through whole-class engagement.                                                                                                                                        |
+| Whole Group Word Problems Download [@zearn2024m]                    | Word problem-solving activities intended for collaborative, whole-class engagement.                                                                                                                                             |
+| Fluency Completed [@zearn2024q]                                     | Indicates teacher completed a fluency activity, typically given to students before their daily digital lessons.                                                                                                                 |
+| Guided Practice Completed [@zearn2024r]                             | Indicates teacher completed a guided practice segment, where students learn new concepts. These include videos with on-screen teachers, interactive activities, and paper-and-pencil Student Notes.                             |
+| Kindergarten Activity Completed [@zearn2024s]                       | Indicates teacher completed an activity within the Kindergarten curriculum.                                                                                                                                                     |
+| Number Gym Activity Completed [@zearn2024t]                         | Indicates teacher completed a Number Gym, an individually adaptive activity that builds number sense, reinforces previously learned skills, and addresses areas of unfinished learning.                                         |
+| Tower Completed [@zearn2024b]                                       | Indicates teacher completed a Tower of Power, an activity that requires full mastery of lesson objectives and that students must complete independently.                                                                        |
+| Tower Struggled [@zearn2024u]                                       | Indicates teacher committed a mistake when engaging with the Tower of Power activity in a student role, triggering a "boost" (scaffolding remediation).                                                                         |
+| Tower Stage Failed [@zearn2024b]                                    | Indicates teacher received three consecutive "boosts" due to repeated errors when engaging with the Tower of Power in a student role.                                                                                           |
 
 : Catalog of Teacher Activities. This table presents teachers' actions, including curriculum engagement, downloads of pedagogical materials, and completion of various interactive components within the Zearn educational platform. {#tbl-teacher-variables}
 
@@ -5095,8 +5093,9 @@ coef_matrix_long <- coef_matrix_long[coef_matrix_long$term == coef_matrix_long$t
 ggplot(coef_matrix_long, aes(x = response, y = term, fill = as.numeric(estimate))) +
   geom_tile() +
   geom_text(aes(label = paste0(signif(as.numeric(estimate), 2), sig)), size = 3) +
-  scale_fill_gradient2(low = "lightblue", high = "darkblue", mid = "white", 
-                       midpoint = 0, limits = c(-1, 1), name = "Estimate") +
+  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, "RdYlBu"), 
+                       limits = c(-1, 1),
+                       name = "Estimate") +
   theme_minimal() +
   labs(x = NULL, y = NULL) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -5146,8 +5145,9 @@ coef_matrix_plot <- coef_matrix_long %>%
 ggplot(coef_matrix_plot, aes(x = response, y = term, fill = estimate)) +
   geom_tile() +
   geom_text(aes(label = paste0(signif(estimate, 2), sig)), size = 3) +
-  scale_fill_gradient2(low = "lightblue", high = "darkblue", mid = "white",
-                       midpoint = 0, limits = c(-1, 1), name = "Partial Correlation") +
+  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, "RdYlBu"), 
+                       limits = c(-1, 1),
+                       name = "Partial Correlation") +
   theme_minimal() +
   labs(x = NULL, y = NULL) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))

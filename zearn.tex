@@ -213,26 +213,135 @@ Education Platforms, Instructional Adaptation, Q-learning, Actor-Critic
 \section{Introduction}\label{introduction}
 
 Predicting repeated behavior has been a long-standing goal of the
-behavioral sciences, including economics, psychology, and neuroscience.
-Much of human behavior results from stimulus-response associations,
-which are context-sensitive and not always consciously deliberated .
-Reinforcement learning (RL) algorithms have emerged as a prominent way
-of quantifying these relationships, assigning a mathematical
-relationship between contextual cues (states), behavior (actions), and
-reward \citep{sutton2018}. These algorithms have found wide application
-in neuroscience and cognitive psychology, where they are used in data
-sets to model agents in specific environments. However, these
-disciplines generally do not work with the practical and applied data
-typically used in social psychology and economics
-\citep{buyalskaya2023}.
+behavioral sciences, including economics, psychology, and neuroscience
+\citep{verplanken2022, venkatesh2023, hagger2023}. Reinforcement
+learning (RL) algorithms have emerged as a prominent way of quantifying
+these relationships, assigning a mathematical relationship between
+contextual cues (states), behavior (actions), and reward
+\citep{sutton2018, kaelbling1996}. These algorithms have found wide
+application in neuroscience and cognitive psychology, where they are
+used in data sets to model agents in specific environments
+\citep{zhang2020}.
 
-This gap presents a novel opportunity to use methods from one set of
-disciplines on data traditionally used in another . In this paper, we
-aim to further this integration by applying RL algorithms to model the
-decision-making process of teachers in the math-teaching platform Zearn.
-RL provides a system of rewards and punishments where the agent (in this
-case, the teacher) learns to make optimal decisions by maximizing the
-rewards and minimizing the punishments. By assuming every teacher has an
+\citep{niv2022}, for example, proposed a perspective on cognitive
+behavioral therapy (CBT) by framing it within reinforcement learning
+(RL) theory. Highlighting the similarities between these two domains
+offers a promising avenue for advancing our understanding of CBT and
+refining its clinical applications. Specifically, the researchers
+propose that CBT's cognitive aspect may correspond to the model-based
+learning system, while its behavioral component relates to the
+model-free system. There are two examples of RL applications. First,
+prolonged exposure therapy (i.e., vividly recounting a traumatic
+experience in a safe environment) is akin to updating the value of a
+traumatic state. One novel insight from RL is that moderate prediction
+errors (i.e., gradual extinction) are more effective than high
+prediction errors, which can lead to new values being assigned to an
+entirely different state. Second, RL theory can explain how CBT
+treatments for obsessive-compulsive disorder work. Patients are asked to
+imagine and write down the worst-case outcomes of not performing their
+obsessions. In RL terms, this activity forces patients to create a model
+of the world with low transition probabilities for worst-case scenarios,
+effectively reducing the perceived probability of feared outcomes. While
+this theoretical framework is compelling, future research must
+substantiate these novel insights with concrete empirical evidence.
+
+\citep{collins2020}, however, discussed the complexities of
+reinforcement learning, moving beyond the traditional model-based (MB)
+and model-free (MF) dichotomies. These dichotomies, while beneficial in
+understanding certain aspects of human learning and decision-making,
+also impose limitations by oversimplifying the diverse mechanisms at
+play in RL. Such dichotomies have advanced understanding of neural and
+social factors influencing behavior; however, Collins and Cockburn
+pointed out the challenge of uniquely and reliably classifying behaviors
+under any one controller due to the diversity and complexity of learning
+mechanisms. Instead, MB and MF learning should be seen as high-level
+processes emerging from coordinating various sub-computations; however,
+it is important to consider independent underlying computations in MB
+and MF algorithms and the potential to recombine these subcomponents
+meaningfully, thereby questioning the strict separation between MB and
+MF RL. From this theoretical discussion, further research is needed to
+explore the complexities of reinforcement learning by refocusing on the
+diverse computational components that constitute learning and
+decision-making, particularly in empirical studies. The nuanced
+understanding of learning processes can inform the development of more
+sophisticated models to capture the diverse decision-making strategies
+of teachers. This approach aligns with our goal of transcending simple
+binary models to embrace the multifaceted nature of individual teacher
+behavior in digital learning environments.
+
+More pragmatically, \citep{park2019} explored the benefits of using a
+personalized social robot learning companion using a model-free
+Q-learning approach to improve engagement and learning outcomes among
+young English language learners. Their approach employed affective
+reinforcement learning to train a customized storytelling approach for
+each child, optimized for their skill progression. The experiment
+included 67 children between the ages of 4-6 divided into one of three
+groups: personalized robot, non-personalization robot, and a no-robot
+baseline. Throughout 6-8 sessions, the children participated in
+storytelling activities with the robots; the personalized robot used a
+model-free Q-learning approach to predict the complexity levels of the
+activities to maximize a child's future engagement and learning gains.
+As such, a) the reward was a combination of engagement and learning
+progress (assessed through the child's use of new words and syntax
+structures), b) states were the users' engagement (measured by verbal
+and nonverbal cues) and affective arousal levels (measured by facial
+expressions), and c) actions were the complexity level of the
+activities. Results indicated that the personalized robot effectively
+adapted to each child's needs, leading to better engagement and learning
+outcomes than non-personalized and no-robot conditions. The positive
+results suggest that a Q-learning strategy can offer tailored and
+improved teaching methods. However, Park et al.~chose the model and
+multiple parameters arbitrarily; therefore, future models could enhance
+the robot's outcomes by, for example, defining other state spaces or
+learning rates. Additionally, the generalizability of these findings to
+other educational settings and populations is needed. The affective
+reinforcement learning approach effectively operationalizes states,
+actions, and rewards in an educational space, resulting in adaptive,
+engaging learning experiences for students.
+
+Researchers have also attempted to bridge computational neuroscience and
+clinical applications. \citep{brown2021} investigated whether depression
+symptoms are related to features of reinforcement learning, fitting a
+state-free q-learning algorithm to participants' behavior in a reward
+and loss learning task (i.e., learning a stimulus's expected monetary
+gains or losses, respectively). The researchers then regressed
+depression symptoms on the model-derived parameters and found that
+depression symptoms may selectively disrupt specific components of the
+reinforcement learning process. Notably, the Brown et al.~study bridges
+computational neuroscience and clinical applications, offering a novel
+way of characterizing depression, typifying patients, and opening new
+avenues for personalized treatment. The study resonates with using
+estimated parameters as markers of individual differences, hinting at
+the potential for personalized interventions based on these models.
+Likewise, our study examines the variation in estimated learning rate
+parameters and their association with overall student outcomes.
+
+In another investigation of reinforcement learning in neuroscience,
+\citep{eckstein2021} reviewed the interpretability and generalizability
+of reinforcement learning (RL) models in neuroscience and cognitive
+science, highlighting the widely adopted assumption that estimated RL
+parameters explain specific (neuro)cognitive functions and that these
+explanations translate across contexts. Methodological differences among
+RL studies yield a considerable variation in interpretation; for
+instance, learning rates have been linked to incremental updating,
+reward sensitivity, and approximate inference. Consequently,
+generalizing findings across tasks, populations, and model
+parameterizations is not often appropriate. Eckstein et al.~emphasized
+that future research should contextualize findings within specific
+experimental setups and consider alternative models that better capture
+the complexities of human cognition. We take this advice to address the
+degrees of freedom in our research design while contextualizing our
+results accordingly.
+
+The focus primarily on neuroscience and cognitive psychology
+applications, however, presents a novel opportunity to use methods from
+one set of disciplines on data traditionally used in another. In this
+paper, we aim to further this integration by applying RL algorithms to
+model the decision-making process of teachers in the math-teaching
+platform Zearn. RL provides a system of rewards and punishments where
+the agent (in this case, the teacher) learns to make optimal decisions
+by maximizing the rewards and minimizing the punishments
+\citep{sutton2018, kaelbling1996}. By assuming every teacher has an
 objective function to balance with their potential rewards, we model the
 sequential behavior of a teacher throughout a school year. For instance,
 the teacher chooses which pedagogical actions to employ, such as
@@ -243,7 +352,7 @@ contextual information. We provide a model of how teachers adapt their
 strategies in response to student performance and other contextual
 factors. This approach offers a flexible model for our available data
 and opens new avenues for understanding and enhancing human behavior in
-field settings.
+complex, real-world settings.
 
 \subsection{The Zearn Platform}\label{the-zearn-platform}
 
@@ -331,6 +440,33 @@ in the current lesson are completed.}
 
 \end{figure}%
 
+\citep{morrison2019}, for example, evaluated the effectiveness of Zearn
+Math, a digital math curriculum, in a large urban school district for
+improving student outcomes. The study employed a mixed-methods approach,
+combining quantitative and qualitative data from various sources,
+including student achievement data, student and teacher usage data
+(i.e., time spent on the platform), student and teacher surveys,
+classroom observations, teacher focus groups, and administrator
+interviews. The study revealed mixed results. Administrators, students,
+and teachers generally viewed Zearn Math positively, citing increased
+student engagement and improved instruction differentiation. However,
+challenges included initial discomfort with the shift from whole class
+to half-class instruction and uneven teacher preparedness, primarily due
+to limited professional development opportunities. While Zearn Math
+seemed to improve student engagement and higher order thinking skills,
+its impact on student achievement was unclear. Achievement gains on
+standardized tests were not significantly different overall, though
+there were positive correlations between Zearn Math usage and
+achievement gains. The program's success may be attributed to its
+engaging, gamified components and alignment with the Common Core State
+Standards. Additionally, it is important to provide adequate
+professional development and support for teachers to effectively
+implement the program. The findings of Morrison et al.~highlight the
+potential and challenges of integrating digital platforms like Zearn
+Math into the curriculum, which is relevant for understanding how such
+tools can support teacher strategies and student engagement in
+mathematics.
+
 Another noteworthy feature is the platform's comprehensive professional
 development component, which is accessible to schools with a paid
 account (see Figure~\ref{fig-prof-dev} for a sample training schedule).
@@ -341,6 +477,29 @@ This professional development prioritizes (1) each mission's primary
 mathematical concept, (2) visual representations to scaffold learning,
 and (3) strategies to address unfinished learning from prior grades
 while preparing for future learning \citep{morrison2019}.
+
+Researchers have also examined the Zearn approach for teaching teachers
+professional development knowledge. \citep{knudsen2020a} focused on the
+effectiveness of the Curriculum Study Professional Development (CS PD)
+program developed by Zearn to enhance elementary school teachers'
+Pedagogical Content Knowledge (PCK) in teaching mathematics. The
+researchers used a case study approach, examining eight teachers across
+various schools and districts who had undergone the CS PD program. Data
+collection methods included think-aloud interviews, classroom and CS PD
+session observations, and interviews with teachers and administrators;
+the researchers found that 75\% of the teachers experienced growth in
+their PCK. Key strengths of the CS PD program included its relevance to
+practice, encouragement of collaboration among teachers, and its
+effectiveness in developing big ideas. However, challenges in responding
+to students' in-the-moment problem-solving and varied teacher engagement
+were noted. The findings underscore the importance of enhancing
+teachers' pedagogical content knowledge, especially in mathematics. One
+of the measures we developed in our study specifically captures
+pedagogical content knowledge. These insights can inform the development
+of similar professional development programs in the current project,
+ensuring they are effectively tailored to teachers' instructional needs
+and students' diverse backgrounds. Further, we are able to model teacher
+behavior at the individual level.
 
 Zearn's integrated framework provides a rich repository of data for our
 analysis. The variables delineated for investigation by Zearn encompass:
@@ -387,13 +546,14 @@ namely, the policy \(\pi(a|s) = \Pr[A_t = a|S_t = s]\)
 \citep{sutton2018}.
 
 RL models have been used in the psychology of habit to explain learning
-and reward association. One common approach in human studies is to apply
-the ``multi-armed bandit'' task. In this type of experiment,
+and reward association \citep{thorndike1931, Rescorla1972ATO}. One
+common approach in human studies is to apply the ``multi-armed bandit''
+task \citep{daw2006, dennison2022}. In this type of experiment,
 participants are presented with multiple actions, each with an unknown
 payoff. The subject's goal is to learn the best outcome through trial
 and error. In the beginning, the reward-action relationships are
 unknown, so the participant must explore or sample each action
-\citep{sutton2018} . This exploration-exploitation trade-off is a
+\citep{sutton2018} (p.~3). This exploration-exploitation trade-off is a
 central theme in RL and has the potential to provide valuable insights
 into how individuals learn and make decisions over time.
 
@@ -1775,8 +1935,8 @@ education, ultimately fostering better outcomes for all students.
 \section{Materials and Methods}\label{materials-and-methods}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2500}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4028}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2639}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3889}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3472}}@{}}
 \caption{Analytical steps employed in the
 study.}\label{tbl-methods}\tabularnewline
@@ -1930,47 +2090,135 @@ resource downloads and specific instructional activities.
 Table~\ref{tbl-teacher-variables} provides a list of the actions
 available in the data.
 
-\subsubsection{Reward and State
-Variables}\label{reward-and-state-variables}
+\subsubsection{Rewards and States}\label{rewards-and-states}
 
-Reward and state variables in Reinforcement Learning (RL) models capture
-the dynamics of the environment in which learning and actions occur. The
-Zearn platform captures these variables from student activity and
-performance data, providing a quantifiable snapshot of classroom
-engagement and learning challenges. The student variables in our data
-are:
+In reinforcement learning (RL) models, reward and state variables
+capture the dynamics of the environment in which learning and
+decision-making occur. The Zearn platform provides a rich set of student
+activity and performance data that can be used to define these
+variables, offering a quantifiable snapshot of classroom engagement and
+learning challenges.
+
+State variables represent the current condition or situation of the
+learning environment, providing the context for the agent's
+decision-making. Reward variables, on the other hand, quantify the
+desirability of the outcomes resulting from the agent's actions, serving
+as feedback signals that guide the learning process.
+
+In this study, we take an agnostic approach, allowing the following
+student variables to be treated as either reward or state variables
+depending on our RL model specification:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
+\tightlist
 \item
-  ``Active Students'' directly measures classroom engagement,
-  representing the number of students actively logging in to complete
-  digital lessons within a given week \citep{zearn2022}.
-\item
-  ``Student Logins'' functions as an attendance roster, tallying the
-  frequency of students entering the platform, potentially serving as an
-  engagement metric \citep{zearnaf}.
-\item
-  ``Badges (on grade)'' and ``Badges'' per active user metrics offer
-  insights into the level of curriculum mastery. They reflect the number
-  of new lessons completed weekly at students' grade level and in
-  general. Accumulating badges can serve as a reward signal in an RL
-  model, indicating students' progress and pace through the curriculum
-  \citep{zearnae}.
-\item
-  ``Minutes per active student'' variable measures students' time on the
-  platform, potentially correlating with their focus and learning
-  progress. Once routines are established, teachers can use this metric
-  to monitor whether students meet their expected weekly minutes
+  ``Active Students'': This variable represents the number of students
+  actively logging in to complete digital lessons within a given week
   \citep{zearn2022}.
-\item
-  ``Tower Alerts'' signal instances when students repeatedly encounter
-  difficulties within the same lesson, prompting the platform to notify
-  teachers. In the context of RL models, Tower Alerts could be viewed as
-  a negative reinforcement signal, highlighting areas where students may
-  require additional support or intervention to improve learning
-  outcomes \citep{zearnad}.
 \end{enumerate}
+
+\begin{itemize}
+\tightlist
+\item
+  As a state variable, ``Active Students'' provides information about
+  the current level of student participation, which can influence a
+  teacher's decision.
+\item
+  As a reward variable, a high number of active students could be
+  considered a positive outcome, indicating successful student
+  engagement.
+\end{itemize}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  ``Student Logins'': This variable tallies the frequency of students
+  entering the platform, potentially serving as an engagement metric
+  \citep{zearn2024}.
+\end{enumerate}
+
+\begin{itemize}
+\tightlist
+\item
+  As a state variable, ``Student Logins'' offers insights into the
+  consistency of student participation, another aspect of the learning
+  environment state.
+\item
+  As a reward variable, a high frequency of student logins could be
+  viewed as a positive outcome, reflecting consistent student
+  engagement.
+\end{itemize}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{2}
+\tightlist
+\item
+  ``Badges (on grade)'' and ``Badges'': These metrics reflect the number
+  of new lessons completed weekly at students' grade level and in
+  general \citep{zearn2024a}.
+\end{enumerate}
+
+\begin{itemize}
+\tightlist
+\item
+  As state variables, these metrics provide information about the
+  current level of student progress through the curriculum.
+\item
+  As reward variables, accumulating badges can serve as a positive
+  signal, indicating students' mastery of the curriculum.
+\end{itemize}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{3}
+\tightlist
+\item
+  ``Minutes per active student'': This variable measures students' time
+  on the platform, potentially correlating with their focus and learning
+  progress \citep{zearn2022}.
+\end{enumerate}
+
+\begin{itemize}
+\tightlist
+\item
+  As a state variable, ``Minutes per active student'' offers insights
+  into the current level of student engagement and time spent on
+  learning activities.
+\item
+  As a reward variable, achieving or exceeding the expected minutes can
+  be considered a positive outcome, while falling short may be viewed as
+  a negative outcome.
+\end{itemize}
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{4}
+\tightlist
+\item
+  ``Tower Alerts'': These alerts signal instances when students
+  repeatedly encounter difficulties within the same lesson
+  \citep{zearn2024b}.
+\end{enumerate}
+
+\begin{itemize}
+\tightlist
+\item
+  As state variables, ``Tower Alerts'' provide information about the
+  current level of student struggle and areas where additional support
+  may be needed.
+\item
+  As reward variables, ``Tower Alerts'' could be viewed as a negative
+  signal, indicating that the current teaching strategies may not be
+  effective in addressing student difficulties.
+\end{itemize}
+
+By allowing models that use these variables as either reward or state
+variables, we can investigate which configuration of action, reward, and
+states best capture teacher decision-making on Zearn.
 
 \subsubsection{Dimensionality
 Reduction}\label{dimensionality-reduction-1}
@@ -2049,7 +2297,7 @@ is as follows:
 
 \begin{align*}
 \text{Action}_t =& \ \sum_{i=1}^{L} \left( \beta_{i} R_{t-i} + \gamma_i \text{Action}_{t-i} + \sum_{j=i}^{L} \delta_{ij} (R_{t-i} \times \text{Action}_{t-j}) \right) \\
-& + \phi \text{State}_{t-1} + \psi (\text{State}_{t-1} \times \text{Action}_{t-2}) + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t
+& + \phi \text{State}_{t} + \psi (\text{State}_{t} \times \text{Action}_{t-1}) + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t
 \end{align*}
 
 where \(\text{Action}_t\) denotes the binary outcome at time \(t\),
@@ -2057,6 +2305,17 @@ where \(\text{Action}_t\) denotes the binary outcome at time \(t\),
 variables lagged by \(i\) periods, and \(L\) is the maximum lag
 considered. \(\mu_{\text{Teacher}}\) and \(\lambda_{\text{Week}}\)
 represent fixed effects for teachers and weeks, respectively.
+
+Note that, theoretically, the standalone lagged reward term \(R_{ t-i}\)
+should not have a significant influence on the current action
+\(\text{Action}_t\) independent of the reward-action interaction term
+\(R_{t-i} \times \text{Action}_{t-j}\). The reward-action interaction
+term captures the learning-related aspect of the model, where the
+agent's actions are influenced by the previous rewards and actions.
+However, we include the standalone lagged reward term in the state-free
+model as a control variable, effectively isolating the learning-related
+effects captured by the reward-action interaction term from any other
+potential influences of the previous reward.
 
 \paragraph{Varying Coefficients Model}\label{varying-coefficients-model}
 
@@ -2083,17 +2342,40 @@ teacher behavior.
 
 Two types of metrics determined model selection. First, we split the
 data into training (80\%) and testing (20\%) subsets. Then, we evaluated
-model fit and predictive accuracy using the Bayesian Information
-Criterion (BIC) and the Out-of-Sample fit, gauged through the Area Under
-the Receiver Operating Characteristic curve (AUC). As such, we balanced
-model parsimony with predictive power. Second, we aimed to delineate
-which regression coefficients most closely embodied RL-like dynamics. We
-focused on a) variables that consistently enhanced action probability in
-response to rewards (i.e., positive coefficient for the state-reward
-interaction), b) actions that changed according to a given state, c)
-actions chosen to achieve desired states (i.e., significant coefficient
-for the action-state interaction), and d) demonstrate action
-auto-correlation.
+model fit using the Bayesian Information Criterion (BIC), and predictive
+performance with the Area Under the Receiver Operating Characteristic
+curve (AUC). The AUC measures how well a model can discriminate between
+action instances (i.e., 0 and 1) across all classification thresholds.
+AUC values range from 0 to 1, with 0.5 indicating a random classifier
+and 1 indicating a perfect classifier. Using both BIC and AUC allows us
+to balance model parsimony with predictive power.
+
+Second, we aimed to delineate which regression coefficients most closely
+embodied RL-like dynamics. We focused on:
+
+\begin{enumerate}
+\def\labelenumi{\alph{enumi})}
+\item
+  \(\delta_{ij}\): The coefficient associated with the reward-action
+  interaction term \(R_{t-i} \times \text{Action}_{t-j}\). A positive
+  \(\delta_{ij}\) suggests that receiving a reward at time \(t-i\)
+  increases the likelihood of taking the same action at time \(t-j\).
+\item
+  \(\phi\): The coefficient associated with the current state
+  (\(\text{State}_{t}\)) in the state-based model. A significant
+  \(\phi\) indicates that the current state influences the choice of
+  action.
+\item
+  \(\psi\): The coefficient associated with the state-action interaction
+  term \(\text{State}_{t} \times \text{Action}_{t-1}\) in the
+  state-based model. A significant \(\psi\) suggests that actions are
+  chosen strategically to navigate towards desirable states.
+\item
+  \(\gamma_i\): The coefficient associated with the lagged action term
+  \(\text{Action}_{t-1}\). A positive \(\gamma_i\) indicates action
+  auto-correlation, suggesting that the agent is more likely to repeat
+  the same action over time.
+\end{enumerate}
 
 \subsubsection{Hybrid Models}\label{hybrid-models}
 
@@ -2111,7 +2393,7 @@ of each model and is formulated as:
 \text{Pr}_t(a) = \lambda \text{Pr}_t(a)_{\text{Model 1}} + (1-\lambda) \text{Pr}_t(a)_{\text{Model 2}}
 \]
 
-\subsubsection{Reinforcement Learning Model
+\subsection{Reinforcement Learning Model
 Estimation}\label{reinforcement-learning-model-estimation}
 
 For the initial model selection, we fit the data from approximately 10
@@ -2126,11 +2408,11 @@ uses Laplace approximations for efficient computation of posteriors by
 approximating the integrals involved in Bayesian inference.
 Subsequently, it leverages population-level distributions to refine
 individual parameter variation. Within this framework, we assume that
-for any given model \(k\) and subject \(n\), the individual parameters
-(\(h_{k,n}\)) are normally distributed across the population with
-\(h_{k,n} \sim N(\mu_k, \Sigma_k)\), where \(\mu_k\) and \(\Sigma_k\)
-represent the mean and variance of the distribution over \(h_{k,n}\),
-respectively.
+for any given model \(m\) and subject \(n\), the individual parameters
+(\(h_{m,n}\)) are normally distributed across the population with
+\(h_{m,n} \sim N(\mu_m, \Sigma_m)\), where \(\mu_m\) and \(\Sigma_m\)
+represent the vector of means and the variance-covariance matrix of the
+distribution over \(h_{m,n}\), respectively.
 
 We use an expectation-maximization algorithm, iteratively performing the
 following two steps:
@@ -2140,14 +2422,14 @@ following two steps:
 \tightlist
 \item
   Expectation Step: The algorithm calculates a posteriori estimates of
-  the individual parameters (\(h_{k,n}\)) based on the existing
+  the individual parameters (\(h_{m,n}\)) based on the existing
   group-level distributions.
 \item
   Maximization Step: The algorithm refines the group-level parameters
-  (\(\mu_k\) and \(\Sigma_k\)) using current individual parameter
-  estimates. The updated mean group parameter \(\mu_k\) is computed as
+  (\(\mu_m\) and \(\Sigma_m\)) using current individual parameter
+  estimates. The updated mean group parameter \(\mu_m\) is computed as
   the average of subject-level mean estimates across all subjects,
-  \(\mu_k = \frac{1}{N}\sum_{n}h_{k,n}\), where \(N\) is the total
+  \(\mu_m = \frac{1}{N}\sum_{n}h_{m,n}\), where \(N\) is the total
   number of subjects.
 \end{enumerate}
 
@@ -2211,41 +2493,23 @@ Consequently, HBI estimates the following unconstrained parameters:
   \end{itemize}
 \end{enumerate}
 
-\paragraph{Top Model Selection}\label{top-model-selection-1}
+\subsubsection{Top Model Selection}\label{top-model-selection-1}
 
-We used a Bayesian model comparison technique from \citep{piray2019a} to
-determine the best-fit model from our set of candidates by considering
-the exceedance probability (i.e., the likelihood that one model is more
-probable than others in explaining the data) and the protected
-exceedance probability (i.e., the exceedance probability adjusted for
-the chance that observed differences in model evidence are due to random
-fluctuations).
-
-The model evidence \(\Pr(D | M_k)\) for model \(k\) represents the
-likelihood of the observed data \(D\) given the model \(M_k\), and is
-given by \(\Pr(D|M_k) = \int_{H} \Pr(D|\theta, M_k) \Pr(\theta|M_k) dh\)
-for all possible parameters \(h \in H\). This value allows us to assess
-the models' overall fit across the entire parameter space.
-
-We then calculated the likelihood of each model being the best fit for
-the data. We do so by first computing the posterior probabilities
+We determined the best-fit model from our set of candidates by
+considering each model's Bayesian Information Criterion (BIC). To do so,
+we first computed the log-likelihood of the data given the estimated
+model parameters obtained from the Hierarchical Bayesian Inference (HBI)
+procedure. We then computed the average of the BICs across subjects for
+each model using the formula:
 
 \[
-\Pr(M_k|D) = \frac{\Pr(D|M_k)\Pr(M_k)}{\sum_{k=1}^K \Pr(D|M_k)\Pr(M_k)}.
+\overline{\text{BIC}} = \frac{1}{N} \sum_{i=1}^{N} \left( -2 \cdot \text{log-likelihood}_i + p \cdot \log(T_i) \right)
 \]
 
-We then proceeded to compute the exceedance probabilities,
-\(EP_k = \Pr(\Pr(M_k|D) > \Pr(M_j|D) \text{ for all } j \neq k)\). In
-simple terms, it is the likelihood of model \(k\) having a posterior
-probability higher than any other model in our comparison.
-
-Finally, to account for false positives, we estimated the protected
-exceedance probability \(PEP_k = EP_k(1 - P_0) + P_0/K\), where
-\(P_0 = 1/(1 + \exp(L - L_0))\), and \(L\) and \(L_0\) represent the
-log-likelihoods under the alternative and null hypotheses (i.e., the
-models are equally likely). The \(PEP\) helps prevent overconfident
-selection of a model when the evidence is not sufficiently robust to
-distinguish model performance reliably.
+where \(N\) is the number of subjects, \(p\) is the number of model
+parameters, \(T_i\) is the number of data points (trials) for subject
+\(i\), and \(\text{log-likelihood}_i\) is the log-likelihood of the data
+for subject \(i\) given the estimated model parameters.
 
 \subsubsection{Heterogeneity Analysis}\label{heterogeneity-analysis}
 
@@ -2406,76 +2670,79 @@ Zearn educational platform.}\label{tbl-teacher-variables}\tabularnewline
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-PD Course Guide Download \citep{zearnaa, zearnab} & Detailed agenda for
-Professional Development (PD) courses focusing on classroom
+PD Course Guide Download \citep{zearn2023, zearn2024c} & Detailed agenda
+for Professional Development (PD) courses focusing on classroom
 implementation, leadership, supporting diverse learners, using data to
 inform teaching practices, and accelerating student learning. \\
-PD Course Notes Download \citep{zearnaa, zearnab} & Professional
+PD Course Notes Download \citep{zearn2023, zearn2024c} & Professional
 development session notes offering insights into effectively using
 Zearn's curriculum. \\
-Curriculum Map Download \citep{zearna} & Detailed outline of learning
-objectives and content. Presents a sequence of interconnected math
-concepts across grades, aligning with states' instructional
+Curriculum Map Download \citep{zearn2024d} & Detailed outline of
+learning objectives and content. Presents a sequence of interconnected
+math concepts across grades, aligning with states' instructional
 requirements. \\
-Assessments Download \citep{zearnb} & Assessments to evaluate student
-understanding of the material, including ongoing formative assessments,
-digital daily checks, and paper-based unit assessments. \\
-Assessments Answer Key Download \citep{zearnc} & Solutions for
+Assessments Download \citep{zearn2024e} & Assessments to evaluate
+student understanding of the material, including ongoing formative
+assessments, digital daily checks, and paper-based unit assessments. \\
+Assessments Answer Key Download \citep{zearn2024f} & Solutions for
 assessments to aid in grading and feedback. Provides detailed rubrics
 for mission-level assessments. \\
-Elementary Schedule Download \citep{zearne} & A recommended schedule for
-elementary school-level Zearn curriculum activities to guide daily and
-weekly instructional planning, ensuring comprehensive coverage of
+Elementary Schedule Download \citep{zearn2024g} & A recommended schedule
+for elementary school-level Zearn curriculum activities to guide daily
+and weekly instructional planning, ensuring comprehensive coverage of
 curriculum content. \\
-Grade Level Overview Download \citep{zearnf} & Provides a summary of
+Grade Level Overview Download \citep{zearn2024h} & Provides a summary of
 learning objectives, pacing guidance, key grade-level terminology, a
 list of required materials, and details on the standards covered by each
 lesson. \\
-Kindergarten Schedule Download \citep{zearng} & Recommended schedules
-for Kindergarten, supporting structured instruction planning. \\
-Kindergarten Mission Download \citep{zearnh} & Details interactive
+Kindergarten Schedule Download \citep{zearn2024i} & Recommended
+schedules for Kindergarten, supporting structured instruction
+planning. \\
+Kindergarten Mission Download \citep{zearn2024j} & Details interactive
 activities focused on kindergarten-level concepts and their learning
 objectives. \\
-Mission Overview Download \citep{zearnf} & Outlines a mission's (i.e.,
-learning module) flow of topics, lessons, and assessments; highlights
-foundational concepts introduced earlier; lists recently introduced
-terms and required materials for teacher-led instruction. \\
-Optional Homework Download \citep{zearnj} & Assignments for additional
-practice, enhancing student learning outside of class. \\
-Optional Problem Sets Download \citep{zearnk} & Exercises for extra
+Mission Overview Download \citep{zearn2024h} & Outlines a mission's
+(i.e., learning module) flow of topics, lessons, and assessments;
+highlights foundational concepts introduced earlier; lists recently
+introduced terms and required materials for teacher-led instruction. \\
+Optional Homework Download \citep{zearn2024k} & Assignments for
+additional practice, enhancing student learning outside of class. \\
+Optional Problem Sets Download \citep{zearn2024l} & Exercises for extra
 practice, tailored to reinforce lesson concepts. \\
-Small Group Lesson Download \citep{zearnl} & Lessons designed for
+Small Group Lesson Download \citep{zearn2024m} & Lessons designed for
 small-group engagement. \\
-Student Notes and Exit Tickets Download \citep{zearnz, zearny} & Student
-notes supplement digital lessons with paper-and-pencil activities. Exit
-tickets are lesson-level assessments for teachers to monitor daily
-learning. \\
-Teaching and Learning Approach Download \citep{zearnn} & Resources
+Student Notes and Exit Tickets Download {[}\citep{zearn2024n};
+@zearn2024o{]} & Student notes supplement digital lessons with
+paper-and-pencil activities. Exit tickets are lesson-level assessments
+for teachers to monitor daily learning. \\
+Teaching and Learning Approach Download \citep{zearn2024p} & Resources
 outlining Zearn's pedagogical methods. \\
-Whole Group Fluency Download \citep{zearno} & Lesson-aligned practice
-activities to build math fluency through whole-class engagement. \\
-Whole Group Word Problems Download \citep{zearnl} & Word problem-solving
-activities intended for collaborative, whole-class engagement. \\
-Fluency Completed \citep{lesson-a} & Indicates teacher completed a
+Whole Group Fluency Download \citep{zearn2024q} & Lesson-aligned
+practice activities to build math fluency through whole-class
+engagement. \\
+Whole Group Word Problems Download \citep{zearn2024m} & Word
+problem-solving activities intended for collaborative, whole-class
+engagement. \\
+Fluency Completed \citep{zearn2024q} & Indicates teacher completed a
 fluency activity, typically given to students before their daily digital
 lessons. \\
-Guided Practice Completed \citep{zearnr} & Indicates teacher completed a
-guided practice segment, where students learn new concepts. These
-include videos with on-screen teachers, interactive activities, and
-paper-and-pencil Student Notes. \\
-Kindergarten Activity Completed \citep{zearns} & Indicates teacher
+Guided Practice Completed \citep{zearn2024r} & Indicates teacher
+completed a guided practice segment, where students learn new concepts.
+These include videos with on-screen teachers, interactive activities,
+and paper-and-pencil Student Notes. \\
+Kindergarten Activity Completed \citep{zearn2024s} & Indicates teacher
 completed an activity within the Kindergarten curriculum. \\
-Number Gym Activity Completed \citep{zearnt} & Indicates teacher
+Number Gym Activity Completed \citep{zearn2024t} & Indicates teacher
 completed a Number Gym, an individually adaptive activity that builds
 number sense, reinforces previously learned skills, and addresses areas
 of unfinished learning. \\
-Tower Completed \citep{zearnu} & Indicates teacher completed a Tower of
-Power, an activity that requires full mastery of lesson objectives and
-that students must complete independently. \\
-Tower Struggled \citep{zearnac} & Indicates teacher committed a mistake
-when engaging with the Tower of Power activity in a student role,
-triggering a ``boost'' (scaffolding remediation). \\
-Tower Stage Failed \citep{zearnad} & Indicates teacher received three
+Tower Completed \citep{zearn2024b} & Indicates teacher completed a Tower
+of Power, an activity that requires full mastery of lesson objectives
+and that students must complete independently. \\
+Tower Struggled \citep{zearn2024u} & Indicates teacher committed a
+mistake when engaging with the Tower of Power activity in a student
+role, triggering a ``boost'' (scaffolding remediation). \\
+Tower Stage Failed \citep{zearn2024b} & Indicates teacher received three
 consecutive ``boosts'' due to repeated errors when engaging with the
 Tower of Power in a student role. \\
 \end{longtable}
