@@ -162,7 +162,7 @@ Over the following weeks, the teacher continues to make decisions and update the
 As the teacher learns from experience, the Q-value estimates gradually converge toward the true values for each action.
 
 | Week | Q-value Difference | Policy               | Choice | Reward | Prediction Error              | Updated Q-value                 |
-|-----------|-----------|-----------|-----------|-----------|-----------|-----------|
+|------|--------------------|----------------------|--------|--------|-------------------------------|---------------------------------|
 | $t$  | $Q_t$              | $\text{Pr}_t(a = 1)$ | $a$    | $R_t$  | $\delta_t = \gamma R_t-c-Q_t$ | $Q_{t+1}=Q_{t}+\alpha \delta_t$ |
 | 1    | 0.5                |                      | 1      | 0.8    |                               | 0.62                            |
 | 2    | 0.2                |                      | 2      | 0.7    |                               | 0.67                            |
@@ -256,7 +256,7 @@ Consider a teacher who, each week, observes how much the students understand and
 Over time, as the teacher continues to interact with the environment and receive feedback, the actor learns to select actions that lead to higher-than-expected returns, while the critic provides increasingly accurate estimates of state values.
 
 | Week | State           | Value         | Policy                               | Action | Reward | TD Error   | Updated Policy Weights | Updated Value Weights |
-|--------|--------|--------|--------|--------|--------|--------|--------|--------|
+|------|-----------------|---------------|--------------------------------------|--------|--------|------------|------------------------|-----------------------|
 | $t$  | $S_t$           | $V_t=w_t S_t$ | $\pi_t=1/(1+e^{-\tau \theta_t S_t})$ | $a$    | $R_t$  | $\delta_t$ | $\theta_{t+1}$         | $w_{t+1}$             |
 | 1    | \[1, 0.2, 0.8\] |               |                                      | 1      | 0.8    | 0.3        | \[0.1, 0.2, 0.3\]      | \[0.2, 0.4, 0.6\]     |
 | 2    | \[1, 0.7, 0.3\] |               |                                      | 2      | 0.7    | 0.2        | \[0.2, 0.3, 0.4\]      | \[0.3, 0.5, 0.7\]     |
@@ -3817,7 +3817,7 @@ In sum, our study marks a significant stride in applying RL to elucidate the com
 # Materials and Methods
 
 | **Step**                 | **Method**                                                                  | **Software/Tools**                                               |
-|-------------------|----------------------------|-------------------------|
+|--------------------------|-----------------------------------------------------------------------------|------------------------------------------------------------------|
 | Data Preprocessing       | Cleaning, normalization                                                     | R [@rcoreteam2024]                                               |
 | Dimensionality Reduction | Principal Component Analysis (PCA), Non-negative Matrix Factorization (NMF) | Python (`scikit-learn`) [@pedregosa2011]                         |
 | Feature Selection        | Regression analysis                                                         | R (`fixest` package) [@berge2018]                                |
@@ -4090,7 +4090,7 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 ### Teacher Variables
 
 | **Variable**                                                        | **Description**                                                                                                                                                                                                                 |
-|---------------------------|---------------------------------------------|
+|---------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | PD Course Guide Download [@zearn2023; @zearn2024c]                  | Detailed agenda for Professional Development (PD) courses focusing on classroom implementation, leadership, supporting diverse learners, using data to inform teaching practices, and accelerating student learning.            |
 | PD Course Notes Download [@zearn2023; @zearn2024c]                  | Professional development session notes offering insights into effectively using Zearn's curriculum.                                                                                                                             |
 | Curriculum Map Download [@zearn2024d]                               | Detailed outline of learning objectives and content. Presents a sequence of interconnected math concepts across grades, aligning with states' instructional requirements.                                                       |

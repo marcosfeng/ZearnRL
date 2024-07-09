@@ -44,14 +44,28 @@
 \setlength{\emergencystretch}{3em} % prevent overfull lines
 \setcounter{secnumdepth}{5}
 % Make \paragraph and \subparagraph free-standing
+\makeatletter
 \ifx\paragraph\undefined\else
   \let\oldparagraph\paragraph
-  \renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+  \renewcommand{\paragraph}{
+    \@ifstar
+      \xxxParagraphStar
+      \xxxParagraphNoStar
+  }
+  \newcommand{\xxxParagraphStar}[1]{\oldparagraph*{#1}\mbox{}}
+  \newcommand{\xxxParagraphNoStar}[1]{\oldparagraph{#1}\mbox{}}
 \fi
 \ifx\subparagraph\undefined\else
   \let\oldsubparagraph\subparagraph
-  \renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+  \renewcommand{\subparagraph}{
+    \@ifstar
+      \xxxSubParagraphStar
+      \xxxSubParagraphNoStar
+  }
+  \newcommand{\xxxSubParagraphStar}[1]{\oldsubparagraph*{#1}\mbox{}}
+  \newcommand{\xxxSubParagraphNoStar}[1]{\oldsubparagraph{#1}\mbox{}}
 \fi
+\makeatother
 
 
 \providecommand{\tightlist}{%
@@ -138,6 +152,7 @@
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
 \makeatother
+
 \ifLuaTeX
   \usepackage{selnolig}  % disable illegal ligatures
 \fi
@@ -159,6 +174,7 @@ Actor-Critic},
   citecolor={Blue},
   urlcolor={Blue},
   pdfcreator={LaTeX via pandoc}}
+
 
 \setlength{\parindent}{6pt}
 \begin{document}
@@ -210,6 +226,7 @@ Education Platforms, Instructional Adaptation, Q-learning, Actor-Critic
 \end{keyword}
 \end{frontmatter}
     
+
 \section{Introduction}\label{introduction}
 
 Predicting repeated behavior has been a long-standing goal of the
@@ -359,7 +376,7 @@ complex, real-world settings.
 Zearn is a digital platform for mathematics education designed to
 facilitate the teaching and learning of mathematics. About 25\% of
 elementary school students and over 1 million middle school students
-across the United States use Zearn \citep{post-weblog}. Its unique blend
+across the United States use Zearn \citep{zearn2024v}. Its unique blend
 of hands-on teaching and immersive digital learning, paired with its
 widespread adoption, provides the perfect setting for understanding how
 teachers adapt their strategies to optimize student achievement.
@@ -630,13 +647,13 @@ As the teacher learns from experience, the Q-value estimates gradually
 converge toward the true values for each action.
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.0469}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1562}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1719}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.0625}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.0625}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.2422}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.2578}}@{}}
 \caption{Example of a Q-learning algorithm for a teacher on the Zearn
 platform. Each week (\(t\)), the teacher decides between action 1 and
 action 2 based on the difference in Q-values (\(Q_t\)) for each action.
@@ -862,15 +879,15 @@ higher-than-expected returns, while the critic provides increasingly
 accurate estimates of state values.
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1111}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0397}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1126}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0993}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.2517}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0530}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0530}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.0795}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1589}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 16\tabcolsep) * \real{0.1523}}@{}}
 \caption{Example of an Actor-Critic model for a teacher on the Zearn
 platform. Each week (\$t\$), the teacher observes the state (\$S\_t\$),
 which is a vector representing the students' struggles. The critic
@@ -1935,9 +1952,9 @@ education, ultimately fostering better outcomes for all students.
 \section{Materials and Methods}\label{materials-and-methods}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2639}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3889}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3472}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.1538}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4556}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3905}}@{}}
 \caption{Analytical steps employed in the
 study.}\label{tbl-methods}\tabularnewline
 \toprule\noalign{}
@@ -2646,8 +2663,8 @@ after stardardization}
 \subsubsection{Teacher Variables}\label{teacher-variables}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.3750}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.6250}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.2347}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.7653}}@{}}
 \caption{Catalog of Teacher Activities. This table presents teachers'
 actions, including curriculum engagement, downloads of pedagogical
 materials, and completion of various interactive components within the
@@ -3476,76 +3493,6 @@ presented in the main text.}
 
 \end{figure}%
 
-\begin{table}
-
-\caption{\label{tbl-diagnostics}Diagnostics for the Bayesian Models used
-in Q-learning and Q-learning with states. The tables show diagnostics
-for three Non-negative Matrix Factorization (NMF) models: Frobenius
-(initialized with a Nonnegative Double Singular Value Decomposition),
-Frobenius Average (initialized with a Nonnegative Double Singular Value
-Decomposition with zeros filled with the average of each variable), and
-Kullback-Leibler. The rows correspond to `alpha,' the learning rate,
-`gamma,' the discount factor, `tau,' the inverse temperature parameter,
-`cost' for each of the components from the NMF, `sensi,' the reward
-sensitivity parameter, and `Log Posterior,' the logarithm of the
-posterior probability. `Rhat' indicates the potential scale reduction
-factor on split chains. Values close to 1.0 imply model convergence.
-`ESS Bulk' and `ESS Tail' represent the effective sample size for the
-bulk of the posterior distribution and its tail, respectively. An ESS of
-at least a few hundred is often considered sufficient for estimation
-purposes.}
-
-\centering{
-
-}
-
-\end{table}%
-
-\begin{table}
-
-\caption{\label{tbl-group-parameters}Group parameter estimates for the
-Bayesian Models used in Q-learning and Q-learning with states.}
-
-\centering{
-
-}
-
-\end{table}%
-
-\begin{table}
-
-\caption{\label{tbl-choose-RL-model}The table presents a comparison of
-the median negative log-likelihood values for posterior distributions
-across four reinforcement learning models: State-Based Q-Learning,
-Kernalized Q-Learning, State-Free Q-Learning, and Actor-Critic. These
-models are evaluated based on three methods for non-negative matrix
-factorization: Frobenius (NNDSVD), Frobenius (NNDSVDA), and
-Kullback-Leibler. Each cell in the table represents the median negative
-log-likelihood of a model's posterior given a method, with lower values
-indicating better model fit. The best performing combination of model
-and method (i.e., the one with the lowest negative log-likelihood value)
-is highlighted in light green.}
-
-\centering{
-
-}
-
-\end{table}%
-
-\begin{table}
-
-\caption{\label{tbl-RL-logit-comp}Model comparison using Leave-One-Out
-Information Criterion (LOOIC). LOOIC values, a measure of model quality,
-were calculated for each model type. Lower values indicate better model
-performance. Q-learning models were built using a kernel-based approach.
-Hierarchical models incorporate a hierarchical structure to account for
-classroom-level variations.}
-
-\centering{
-
-}
-
-\end{table}%
 
 
 
