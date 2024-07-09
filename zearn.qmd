@@ -95,7 +95,7 @@ The focus primarily on neuroscience and cognitive psychology applications, howev
 
 ## The Zearn Platform
 
-Zearn is a digital platform for mathematics education designed to facilitate the teaching and learning of mathematics. About 25% of elementary school students and over 1 million middle school students across the United States use Zearn [@post-weblog]. Its unique blend of hands-on teaching and immersive digital learning, paired with its widespread adoption, provides the perfect setting for understanding how teachers adapt their strategies to optimize student achievement.
+Zearn is a digital platform for mathematics education designed to facilitate the teaching and learning of mathematics. About 25% of elementary school students and over 1 million middle school students across the United States use Zearn [@zearn2024v]. Its unique blend of hands-on teaching and immersive digital learning, paired with its widespread adoption, provides the perfect setting for understanding how teachers adapt their strategies to optimize student achievement.
 
 Zearn's pedagogical approach includes interactive digital lessons using visual aids (see @fig-zearn-poster) and real-time student feedback. The platform's approach to mathematical concepts, such as fractions, is particularly noteworthy. Students go through a series of representations — concrete, pictorial, and abstract — each designed to scaffold their understanding (i.e., "breaking down" problems, see [@jumaat2014; @reiser2014]) and prepare them for subsequent levels.
 
@@ -2720,8 +2720,9 @@ plot1 <- top_fits_df %>%
     aes(group = Action, label = Action, color = NULL),
     con.type = "straight",
     con.cap = 0,
-    expand = .02,
-    label.buffer = unit(0.1, "mm")
+    expand = .015,
+    label.margin = margin(1, 1, 1, 1, "mm"),
+    label.buffer = unit(.1, "mm")
   ) +
   # # Draw a segment for the x-line up to y = 90000
   # geom_segment(x = 84000, y = 0.7, xend = 90000, yend = 0.7,
@@ -2753,8 +2754,10 @@ plot2 <- top_fits_df %>%
     aes(group = Action, label = Action, color = NULL),
     con.type = "straight",
     con.cap = 0,
-    expand = .02,
-    label.buffer = unit(0.1, "mm")
+    expand = .015,
+    label.margin = margin(.5, .5, .5, .5, "mm"),
+    label.buffer = unit(.1, "mm"),
+    label.fontsize = 8
   ) +
   # # Draw a segment for the x-line up to y = 90000
   # geom_segment(x = 84000, y = 0.7, xend = 90000, yend = 0.7,
