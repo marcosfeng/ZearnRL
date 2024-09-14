@@ -8,16 +8,16 @@ function [loglik, prob, choice] = logit_posterior(parameters, subj)
     lag2_choice  = [0;  lag_choice(1:end-1)];  % Lag by 2 steps
     lag2_outcome = [0; lag_outcome(1:end-1)];
 
-    % Interaction terms between lag_outcome and lag_choice
-    interaction11 = lag_outcome .* lag_choice;
-    interaction12 = lag_outcome .* lag2_choice;
-    interaction22 = lag2_outcome .* lag2_choice;
+    % % Interaction terms between lag_outcome and lag_choice
+    % interaction11 = lag_outcome .* lag_choice;
+    % interaction12 = lag_outcome .* lag2_choice;
+    % interaction22 = lag2_outcome .* lag2_choice;
 
     % Concatenate the variables to form X
     X = [ones(size(choice, 1), 1), ...
         lag_outcome, lag2_outcome, ...
-        lag_choice,  lag2_choice, ...
-        interaction11, interaction12, interaction22];
+        lag_choice,  lag2_choice];
+        % interaction11, interaction12, interaction22];
 
     % Extract parameters
     beta = reshape(parameters, [size(X,2),1]);

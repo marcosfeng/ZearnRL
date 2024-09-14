@@ -8,6 +8,30 @@ set.seed(37909890)
 
 # Declare Functions and Variables -----------------------------------------
 
+remove_holiday_weeks <- function(data) {
+  # Define holiday weeks (Thanksgiving and two weeks of Christmas)
+  holiday_weeks <- c("2019-11-25", "2019-12-23", "2019-12-30")
+
+  # Filter out holiday weeks
+  data %>%
+    filter(!date %in% holiday_weeks)
+}
+
+remove_inactive_periods <- function(data) {
+  active_months <- data %>%
+    mutate(month = floor_date(as.Date(date), "month")) %>%
+    group_by(Classroom.ID, month) %>%
+    summarise(monthly_activity = sum(rowSums(
+      across(starts_with("Frobenius.NNDSVD_teacher"), ~ . > 0)
+    )) > 0, .groups = "drop") %>%
+    filter(monthly_activity)
+
+  data %>%
+    mutate(month = floor_date(as.Date(date), "month")) %>%
+    semi_join(active_months, by = c("Classroom.ID", "month")) %>%
+    select(-month)
+}
+
 prepare_choice_array <- function(df, cols) {
   # Create zero-filled array with appropriate dimensions
   classroom_array <- unique(df$Classroom.ID)
@@ -57,19 +81,26 @@ convert_to_subj_struct <- function(i, stan_data) {
     simmed = list(
       week = matrix(stan_data$week[i, c(1:stan_data$Tsubj[i])], nrow = stan_data$Tsubj[i]),
       # group = stan_data$group[i],
-      number_teachers = stan_data$number_teachers
+      number_teachers = stan_data$number_teachers,
+      ID = stan_data$ID[i]
     )
   )
 }
 
 # Import Data -------------------------------------------------------------
 
-df <- read.csv(file = "Bayesian/df.csv") %>%
+minimum_weeks <- 12
+df <- read.csv(file = "./Data/df.csv") %>%
   mutate(across(where(is.numeric),
                 ~ ifelse(. < .Machine$double.eps, 0, .))) %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d") - 7) %>%
+  remove_inactive_periods() %>%
+  remove_holiday_weeks() %>%
   group_by(Classroom.ID) %>%
   filter(if_any(dplyr::starts_with("Frobenius.NNDSVD_teacher"),
-                ~ sum(.>0) > 6)) %>%
+                ~ sum(.>0) > minimum_weeks/2)) %>%
+  # Filter out Classroom.IDs with less than 12 total rows of data
+  filter(n() >= minimum_weeks) %>%
   ungroup() %>%
   mutate(across(dplyr::starts_with("Frobenius.NNDSVD_teacher"),
                 ~ if_else(.>0,1,0)))
@@ -85,8 +116,6 @@ df <- df %>%
   arrange(Classroom.ID, week) %>%
   as.data.table()
 setorder(df, Classroom.ID, week)
-# Filter out Classroom.IDs with less than 12 total rows of data
-df <- df[, .SD[.N >= 12], by = Classroom.ID]
 # # Filter out Classroom.IDs with sd = 0 for Choices
 # df <- df[, .SD[!any(apply(.SD[, FR_cols, with = FALSE], 2, sd) == 0)],
 #          by = Classroom.ID]
@@ -120,7 +149,7 @@ stan_data <- list(
 # Save as a .mat file for each subject
 for (i in 1:stan_data$N) {
   subj_data <- convert_to_subj_struct(i, stan_data)
-  R.matlab::writeMat(paste0("CBM/data/individual/", "/subj_", i, ".mat"),
+  R.matlab::writeMat(paste0("CBM/data/individual_all/", "/subj_", i, ".mat"),
                      NNDSVD_teacher1 = subj_data$actions[,1],
                      NNDSVD_teacher2 = subj_data$actions[,2],
                      NNDSVD_teacher3 = subj_data$actions[,3],

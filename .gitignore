@@ -65,6 +65,12 @@ py-zearn/
 /CBM/zearn_results/top_results/ql
 /CBM/Archive
 *filtered*.mat
+CBM/codes/cbm_loop_quad_lap.m
 /CBM/zearn_results/ac_subj_results/subj
 /CBM/zearn_results/ac_refine/subj
 /CBM/zearn_results/ql_refine/subj
+/archive
+/CBM/zearn_results/Robustness Checks
+/Regressions
+/CBM/data/individual
+/CBM/zearn_results/model_results

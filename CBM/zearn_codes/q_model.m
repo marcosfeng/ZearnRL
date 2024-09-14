@@ -23,7 +23,7 @@ function [loglik] = q_model(parameters, subj)
     % Save log probability of choice
     log_p = zeros(Tsubj, 1);
     log_p(1) = log_p(1) + ...
-        choice(1)*(-log1p(exp(-tau * ev))) + ...
+        choice(1)*(-log1p(exp(-tau * (ev - cost)))) + ...
         (1 - choice(1))*(-log1p(exp(tau * ev)));
 
     % Loop through trials
@@ -36,7 +36,7 @@ function [loglik] = q_model(parameters, subj)
         if choice(t-1) == 1
             % Update expected value (ev) if choice was made
             delta = gamma^(double(w_t) - double(w_t_prev)) * ...
-                outcome(t) - cost - ev;
+                outcome(t) - ev;
             ev = ev + (alpha * delta);
         elseif choice(t-1) == 0
             % Update expected value (ev) relative to outside option
@@ -45,15 +45,14 @@ function [loglik] = q_model(parameters, subj)
         end
 
         % Log probability of choice
-        logit_val = tau * ev;
-        if logit_val < -8
-            log_p(t) = log_p(t) + a*logit_val;
-        elseif logit_val > 8
-            log_p(t) = log_p(t) + (1 - a)*(-logit_val);
+        if tau * (ev - cost) < -8
+            log_p(t) = log_p(t) + a*tau*(ev - cost);
+        elseif tau * ev > 8
+            log_p(t) = log_p(t) + (1 - a)*(-tau * ev);
         else
             log_p(t) = log_p(t) + ...
-                a*(-log1p(exp(-logit_val))) + ...
-                (1 - a)*(-log1p(exp(logit_val)));
+                a*(-log1p(exp(-tau*(ev - cost)))) + ...
+                (1 - a)*(-log1p(exp(tau * ev)));
         end
     end
     
