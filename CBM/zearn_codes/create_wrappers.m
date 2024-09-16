@@ -129,91 +129,92 @@ end
 
 models = {'q_model', 'baseline_model', ...
     'logit_model', 'cockburn_model'};
-unique_top_wrappers = [2; 6; 10; 14];
 
 % Create directory for posterior wrappers
 mkdir('posterior_wrappers');
 
-for i = 1:length(unique_top_wrappers)
-    wrapper_num = unique_top_wrappers(i);
-    action_idx = mod(wrapper_num - 1, 4) + 1;
-    state_idx = ceil(wrapper_num / 4);
+for i = 1:length(state_vars)
+    for j = 1:length(action_vars)
+        wrapper_num = ((i-1) * length(action_vars) + j);
+        action_idx = j;
+        state_idx = i;
     
-    for j = 1:length(models)
-        model = models{j};
-        fname = sprintf('posterior_wrappers/posterior_%s_%d.m', model, wrapper_num);
-        fid = fopen(fname, 'w');
-        
-        % Write the main posterior function
-        if strcmp(model, 'q_model')
-            fprintf(fid, 'function [loglik, prob, choice, q_values] = posterior_%s_%d(parameters, subj)\n', model, wrapper_num);
-        else
-            fprintf(fid, 'function [loglik, prob, choice] = posterior_%s_%d(parameters, subj)\n', model, wrapper_num);
+        for k = 1:length(models)
+            model = models{k};
+            fname = sprintf('posterior_wrappers/posterior_%s_%d.m', model, wrapper_num);
+            fid = fopen(fname, 'w');
+            
+            % Write the main posterior function
+            if strcmp(model, 'q_model')
+                fprintf(fid, 'function [loglik, prob, choice, q_values] = posterior_%s_%d(parameters, subj)\n', model, wrapper_num);
+            else
+                fprintf(fid, 'function [loglik, prob, choice] = posterior_%s_%d(parameters, subj)\n', model, wrapper_num);
+            end
+            fprintf(fid, '    subj.action = subj.%s;\n', action_vars{action_idx});
+            fprintf(fid, '    subj.outcome = subj.%s;\n', state_vars{state_idx});
+            
+            if strcmp(model, 'cockburn_model')
+                fprintf(fid, '    [subj.ev, subj.sd] = calculate_ev_uncertainty(subj.action, subj.outcome);\n');
+            end
+            
+            if strcmp(model, 'q_model')
+                fprintf(fid, '    [loglik, prob, choice, q_values] = %s_posterior(parameters, subj);\n', strrep(model, '_model', ''));
+            else
+                fprintf(fid, '    [loglik, prob, choice] = %s_posterior(parameters, subj);\n', strrep(model, '_model', ''));
+            end
+            fprintf(fid, 'end\n\n');
+            
+            % Write the calculate_ev_uncertainty function
+            fprintf(fid, 'function [ev, uncertainty] = calculate_ev_uncertainty(action, outcome)\n');
+            fprintf(fid, '    v_0 = outcome;\n');
+            fprintf(fid, '    v_0(action > 0) = NaN;\n');
+            fprintf(fid, '    if isnan(v_0(1))\n');
+            fprintf(fid, '        v_0(1) = 0;\n');
+            fprintf(fid, '    end\n');
+            fprintf(fid, '    v_1 = outcome;\n');
+            fprintf(fid, '    v_1(action == 0) = NaN;\n');
+            fprintf(fid, '    if isnan(v_1(1))\n');
+            fprintf(fid, '        v_1(1) = 0;\n');
+            fprintf(fid, '    end\n');
+            fprintf(fid, '    \n');
+            fprintf(fid, '    ev_0 = cummean_ignore_na(v_0);\n');
+            fprintf(fid, '    ev_1 = cummean_ignore_na(v_1);\n');
+            fprintf(fid, '    ev = ev_1 - ev_0;\n');
+            fprintf(fid, '    \n');
+            fprintf(fid, '    uncertainty_0 = cumsd(v_0);\n');
+            fprintf(fid, '    uncertainty_1 = cumsd(v_1);\n');
+            fprintf(fid, '    uncertainty = uncertainty_1 - uncertainty_0;\n');
+            fprintf(fid, 'end\n\n');
+            
+            % Write the cummean_ignore_na function
+            fprintf(fid, 'function result = cummean_ignore_na(x)\n');
+            fprintf(fid, '    n = cumsum(~isnan(x));\n');
+            fprintf(fid, '    result = cumsum(fillmissing(x, ''constant'', 0)) ./ n;\n');
+            fprintf(fid, '    result(n == 0) = 0;\n');
+            fprintf(fid, 'end\n\n');
+            
+            % Write the cumsd function
+            fprintf(fid, 'function result = cumsd(x)\n');
+            fprintf(fid, '    n = cumsum(~isnan(x));\n');
+            fprintf(fid, '    cumsum_x = cumsum(fillmissing(x, ''constant'', 0));\n');
+            fprintf(fid, '    cumsum_x2 = cumsum(fillmissing(x.^2, ''constant'', 0));\n');
+            fprintf(fid, '    \n');
+            fprintf(fid, '    variance = (cumsum_x2 - (cumsum_x.^2) ./ n) ./ (n - 1);\n');
+            fprintf(fid, '    variance(isinf(variance)) = NaN;\n');
+            fprintf(fid, '    result = sqrt(variance);\n');
+            fprintf(fid, '    \n');
+            fprintf(fid, '    %% Forward fill NaN values\n');
+            fprintf(fid, '    last_valid = NaN;\n');
+            fprintf(fid, '    for i = 1:length(result)\n');
+            fprintf(fid, '        if ~isnan(result(i))\n');
+            fprintf(fid, '            last_valid = result(i);\n');
+            fprintf(fid, '        elseif ~isnan(last_valid)\n');
+            fprintf(fid, '            result(i) = last_valid;\n');
+            fprintf(fid, '        end\n');
+            fprintf(fid, '    end\n');
+            fprintf(fid, 'end\n');
+            
+            fclose(fid);
         end
-        fprintf(fid, '    subj.action = subj.%s;\n', action_vars{action_idx});
-        fprintf(fid, '    subj.outcome = subj.%s;\n', state_vars{state_idx});
-        
-        if strcmp(model, 'cockburn_model')
-            fprintf(fid, '    [subj.ev, subj.sd] = calculate_ev_uncertainty(subj.action, subj.outcome);\n');
-        end
-        
-        if strcmp(model, 'q_model')
-            fprintf(fid, '    [loglik, prob, choice, q_values] = %s_posterior(parameters, subj);\n', strrep(model, '_model', ''));
-        else
-            fprintf(fid, '    [loglik, prob, choice] = %s_posterior(parameters, subj);\n', strrep(model, '_model', ''));
-        end
-        fprintf(fid, 'end\n\n');
-        
-        % Write the calculate_ev_uncertainty function
-        fprintf(fid, 'function [ev, uncertainty] = calculate_ev_uncertainty(action, outcome)\n');
-        fprintf(fid, '    v_0 = outcome;\n');
-        fprintf(fid, '    v_0(action > 0) = NaN;\n');
-        fprintf(fid, '    if isnan(v_0(1))\n');
-        fprintf(fid, '        v_0(1) = 0;\n');
-        fprintf(fid, '    end\n');
-        fprintf(fid, '    v_1 = outcome;\n');
-        fprintf(fid, '    v_1(action == 0) = NaN;\n');
-        fprintf(fid, '    if isnan(v_1(1))\n');
-        fprintf(fid, '        v_1(1) = 0;\n');
-        fprintf(fid, '    end\n');
-        fprintf(fid, '    \n');
-        fprintf(fid, '    ev_0 = cummean_ignore_na(v_0);\n');
-        fprintf(fid, '    ev_1 = cummean_ignore_na(v_1);\n');
-        fprintf(fid, '    ev = ev_1 - ev_0;\n');
-        fprintf(fid, '    \n');
-        fprintf(fid, '    uncertainty_0 = cumsd(v_0);\n');
-        fprintf(fid, '    uncertainty_1 = cumsd(v_1);\n');
-        fprintf(fid, '    uncertainty = uncertainty_1 - uncertainty_0;\n');
-        fprintf(fid, 'end\n\n');
-        
-        % Write the cummean_ignore_na function
-        fprintf(fid, 'function result = cummean_ignore_na(x)\n');
-        fprintf(fid, '    n = cumsum(~isnan(x));\n');
-        fprintf(fid, '    result = cumsum(fillmissing(x, ''constant'', 0)) ./ n;\n');
-        fprintf(fid, '    result(n == 0) = 0;\n');
-        fprintf(fid, 'end\n\n');
-        
-        % Write the cumsd function
-        fprintf(fid, 'function result = cumsd(x)\n');
-        fprintf(fid, '    n = cumsum(~isnan(x));\n');
-        fprintf(fid, '    cumsum_x = cumsum(fillmissing(x, ''constant'', 0));\n');
-        fprintf(fid, '    cumsum_x2 = cumsum(fillmissing(x.^2, ''constant'', 0));\n');
-        fprintf(fid, '    \n');
-        fprintf(fid, '    variance = (cumsum_x2 - (cumsum_x.^2) ./ n) ./ (n - 1);\n');
-        fprintf(fid, '    variance(isinf(variance)) = NaN;\n');
-        fprintf(fid, '    result = sqrt(variance);\n');
-        fprintf(fid, '    \n');
-        fprintf(fid, '    %% Forward fill NaN values\n');
-        fprintf(fid, '    last_valid = NaN;\n');
-        fprintf(fid, '    for i = 1:length(result)\n');
-        fprintf(fid, '        if ~isnan(result(i))\n');
-        fprintf(fid, '            last_valid = result(i);\n');
-        fprintf(fid, '        elseif ~isnan(last_valid)\n');
-        fprintf(fid, '            result(i) = last_valid;\n');
-        fprintf(fid, '        end\n');
-        fprintf(fid, '    end\n');
-        fprintf(fid, 'end\n');
-        
-        fclose(fid);
     end
 end

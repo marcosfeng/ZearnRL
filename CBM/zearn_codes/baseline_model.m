@@ -3,11 +3,11 @@ function [loglik] = baseline_model(parameters, subj)
     choice = subj.action(1:end);
 
     % Extract parameter (just one for intercept)
-    beta = parameters(1);
+    X = [ones(size(choice, 1), 1)];
+    beta = reshape(parameters, [size(X,2),1]);
+    linear_comb = X * beta;
 
-    % Compute the probability of choosing action 1
-    p1 = 1 ./ (1 + exp(-beta));
-    
-    % Calculate the log likelihood
-    loglik = sum(choice .* log(p1) + (1 - choice) .* log(1 - p1));
+    % Compute log-likelihood using log1p(exp()) for consistency
+    loglik = choice' * (-log1p(exp(-linear_comb))) + ...
+        (1 - choice)' * (-log1p(exp(linear_comb)));
 end

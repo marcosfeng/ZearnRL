@@ -1,4 +1,4 @@
-function [loglik, prob, choice, q_values] = q_posterior(parameters, subj)
+ function [loglik, prob, choice, q_values] = q_posterior(parameters, subj)
     % Extract parameters
     nd_alpha = parameters(1);
     alpha = 1 / (1 + exp(-nd_alpha));

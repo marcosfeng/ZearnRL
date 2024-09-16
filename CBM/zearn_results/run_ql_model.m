@@ -10,11 +10,12 @@ addpath(fullfile('..','codes'));
 addpath(fullfile('..','zearn_codes'));
 
 % Define models and their respective wrapper directories
-models = {'q_model', 'logit_model', 'cockburn_model'};
+models = {'q_model', 'logit_model', 'cockburn_model','baseline_model'};
 wrapper_dirs = {'../zearn_codes/ql_wrappers', ...
                 '../zearn_codes/lg_wrappers', ...
-                '../zearn_codes/cb_wrappers'};
-model_names = {'Q-learning', 'Lau + Glimcher', 'Cockburn et al.'};
+                '../zearn_codes/cb_wrappers', ...
+                '../zearn_codes/bl_wrappers'};
+model_names = {'Q-learning', 'Lau + Glimcher', 'Cockburn et al.', 'Baseline'};
 
 num_wrappers = 16;
 % Initialize arrays to store results
@@ -24,13 +25,8 @@ valid_subj = zeros(length(models) + 1, num_wrappers, length(data));
 % Define the prior variance
 v = 6.25;
 
-% Set up parallel pool if not already created
-if isempty(gcp('nocreate'))
-    parpool;
-end
-
 % Determine the number of parameters for the current model
-num_parameters = [5,5,6];
+num_parameters = [5,5,6,1];
 
 % PCONFIG structure with refined setup (with multiplier)
 mult = 4;
@@ -42,6 +38,10 @@ pconfig.tolgrad = .001001 / mult;
 pconfig.tolgrad_liberal = .1 / mult;
 pconfig.prior_for_bads = 0;
 
+% Set up parallel pool if not already created
+if isempty(gcp('nocreate'))
+    parpool;
+end
 % Loop through each model
 for model_num = 1:length(models)
     % Add the correct path for this model
@@ -91,7 +91,7 @@ success = valid_subj;
 
 %% Aggregate results
 for model_num = 1:length(models)
-    for wrapper_num = 1:16
+    for wrapper_num = 1:num_wrappers
         fname_subjs = arrayfun(@(x) sprintf('model_results/lap_%s_%d_subj_%d.mat', models{model_num}, wrapper_num, x), 1:length(data), 'UniformOutput', false);
         cbm_lap_aggregate(fname_subjs(logical(squeeze(success(model_num, wrapper_num, :)))), ...
                           sprintf('aggr_results/lap_aggr_%s_%d.mat', models{model_num}, wrapper_num));
@@ -113,79 +113,6 @@ end
 % Find unique top wrappers across all models
 unique_top_wrappers = unique(top_wrappers(:));
 
-%% Baseline
-
-% Add baseline model to the list of models
-models = [models, {'baseline_model'}];
-wrapper_dirs = [wrapper_dirs, {'../zearn_codes/bl_wrappers'}];
-model_names = [model_names, {'Baseline'}];
-
-% Update num_parameters
-num_parameters = [num_parameters, 1];
-
-% Loop for baseline model
-model_num = length(models);
-addpath(wrapper_dirs{model_num});
-
-% Create the prior structure for the baseline model
-prior = struct('mean', zeros(num_parameters(model_num), 1), 'variance', v);
-
-% Loop through each wrapper function (only 4 for baseline)
-for wrapper_idx = 1:length(unique_top_wrappers)
-    wrapper_num = unique_top_wrappers(wrapper_idx);
-    % Get the function handle for the current wrapper function
-    wrapper_func = str2func(sprintf('wrapper_function_%d', wrapper_num));
-    
-    % Parallelize over subjects
-    parfor subj = 1:length(data)
-        % Specify the file-address for saving the output
-        fname = sprintf('model_results/lap_%s_%d_subj_%d.mat', ...
-            models{model_num}, wrapper_num, subj);
-        
-        % Run the cbm_lap function for the current wrapper and subject
-        cbm_lap(data(subj), wrapper_func, prior, fname, pconfig);
-        
-        % Load the saved output for this wrapper and subject
-        loaded_data = load(fname);
-        
-        % Check if the subject is valid
-        valid_subj(model_num, wrapper_num, subj) = ...
-            ~isnan(loaded_data.cbm.math.logdetA) && ...
-            ~isinf(loaded_data.cbm.math.logdetA) && ...
-            (loaded_data.cbm.math.logdetA ~= 0);
-        
-        % Store the log evidence for this subject
-        if valid_subj(model_num, wrapper_num, subj)
-            log_evidence(model_num, wrapper_num, subj) = loaded_data.cbm.output.log_evidence;
-        else
-            log_evidence(model_num, wrapper_num, subj) = -Inf;
-        end
-    end
-end
-
-% Save success matrix
-success = valid_subj;
-save('model_results/success.mat', 'success');
-% Calculate total log evidence for each model and wrapper
-total_log_evidence = sum(log_evidence, 3);
-
-for wrapper_idx = 1:length(unique_top_wrappers)
-    wrapper_num = unique_top_wrappers(wrapper_idx);
-    fname_subjs = arrayfun(@(x) sprintf('model_results/lap_%s_%d_subj_%d.mat', models{model_num}, wrapper_num, x), 1:length(data), 'UniformOutput', false);
-    cbm_lap_aggregate(fname_subjs(logical(squeeze(success(model_num, wrapper_num, :)))), ...
-                      sprintf('aggr_results/lap_aggr_%s_%d.mat', models{model_num}, wrapper_num));
-end
-
-% Remove the path for this model
-rmpath(wrapper_dirs{model_num});
-
-% Save updated results
-save('model_comparison_results.mat', ...
-    'log_evidence', 'valid_subj', ...
-    'top_wrappers', 'top_evidence', ...
-    'model_names', 'hbi_output', ...
-    'unique_top_wrappers');
-
 %% HBI
 
 % Configure HBI
@@ -193,7 +120,7 @@ pconfig = struct();
 pconfig.maxiter = 200;
 
 % Prepare arrays to store results
-num_combinations = length(unique_top_wrappers) * (length(models) - 1);
+num_combinations = length(unique_top_wrappers) * (length(models) - 1) + 1;
 temp_hbi_output = cell(num_combinations, 1);
 
 % Run HBI for each unique top wrapper and model combination
@@ -203,7 +130,7 @@ parfor idx = 1:num_combinations
     
     % Prepare model wrapper and file for this combination
     model_wrapper = str2func(sprintf('wrapper_function_%d', wrapper_num));
-    model_file = sprintf('model_results/lap_aggr_%s_%d.mat', models{model_num}, wrapper_num);
+    model_file = sprintf('aggr_results/lap_aggr_%s_%d.mat', models{model_num}, wrapper_num);
     
     % Add the correct path for this model
     addpath(wrapper_dirs{model_num});
@@ -217,7 +144,7 @@ parfor idx = 1:num_combinations
 
     % Run null model
     cbm_hbi_null(data(logical(squeeze(success(model_num, wrapper_num, :)))), fname_hbi);
-    
+
     % Load HBI results
     hbi_results = load(fname_hbi);
     temp_hbi_output{idx} = hbi_results.cbm;
@@ -227,33 +154,13 @@ parfor idx = 1:num_combinations
 end
 
 % Reshape the results to match the original structure
-hbi_output = reshape(temp_hbi_output, length(unique_top_wrappers), length(models) - 1);
+for i = 1:(length(unique_top_wrappers)-1)
+    temp_hbi_output{num_combinations + i} = ...
+    temp_hbi_output{num_combinations};
+end
+hbi_output = reshape(temp_hbi_output, length(unique_top_wrappers), length(models));
 % Reshape hbi_output to match the original structure
 hbi_output = reshape(hbi_output, [], 1);
-
-% Run HBI for baseline model
-for wrapper_idx = 1:length(unique_top_wrappers)
-    wrapper_num = unique_top_wrappers(wrapper_idx);
-    if wrapper_num > 4, continue; end  % Skip if wrapper_num > 4 for baseline model
-    
-    model_wrapper = str2func(sprintf('wrapper_function_%d', wrapper_num));
-    model_file = sprintf('model_results/lap_aggr_%s_%d.mat', models{end}, wrapper_num);
-    
-    addpath(wrapper_dirs{end});
-    
-    fname_hbi = sprintf('hbi_results/hbi_compare_wrapper_%d_model_%d.mat', wrapper_num, length(models));
-    cbm_hbi(data(logical(squeeze(success(end, wrapper_num, :)))), ...
-            {model_wrapper}, ...
-            {model_file}, ...
-            fname_hbi, pconfig);
-    
-    cbm_hbi_null(data(logical(squeeze(success(end, wrapper_num, :)))), fname_hbi);
-    
-    hbi_results = load(fname_hbi);
-    hbi_output{end+1} = hbi_results.cbm;
-    
-    rmpath(wrapper_dirs{end});
-end
 
 % Save the results
 save('model_comparison_results.mat', 'log_evidence', 'valid_subj', 'top_wrappers', 'top_evidence', 'model_names', 'hbi_output', 'unique_top_wrappers');
@@ -322,3 +229,56 @@ for wrapper_idx = 1:length(unique_top_wrappers)
         save(hbi_fname, 'cbm');
     end
 end
+
+%% Calculate Posterior Log-Likelihood for Aggregate Models
+
+addpath(fullfile('..','zearn_codes','posterior_wrappers'));
+
+agg_loglik = zeros(length(models), num_wrappers);
+agg_bic = zeros(length(models), num_wrappers);
+
+for model_num = 1:length(models)
+    for wrapper_num = 1:num_wrappers
+        
+        % Load aggregate results
+        agg_fname = sprintf('aggr_results/lap_aggr_%s_%d.mat', models{model_num}, wrapper_num);
+        if ~exist(agg_fname, 'file')
+            continue;
+        end
+        agg_results = load(agg_fname);
+        
+        % Get aggregate parameters
+        agg_params = agg_results.cbm.output.parameters;
+        
+        % Create the posterior wrapper function name
+        posterior_wrapper = str2func(sprintf('posterior_%s_%d', models{model_num}, wrapper_num));
+        
+        % Calculate log-likelihood for each subject
+        subject_logliks = zeros(1, length(data));
+        for subj = 1:length(data)
+            if ~success(model_num, wrapper_num, subj)
+                continue;
+            end
+            
+            [subject_logliks(subj), ~, choice] = posterior_wrapper(agg_params(subj,:), data{subj});
+        end
+
+        % Calculate total log-likelihood and BIC
+        total_loglik = sum(subject_logliks);
+        n_params = length(agg_params);
+        n_observations = sum(cellfun(@(x) length(x.simmed.week), ...
+            data(logical(squeeze(success(model_num, wrapper_num, :))))));
+        bic = -2 * total_loglik + n_params * log(n_observations);
+        
+        agg_loglik(model_num, wrapper_num) = total_loglik;
+        agg_bic(model_num, wrapper_num) = bic;
+
+        % Extract and sum log-likelihoods
+        agg_results.cbm.output.loglik = subject_logliks;
+        cbm = agg_results.cbm;
+        save(agg_fname, 'cbm');
+    end
+end
+
+% Save results
+save('aggregate_model_comparison.mat', 'agg_loglik', 'agg_bic', 'models');
