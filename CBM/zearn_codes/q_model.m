@@ -24,7 +24,7 @@ function [loglik] = q_model(parameters, subj)
     log_p = zeros(Tsubj, 1);
     log_p(1) = log_p(1) + ...
         choice(1)*(-log1p(exp(-tau * (ev - cost)))) + ...
-        (1 - choice(1))*(-log1p(exp(tau * ev)));
+        (1 - choice(1))*(-log1p(exp(tau * (ev - cost))));
 
     % Loop through trials
     for t = 2:Tsubj
@@ -47,12 +47,12 @@ function [loglik] = q_model(parameters, subj)
         % Log probability of choice
         if tau * (ev - cost) < -8
             log_p(t) = log_p(t) + a*tau*(ev - cost);
-        elseif tau * ev > 8
-            log_p(t) = log_p(t) + (1 - a)*(-tau * ev);
+        elseif tau * (ev - cost) > 8
+            log_p(t) = log_p(t) + (1 - a)*(-tau * (ev - cost));
         else
             log_p(t) = log_p(t) + ...
                 a*(-log1p(exp(-tau*(ev - cost)))) + ...
-                (1 - a)*(-log1p(exp(tau * ev)));
+                (1 - a)*(-log1p(exp(tau * (ev - cost))));
         end
     end
     

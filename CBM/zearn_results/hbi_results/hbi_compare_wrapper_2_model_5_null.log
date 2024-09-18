@@ -1,0 +1,20 @@
+cbm_hbi_hbi                                       18-Sep-2024 07:48:38
+Running hierarchical bayesian inference (HBI)- null mode...
+
+HBI has been initialized according to
+	aggr_results/lap_aggr_baseline_model_2.mat [for model 1]
+ 
+Number of samples: 1832
+Number of models: 1
+======================================================================
+Iteration 01
+Iteration 02
+                                                           dL:   12.36
+                                                           dx:    0.06
+Iteration 03
+                                                           dL:   -1.92
+                                                           dx:    0.01
+Iteration 04
+                                                           dL:   -1.25
+                                                           dx:    0.00
+                                                          Converged :]

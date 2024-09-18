@@ -21,8 +21,10 @@
     q_values = ev_init * ones(C, Tsubj); % Q-values for each action and trial
     
     % Save log probability of choice
-    prob = nan(Tsubj, 1);
-    prob(1) = 1 / (1 + exp(-tau * (q_values(:,1) - cost)));
+    log_p = zeros(Tsubj, 1);
+    log_p(1) = log_p(1) + ...
+        choice(1)*(-log1p(exp(-tau * (q_values(:,1) - cost)))) + ...
+        (1 - choice(1))*(-log1p(exp(tau * (q_values(:,1) - cost))));
     
     % Loop through trials
     for t = 2:Tsubj
@@ -42,10 +44,20 @@
             q_values(:,t) = q_values(:,t-1) - (alpha * delta);
         end
 
-        prob(t) = 1 / (1 + exp(-tau * (q_values(:,t) - cost)));
+         % Log probability of choice
+        if tau * (q_values(:,t) - cost) < -8
+            log_p(t) = log_p(t) + a*tau*(q_values(:,t) - cost);
+        elseif tau * (q_values(:,t) - cost) > 8
+            log_p(t) = log_p(t) + (1 - a)*(-tau * (q_values(:,t) - cost));
+        else
+            log_p(t) = ...
+                a*(-log1p(exp(-tau*(q_values(:,t) - cost)))) + ...
+                (1 - a)*(-log1p(exp(tau * (q_values(:,t) - cost))));
+        end
     end
     
     % Log-likelihood is defined as the sum of log-probability of choice data
-    loglik = sum(log(prob.*choice + (1-prob).*(1-choice)));
-    prob = [1-prob, prob];
+    loglik = sum(log_p, "omitmissing");
+    prob = [exp(log_p).*(1-choice) + (1-exp(log_p)).*choice, ...
+        exp(log_p).*choice + (1-exp(log_p)).*(1-choice)];
 end

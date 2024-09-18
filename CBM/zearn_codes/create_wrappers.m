@@ -6,6 +6,7 @@ action_vars = {'NNDSVD_teacher1', 'NNDSVD_teacher2', 'NNDSVD_teacher3', 'NNDSVD_
 mkdir('ql_wrappers');
 mkdir('lg_wrappers');
 mkdir('cb_wrappers');
+mkdir('qs_wrappers');
 mkdir('bl_wrappers');
 
 %% Q-learning
@@ -19,6 +20,22 @@ for i = 1:length(state_vars)
         fprintf(fid, '    %% Action variable: %s\n', action_vars{j});
         fprintf(fid, '    subj.action = subj.%s;\n', action_vars{j});
         fprintf(fid, '    loglik = q_model(parameters, subj);\n');
+        fprintf(fid, 'end\n');
+        fclose(fid);
+    end
+end
+
+%% Q-learning Simple
+for i = 1:length(state_vars)
+    for j = 1:length(action_vars)
+        fname = sprintf('qs_wrappers/wrapper_function_%d.m', ((i-1) * length(action_vars) + j));
+        fid = fopen(fname, 'w');
+        fprintf(fid, 'function [loglik] = wrapper_function_%d(parameters, subj)\n', ((i-1) * length(action_vars) + j));
+        fprintf(fid, '    %% Outcome variable: %s\n', state_vars{i});
+        fprintf(fid, '    subj.outcome = subj.%s;\n', state_vars{i});
+        fprintf(fid, '    %% Action variable: %s\n', action_vars{j});
+        fprintf(fid, '    subj.action = subj.%s;\n', action_vars{j});
+        fprintf(fid, '    loglik = q_model_simple(parameters, subj);\n');
         fprintf(fid, 'end\n');
         fclose(fid);
     end
@@ -127,7 +144,7 @@ end
 
 %% Posterior Wrappers
 
-models = {'q_model', 'baseline_model', ...
+models = {'q_model', 'q_model_simple', 'baseline_model', ...
     'logit_model', 'cockburn_model'};
 
 % Create directory for posterior wrappers
@@ -145,7 +162,7 @@ for i = 1:length(state_vars)
             fid = fopen(fname, 'w');
             
             % Write the main posterior function
-            if strcmp(model, 'q_model')
+            if strcmp(model, 'q_model') || strcmp(model, 'q_model_simple')
                 fprintf(fid, 'function [loglik, prob, choice, q_values] = posterior_%s_%d(parameters, subj)\n', model, wrapper_num);
             else
                 fprintf(fid, 'function [loglik, prob, choice] = posterior_%s_%d(parameters, subj)\n', model, wrapper_num);
@@ -157,7 +174,7 @@ for i = 1:length(state_vars)
                 fprintf(fid, '    [subj.ev, subj.sd] = calculate_ev_uncertainty(subj.action, subj.outcome);\n');
             end
             
-            if strcmp(model, 'q_model')
+            if strcmp(model, 'q_model') || strcmp(model, 'q_model_simple')
                 fprintf(fid, '    [loglik, prob, choice, q_values] = %s_posterior(parameters, subj);\n', strrep(model, '_model', ''));
             else
                 fprintf(fid, '    [loglik, prob, choice] = %s_posterior(parameters, subj);\n', strrep(model, '_model', ''));

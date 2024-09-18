@@ -10,12 +10,15 @@ addpath(fullfile('..','codes'));
 addpath(fullfile('..','zearn_codes'));
 
 % Define models and their respective wrapper directories
-models = {'q_model', 'logit_model', 'cockburn_model','baseline_model'};
+models = {'q_model', 'logit_model', 'cockburn_model', ...
+    'q_model_simple', 'baseline_model'};
 wrapper_dirs = {'../zearn_codes/ql_wrappers', ...
                 '../zearn_codes/lg_wrappers', ...
                 '../zearn_codes/cb_wrappers', ...
+                '../zearn_codes/qs_wrappers', ...
                 '../zearn_codes/bl_wrappers'};
-model_names = {'Q-learning', 'Lau + Glimcher', 'Cockburn et al.', 'Baseline'};
+model_names = {'Q-learning', 'Lau + Glimcher', 'Cockburn et al.', ...
+    'Q-learning Simple', 'Baseline'};
 
 num_wrappers = 16;
 % Initialize arrays to store results
@@ -26,7 +29,7 @@ valid_subj = zeros(length(models) + 1, num_wrappers, length(data));
 v = 6.25;
 
 % Determine the number of parameters for the current model
-num_parameters = [5,5,6,1];
+num_parameters = [5,5,6,3,1];
 
 % PCONFIG structure with refined setup (with multiplier)
 mult = 4;
@@ -144,7 +147,6 @@ parfor idx = 1:num_combinations
 
     % Run null model
     cbm_hbi_null(data(logical(squeeze(success(model_num, wrapper_num, :)))), fname_hbi);
-
     % Load HBI results
     hbi_results = load(fname_hbi);
     temp_hbi_output{idx} = hbi_results.cbm;
@@ -178,19 +180,16 @@ for wrapper_idx = 1:length(unique_top_wrappers)
     wrapper_num = unique_top_wrappers(wrapper_idx);
     
     for model_num = 1:length(models)
-        if model_num == 4 && wrapper_num > 4, continue; end
+        if model_num == 5 && wrapper_num > 4, continue; end
         hbi_fname = sprintf('hbi_results/hbi_compare_wrapper_%d_model_%d.mat', wrapper_num, model_num);
         hbi_model = load(hbi_fname);
-        
-        success_filter = logical(squeeze(success(model_num, wrapper_num, :)));
-        
+                
         % Create the posterior wrapper function name
         posterior_wrapper = str2func(sprintf('posterior_%s_%d', models{model_num}, wrapper_num));
         
         for j = 1:length(data)
-            if ~success_filter(j), continue; end
             
-            if model_num == 1
+            if model_num == 1 || model_num == 4
                 [loglik(j, (wrapper_idx-1)*length(models) + model_num), ...
                 prob{j, (wrapper_idx-1)*length(models) + model_num}, ...
                 choice, ...
@@ -213,7 +212,7 @@ for wrapper_idx = 1:length(unique_top_wrappers)
     wrapper_num = unique_top_wrappers(wrapper_idx);
     
     for model_num = 1:length(models)
-        if model_num == 4 && wrapper_num > 4, continue; end
+        if model_num == 5 && wrapper_num > 4, continue; end
         hbi_fname = sprintf('hbi_results/hbi_compare_wrapper_%d_model_%d.mat', wrapper_num, model_num);
         load(hbi_fname);
         

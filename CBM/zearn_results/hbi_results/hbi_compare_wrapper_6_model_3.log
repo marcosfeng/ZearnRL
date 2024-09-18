@@ -1,4 +1,4 @@
-cbm_hbi_hbi                                       16-Sep-2024 07:33:00
+cbm_hbi_hbi                                       17-Sep-2024 19:20:07
 Running hierarchical bayesian inference (HBI)...
 
 HBI has been initialized according to
@@ -9,12 +9,24 @@ Number of models: 1
 ======================================================================
 Iteration 01
 Iteration 02
-                                                           dL:  137.71
-                                                           dx:    0.10
+                                                           dL:   77.25
+                                                           dx:    0.03
 Iteration 03
-                                                           dL:    2.15
+                                                           dL:   29.25
                                                            dx:    0.02
 Iteration 04
-                                                           dL:   -1.86
-                                                           dx:    0.00
+                                                           dL:   12.69
+                                                           dx:    0.02
+Iteration 05
+                                                           dL:    6.00
+                                                           dx:    0.01
+Iteration 06
+                                                           dL:    3.05
+                                                           dx:    0.01
+Iteration 07
+                                                           dL:    1.66
+                                                           dx:    0.01
+Iteration 08
+                                                           dL:    0.99
+                                                           dx:    0.01
                                                           Converged :]

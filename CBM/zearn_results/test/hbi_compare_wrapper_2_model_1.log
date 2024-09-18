@@ -1,0 +1,610 @@
+cbm_hbi_hbi                                       17-Sep-2024 20:18:01
+Running hierarchical bayesian inference (HBI)...
+
+HBI has been initialized according to
+	aggr_results/lap_aggr_q_model_2.mat [for model 1]
+ 
+Number of samples: 1832
+Number of models: 1
+======================================================================
+Iteration 01
+Iteration 02
+                                                           dL:  386.10
+                                                           dx:    0.23
+Iteration 03
+                                                           dL:  245.21
+                                                           dx:    0.21
+Iteration 04
+                                                           dL:  154.65
+                                                           dx:    0.21
+Iteration 05
+                                                           dL:  109.06
+                                                           dx:    0.21
+Iteration 06
+                                                           dL:   78.39
+                                                           dx:    0.24
+Iteration 07
+                                                           dL:  155.33
+                                                           dx:    0.25
+Iteration 08
+                                                           dL:   92.07
+                                                           dx:    0.25
+Iteration 09
+                                                           dL:   76.46
+                                                           dx:    0.26
+Iteration 10
+                                                           dL:   61.90
+                                                           dx:    0.28
+Iteration 11
+                                                           dL:   48.24
+                                                           dx:    0.30
+Iteration 12
+                                                           dL:   39.40
+                                                           dx:    0.32
+Iteration 13
+                                                           dL:   28.94
+                                                           dx:    0.35
+Iteration 14
+                                                           dL:   22.82
+                                                           dx:    0.37
+Iteration 15
+                                                           dL:   16.58
+                                                           dx:    0.40
+Iteration 16
+                                                           dL:  -89.38
+                                                           dx:    0.44
+Iteration 17
+                                                           dL:  110.08
+                                                           dx:    0.47
+Iteration 18
+                                                           dL:    1.61
+                                                           dx:    0.50
+Iteration 19
+                                                           dL:   -3.18
+                                                           dx:    0.53
+Iteration 20
+                                                           dL:   -6.26
+                                                           dx:    0.57
+Iteration 21
+                                                           dL:  -37.93
+                                                           dx:    0.60
+Iteration 22
+                                                           dL:   11.44
+                                                           dx:    0.63
+Iteration 23
+                                                           dL:  -21.42
+                                                           dx:    0.66
+Iteration 24
+                                                           dL:  -25.55
+                                                           dx:    0.69
+Iteration 25
+                                                           dL:  -29.93
+                                                           dx:    0.71
+Iteration 26
+                                                           dL:  -34.02
+                                                           dx:    0.73
+Iteration 27
+                                                           dL:  -37.82
+                                                           dx:    0.74
+Iteration 28
+                                                           dL:  -41.40
+                                                           dx:    0.75
+Iteration 29
+                                                           dL:  -44.72
+                                                           dx:    0.75
+Iteration 30
+                                                           dL:  -85.87
+                                                           dx:    0.75
+Iteration 31
+                                                           dL:  -41.73
+                                                           dx:    0.74
+Iteration 32
+                                                           dL:  -63.98
+                                                           dx:    0.73
+Iteration 33
+                                                           dL: -110.07
+                                                           dx:    0.71
+Iteration 34
+                                                           dL:  -33.76
+                                                           dx:    0.69
+Iteration 35
+                                                           dL:  -85.76
+                                                           dx:    0.66
+Iteration 36
+                                                           dL:  -45.70
+                                                           dx:    0.64
+Iteration 37
+                                                           dL:   41.71
+                                                           dx:    0.59
+Iteration 38
+                                                           dL:  -87.20
+                                                           dx:    0.55
+Iteration 39
+                                                           dL:  -77.48
+                                                           dx:    0.54
+Iteration 40
+                                                           dL:   -6.62
+                                                           dx:    0.51
+Iteration 41
+                                                           dL: -194.06
+                                                           dx:    0.47
+Iteration 42
+                                                           dL:  -30.40
+                                                           dx:    0.47
+Iteration 43
+                                                           dL:  -32.47
+                                                           dx:    0.43
+Iteration 44
+                                                           dL:  -90.05
+                                                           dx:    0.39
+Iteration 45
+                                                           dL:   68.58
+                                                           dx:    0.36
+Iteration 46
+                                                           dL: -180.54
+                                                           dx:    0.34
+Iteration 47
+                                                           dL:  -30.35
+                                                           dx:    0.34
+Iteration 48
+                                                           dL: -185.85
+                                                           dx:    0.31
+Iteration 49
+                                                           dL:  -42.23
+                                                           dx:    0.28
+Iteration 50
+                                                           dL:  -89.05
+                                                           dx:    0.28
+Iteration 51
+                                                           dL:   76.56
+                                                           dx:    0.25
+Iteration 52
+                                                           dL: -290.34
+                                                           dx:    0.20
+Iteration 53
+                                                           dL:  -17.31
+                                                           dx:    0.22
+Iteration 54
+                                                           dL: -111.55
+                                                           dx:    0.18
+Iteration 55
+                                                           dL:   51.04
+                                                           dx:    0.17
+Iteration 56
+                                                           dL: -111.75
+                                                           dx:    0.14
+Iteration 57
+                                                           dL:   95.00
+                                                           dx:    0.09
+Iteration 58
+                                                           dL: -394.63
+                                                           dx:    0.17
+Iteration 59
+                                                           dL:  111.05
+                                                           dx:    0.14
+Iteration 60
+                                                           dL:  -46.02
+                                                           dx:    0.06
+Iteration 61
+                                                           dL:   29.63
+                                                           dx:    0.11
+Iteration 62
+                                                           dL: -143.55
+                                                           dx:    0.15
+Iteration 63
+                                                           dL: -308.86
+                                                           dx:    0.09
+Iteration 64
+                                                           dL: -222.81
+                                                           dx:    0.14
+Iteration 65
+                                                           dL:  284.84
+                                                           dx:    0.08
+Iteration 66
+                                                           dL: -570.39
+                                                           dx:    2.33
+Iteration 67
+                                                           dL: -548.18
+                                                           dx:    1.09
+Iteration 68
+                                                           dL: -156.17
+                                                           dx:    0.21
+Iteration 69
+                                                           dL: -802.70
+                                                           dx:    1.61
+Iteration 70
+                                                          dL: -1750.15
+                                                           dx:    1.69
+Iteration 71
+                                                           dL: -841.63
+                                                           dx:    1.67
+Iteration 72
+                                                           dL: -629.17
+                                                           dx:    2.44
+Iteration 73
+                                                           dL:  282.04
+                                                           dx:    2.42
+Iteration 74
+                                                           dL: 1014.64
+                                                           dx:    1.32
+Iteration 75
+                                                           dL:  343.18
+                                                           dx:    3.09
+Iteration 76
+                                                           dL:  268.10
+                                                           dx:    1.98
+Iteration 77
+                                                           dL:  224.39
+                                                           dx:    0.28
+Iteration 78
+                                                           dL:  107.04
+                                                           dx:    0.59
+Iteration 79
+                                                           dL:  230.20
+                                                           dx:    0.17
+Iteration 80
+                                                           dL:  120.70
+                                                           dx:    0.07
+Iteration 81
+                                                           dL:  -78.36
+                                                           dx:    0.22
+Iteration 82
+                                                           dL: -129.84
+                                                           dx:    0.67
+Iteration 83
+                                                           dL:  -18.20
+                                                           dx:    0.30
+Iteration 84
+                                                           dL: -137.72
+                                                           dx:    0.28
+Iteration 85
+                                                           dL:   12.50
+                                                           dx:    0.28
+Iteration 86
+                                                           dL: -169.01
+                                                           dx:    0.30
+Iteration 87
+                                                           dL:  -69.08
+                                                           dx:    0.22
+Iteration 88
+                                                           dL: -100.95
+                                                           dx:    0.07
+Iteration 89
+                                                           dL:  -58.39
+                                                           dx:    0.07
+Iteration 90
+                                                           dL: -342.40
+                                                           dx:    0.33
+Iteration 91
+                                                           dL: -233.74
+                                                           dx:    0.15
+Iteration 92
+                                                           dL:  -48.26
+                                                           dx:    0.29
+Iteration 93
+                                                           dL: -301.68
+                                                           dx:    0.28
+Iteration 94
+                                                           dL:  165.81
+                                                           dx:    0.39
+Iteration 95
+                                                           dL:   96.12
+                                                           dx:    0.30
+Iteration 96
+                                                           dL:  -51.59
+                                                           dx:    0.18
+Iteration 97
+                                                           dL: -443.36
+                                                           dx:    0.24
+Iteration 98
+                                                           dL:  183.99
+                                                           dx:    0.37
+Iteration 99
+                                                           dL:  -96.74
+                                                           dx:    0.09
+Iteration 100
+                                                           dL:  106.84
+                                                           dx:    0.11
+Iteration 101
+                                                           dL:  -60.54
+                                                           dx:    1.18
+Iteration 102
+                                                           dL:  194.90
+                                                           dx:    0.18
+Iteration 103
+                                                           dL:  111.28
+                                                           dx:    0.09
+Iteration 104
+                                                           dL:  126.82
+                                                           dx:    0.08
+Iteration 105
+                                                           dL: -161.71
+                                                           dx:    1.06
+Iteration 106
+                                                           dL: -209.85
+                                                           dx:    1.01
+Iteration 107
+                                                           dL:  679.79
+                                                           dx:    0.30
+Iteration 108
+                                                           dL:  321.67
+                                                           dx:    0.23
+Iteration 109
+                                                           dL:   70.63
+                                                           dx:    0.06
+Iteration 110
+                                                           dL:  198.16
+                                                           dx:    0.06
+Iteration 111
+                                                           dL:   -7.29
+                                                           dx:    0.28
+Iteration 112
+                                                          dL: -2939.10
+                                                           dx:    5.09
+Iteration 113
+                                                          dL: -1555.14
+                                                           dx:    0.02
+Iteration 114
+                                                           dL:  623.60
+                                                           dx:    0.02
+Iteration 115
+                                                           dL:  644.49
+                                                           dx:    0.02
+Iteration 116
+                                                           dL:  592.03
+                                                           dx:    0.01
+Iteration 117
+                                                           dL:  718.54
+                                                           dx:    0.06
+Iteration 118
+                                                           dL:  952.30
+                                                           dx:    0.02
+Iteration 119
+                                                           dL: 1109.90
+                                                           dx:    0.03
+Iteration 120
+                                                           dL:   18.24
+                                                           dx:    0.03
+Iteration 121
+                                                           dL:  449.37
+                                                           dx:    0.16
+Iteration 122
+                                                           dL: 2163.28
+                                                           dx:    0.28
+Iteration 123
+                                                           dL: 1325.48
+                                                           dx:    0.40
+Iteration 124
+                                                           dL:  537.19
+                                                           dx:    0.48
+Iteration 125
+                                                           dL:  261.56
+                                                           dx:    0.48
+Iteration 126
+                                                           dL:  179.19
+                                                           dx:    0.49
+Iteration 127
+                                                           dL:   86.51
+                                                           dx:    0.53
+Iteration 128
+                                                           dL:  162.21
+                                                           dx:    0.58
+Iteration 129
+                                                           dL:   24.05
+                                                           dx:    0.64
+Iteration 130
+                                                           dL:   83.65
+                                                           dx:    0.70
+Iteration 131
+                                                           dL:  122.58
+                                                           dx:    0.76
+Iteration 132
+                                                           dL:   52.27
+                                                           dx:    0.81
+Iteration 133
+                                                           dL:   -2.46
+                                                           dx:    0.85
+Iteration 134
+                                                           dL:  -34.21
+                                                           dx:    0.90
+Iteration 135
+                                                           dL:   16.57
+                                                           dx:    0.92
+Iteration 136
+                                                           dL:  -94.72
+                                                           dx:    0.94
+Iteration 137
+                                                           dL:  -45.86
+                                                           dx:    0.95
+Iteration 138
+                                                           dL:   -6.44
+                                                           dx:    0.94
+Iteration 139
+                                                           dL:  -37.57
+                                                           dx:    0.91
+Iteration 140
+                                                           dL:  -58.29
+                                                           dx:    0.89
+Iteration 141
+                                                           dL:  -56.49
+                                                           dx:    0.85
+Iteration 142
+                                                           dL:  -81.48
+                                                           dx:    0.81
+Iteration 143
+                                                           dL:  -40.91
+                                                           dx:    0.76
+Iteration 144
+                                                           dL:  -50.78
+                                                           dx:    0.71
+Iteration 145
+                                                           dL:  -50.34
+                                                           dx:    0.66
+Iteration 146
+                                                           dL:  -84.81
+                                                           dx:    0.61
+Iteration 147
+                                                           dL:  -55.75
+                                                           dx:    0.57
+Iteration 148
+                                                           dL:  -95.40
+                                                           dx:    0.51
+Iteration 149
+                                                           dL:   22.28
+                                                           dx:    0.47
+Iteration 150
+                                                           dL: -135.34
+                                                           dx:    0.43
+Iteration 151
+                                                           dL: -146.71
+                                                           dx:    0.41
+Iteration 152
+                                                           dL:  -36.62
+                                                           dx:    0.38
+Iteration 153
+                                                           dL:  -53.31
+                                                           dx:    0.34
+Iteration 154
+                                                           dL: -288.07
+                                                           dx:    0.31
+Iteration 155
+                                                           dL:  -19.45
+                                                           dx:    0.30
+Iteration 156
+                                                           dL:   45.76
+                                                           dx:    0.26
+Iteration 157
+                                                           dL: -227.49
+                                                           dx:    0.21
+Iteration 158
+                                                           dL:  -56.83
+                                                           dx:    0.23
+Iteration 159
+                                                           dL: -118.68
+                                                           dx:    0.18
+Iteration 160
+                                                           dL:  122.17
+                                                           dx:    0.16
+Iteration 161
+                                                           dL: -206.10
+                                                           dx:    0.13
+Iteration 162
+                                                           dL: -154.74
+                                                           dx:    0.07
+Iteration 163
+                                                           dL:  -35.06
+                                                           dx:    0.15
+Iteration 164
+                                                           dL:   51.34
+                                                           dx:    0.11
+Iteration 165
+                                                           dL:    5.98
+                                                           dx:    0.14
+Iteration 166
+                                                           dL: -342.80
+                                                           dx:    0.08
+Iteration 167
+                                                           dL:   -3.15
+                                                           dx:    3.38
+Iteration 168
+                                                          dL: -1002.26
+                                                           dx:    0.59
+Iteration 169
+                                                           dL:   -1.01
+                                                           dx:    0.68
+Iteration 170
+                                                          dL: -1225.91
+                                                           dx:    0.96
+Iteration 171
+                                                          dL: -1589.29
+                                                           dx:    1.90
+Iteration 172
+                                                           dL: -533.13
+                                                           dx:    1.27
+Iteration 173
+                                                          dL: -1165.93
+                                                           dx:    5.92
+Iteration 174
+                                                           dL: 1333.37
+                                                           dx:    0.80
+Iteration 175
+                                                           dL:  782.89
+                                                           dx:    0.61
+Iteration 176
+                                                           dL: -632.30
+                                                           dx:    3.75
+Iteration 177
+                                                           dL:  564.34
+                                                           dx:    0.24
+Iteration 178
+                                                           dL:  383.57
+                                                           dx:    0.22
+Iteration 179
+                                                           dL:  156.13
+                                                           dx:    0.20
+Iteration 180
+                                                           dL:   20.65
+                                                           dx:    0.39
+Iteration 181
+                                                           dL:  278.30
+                                                           dx:    0.25
+Iteration 182
+                                                           dL:  138.91
+                                                           dx:    0.19
+Iteration 183
+                                                           dL:   79.63
+                                                           dx:    0.14
+Iteration 184
+                                                           dL:  -37.04
+                                                           dx:    0.68
+Iteration 185
+                                                           dL:  -38.39
+                                                           dx:    0.19
+Iteration 186
+                                                           dL:   43.51
+                                                           dx:    0.11
+Iteration 187
+                                                           dL: -809.57
+                                                           dx:    1.73
+Iteration 188
+                                                           dL:  493.67
+                                                           dx:    0.18
+Iteration 189
+                                                           dL:  281.13
+                                                           dx:    0.17
+Iteration 190
+                                                           dL:  133.30
+                                                           dx:    0.23
+Iteration 191
+                                                           dL:   72.87
+                                                           dx:    0.16
+Iteration 192
+                                                           dL:   15.58
+                                                           dx:    0.21
+Iteration 193
+                                                           dL:  -55.31
+                                                           dx:    0.11
+Iteration 194
+                                                           dL:  196.97
+                                                           dx:    0.09
+Iteration 195
+                                                           dL:   -1.75
+                                                           dx:    0.38
+Iteration 196
+                                                           dL:  120.62
+                                                           dx:    0.14
+Iteration 197
+                                                           dL: -470.42
+                                                           dx:    0.89
+Iteration 198
+                                                           dL:  296.42
+                                                           dx:    0.02
+Iteration 199
+                                                           dL:  185.36
+                                                           dx:    0.04
+Iteration 200
+                                                           dL:    1.48
+                                                           dx:    0.07
+Iteration 201
+                                                           dL:  -32.89
+                                                           dx:    0.07

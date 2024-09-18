@@ -7,8 +7,6 @@ function [loglik, prob, choice, q_values] = q_simple_posterior(parameters, subj)
     gamma = 1 / (1 + exp(-nd_gamma));
     nd_tau = parameters(3);
     tau = exp(nd_tau);
-    nd_cost = parameters(4);
-    cost = exp(nd_cost);
 
     % Unpack data
     Tsubj = length(subj.action);
@@ -16,13 +14,12 @@ function [loglik, prob, choice, q_values] = q_simple_posterior(parameters, subj)
     outcome = subj.outcome;
     week = subj.simmed.week;
 
-    % Initialize Q-value for each action
-    C = length(cost); % Number of choices
-    q_values = zeros(C, Tsubj);
+    % Expected value (Q-value) difference initialized at 0
+    q_values = zeros(1, Tsubj);
 
     % Save log probability of choice
     log_p = nan(Tsubj, 1);
-    log_p(1) = choice(1) * (-log1p(exp(-tau * (q_values(:,1) - cost)))) + ...
+    log_p(1) = choice(1) * (-log1p(exp(-tau * (q_values(:,1))))) + ...
         (1 - choice(1)) * (-log1p(exp(tau * q_values(:,1))));
 
     % Loop through trials
@@ -44,12 +41,12 @@ function [loglik, prob, choice, q_values] = q_simple_posterior(parameters, subj)
         end
 
         % Log probability of choice
-        if tau*(q_values(:,t) - cost) < -8
-            log_p(t) = a*tau*(q_values(:,t) - cost);
+        if tau*q_values(:,t) < -8
+            log_p(t) = a*tau*q_values(:,t);
         elseif tau*q_values(:,t) > 8
             log_p(t) = (1 - a)*(-tau*q_values(:,t));
         else
-            log_p(t) = a * (-log1p(exp(-tau*(q_values(:,t) - cost)))) + ...
+            log_p(t) = a * (-log1p(exp(-tau*q_values(:,t)))) + ...
                 (1 - a) * (-log1p(exp(tau*q_values(:,t))));
         end
     end
