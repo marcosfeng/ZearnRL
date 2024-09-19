@@ -5,142 +5,40 @@ rng(37909890)
 % Add path to the codes directory
 addpath(fullfile('..','codes'));
 addpath(fullfile('..','zearn_codes'));
-addpath(fullfile('..','zearn_codes','hybrid_wrappers'));
+addpath(fullfile('..','zearn_codes','posterior_wrappers'));
 
 % Load the common data for all datasets
-fdata = load('../data/sample_data.mat');
+fdata = load('../data/full_data.mat');
 data  = fdata.data;
 
-%% Estimate Models
+%% Models
 
 fname_template = {
-    'comp_results/lap_logit3_%d.mat', ... % Logit
-    'comp_results/lap_logit7_%d.mat', ...
-    'comp_results/lap_logit51s_%d.mat', ...
-    'comp_results/lap_logit13s_%d.mat', ...
-    'comp_results/lap_ql3_%d.mat', ... % Q-learning
-    'comp_results/lap_ql7_%d.mat', ...
-    'comp_results/lap_ac51_%d.mat', ... % Actor-Critic
-    'comp_results/lap_ac13_%d.mat', ...
-    'comp_results/lap_hybrid3_%d.mat', ... % Logit Hybrid
-    'comp_results/lap_hybrid7_%d.mat', ... 
-    'comp_results/lap_hybrid51_%d.mat', ... 
-    'comp_results/lap_hybrid13_%d.mat', ... 
-    'comp_results/lap_hybrid7_51_%d.mat'}; % RL Hybrid
+    'aggr_results/lap_aggr_baseline_model_2.mat', ... % Baseline
+    'aggr_results/lap_aggr_logit_model_2.mat', ... % Logit
+    'aggr_results/lap_aggr_q_model_2.mat'}; % Q-learning
 models = {
-    @logit_wrapper_3, ...
-    @logit_wrapper_7, ...
-    @logit_wrapper_51s, ...
-    @logit_wrapper_13s, ...
-    @ql_wrapper_3, ...
-    @ql_wrapper_7, ...
-    @ac_wrapper_51, ...
-    @ac_wrapper_13, ...
-    @hybrid_wrapper_3, ...
-    @hybrid_wrapper_7, ...
-    @hybrid_wrapper_51s, ...
-    @hybrid_wrapper_13s, ...
-    @hybrid_wrapper_7_51};
+    @posterior_baseline_model_2, ...
+    @posterior_logit_model_2, ...
+    @posterior_q_model_2};
 num_parameters = [
-    8  * ones(1,2), 12 * ones(1,1), 14 * ones(1,1), ...
-    5  * ones(1,2), 11 * ones(1,1), 13 * ones(1,1), ...
-    14 * ones(1,2), 24 * ones(1,1), 28 * ones(1,1), ...
-    17 * ones(1,1)];
-
-% Define the prior variance
-v = 6.25;
-num_subjects = length(data);
-priors = struct([]);
-for i = 1:length(num_parameters)
-    priors{i} = struct('mean', zeros(num_parameters(i), 1), ...
-                       'variance', v);
-end
-
-% PCONFIG structure with refined setup (with multiplier)
-mult = 4;
-pconfig = struct();
-pconfig.numinit = min(7 * max(num_parameters), 100) * mult;
-pconfig.numinit_med = 70 * mult;
-pconfig.numinit_up = 100 * mult;
-pconfig.tolgrad = .001001 / mult;
-pconfig.tolgrad_liberal = .1 / mult;
-pconfig.prior_for_bads = 0;
-
-success = nan(num_subjects*length(num_parameters),1);
-parfor i = 1:(length(num_parameters)*num_subjects)
-    model_idx = floor((i-1)/num_subjects) + 1;
-    subj_idx = mod(i-1, num_subjects) + 1;
-
-    % Construct filename for saving output
-    fname = sprintf(fname_template{model_idx}, subj_idx);
-    % % if you need to re-run models
-    % if exist(fname,"file") == 2
-    %     success(i) = true;
-    %     continue;
-    % end
-
-    % Run the cbm_lap function for the current model and subject
-    [~, success(i)] = ...
-        cbm_lap(data(subj_idx), models{model_idx}, ...
-        priors{model_idx}, fname, pconfig);
-end
-success = reshape(success,[num_subjects,length(num_parameters)]);
-success = logical(success);
-save("comp_results/success.mat","success");
+    1, 5, 5];
 
 %% HBI
 
-load("comp_results/success.mat");
-
-fname_hbi = {'comp_results/hbi/hbi_compare_3.mat', ...
-    'comp_results/hbi/hbi_compare_7.mat', ...
-    'comp_results/hbi/hbi_compare_51s.mat', ...
-    'comp_results/hbi/hbi_compare_13s.mat', ...
-    'comp_results/hbi/hbi_compare_7_51s.mat'};
-idx = [1,5,9;
-    2,6,10;
-    3,7,11;
-    4,8,12;
-    6,7,13];
+fname_hbi = {'comp_results/hbi/hbi_compare.mat'};
+idx = [1,3];
 
 % Pre-allocate structures to store aggregated results
-fname_subjs = cell(num_subjects,length(fname_template));
-for subj = 1:num_subjects
-    % Construct the filename for the current subject's results
-    fname_subjs(subj,:) = [compose(fname_template, subj)];
-end
+fname_subjs = cell(size(idx,1));
 pconfig = struct();
 pconfig.maxiter = 200;
 parfor i = 1:size(idx,1)
-    success_filter = all(success(:,idx(i,:)),2);
-    % Aggregate results for each subject
-    for m = 1:size(idx,2)
-        cbm_lap_aggregate( ...
-            fname_subjs(success_filter,idx(i,m)), ...
-            sprintf( ...
-            replace(fname_template{idx(i,m)},"lap_", "lap_aggr_"), ...
-            i));
-    end
-    cbm_hbi(data(success_filter), ...
+    cbm_hbi(data, ...
         models(idx(i,:)), ...
-        compose( ...
-            replace(fname_template(idx(i,:)),"lap_", "lap_aggr_"), ...
-        i), ...
+        fname_template(idx(i,:)), ...
         fname_hbi{i}, pconfig);
-    cbm_hbi_null(data(success_filter), fname_hbi{i});
-end
-
-
-% Top models
-top_idx = nan(1,length(idx));
-% Load the HBI results and store them
-for i = 1:size(idx,1)
-    fname_hbi_loaded = load(fname_hbi{i});
-    hbi_results = fname_hbi_loaded.cbm;
-    % Top model
-    [~, j] = ...
-        max(hbi_results.output.protected_exceedance_prob);
-    top_idx(i) = idx(i,j);
+    cbm_hbi_null(data, fname_hbi{i});
 end
 
 %% Posteriors

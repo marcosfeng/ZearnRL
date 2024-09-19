@@ -1274,7 +1274,10 @@ In order to capture the temporal dynamics of actions influenced by lagged reward
 
 More specifically, we select one teacher component as the action and one student component as the reward. When constructing state-based models, we incorporate an additional student component as the state variable. This choice yields 16 state-free models (4 possible actions and 4 possible rewards) and 48 state-based models (4 possible actions, 4 possible rewards, and 3 possible state variables).
 
-## Behavioral Signatures
+## Model Performance and Behavioral Signatures
+
+<!-- Load prediction data and prepare for analysis -->
+<!-- This section loads the prediction data from various models and prepares it for further analysis -->
 
 ```{r}
 
@@ -1364,550 +1367,7 @@ cumsd <- function(x) {
   return(result)
 }
 
-df_ev_uncertainty <- df_cleaned %>%
-  select(Classroom.ID, Teacher.User.ID, MDR.School.ID, week, date,
-         starts_with("Frobenius.NNDSVD_teacher"),
-         starts_with("Frobenius.NNDSVD_student"))
-
-for (i in 1:4) {
-  for (j in 1:4) {
-    action_col <- paste0("Frobenius.NNDSVD_teacher", i)
-    reward_col <- paste0("Frobenius.NNDSVD_student", j)
-
-    df_ev_uncertainty <- calculate_ev_uncertainty(df_ev_uncertainty,
-                                                  action_col, reward_col)
-
-    new_cols <- c(paste0("ev_", i, j),
-                  paste0("sd_", i, j),
-                  paste0("uncertain_", i, j))
-    names(df_ev_uncertainty)[names(df_ev_uncertainty) %in% c(
-      "ev", "uncertainty", "most_uncertain"
-    )] <- new_cols
-  }
-}
-
 ```
-
-```{r}
-
-plot_reward_seeking <- function(data, ev_col, action_col) {
-  # Calculate 5th and 95th percentiles
-  lower_bound <- quantile(data[[ev_col]], 0.05, na.rm = TRUE)
-  upper_bound <- quantile(data[[ev_col]], 0.95, na.rm = TRUE)
-
-  # Filter data for geom_smooth
-  smooth_data <- data %>%
-    filter(!!sym(ev_col) >= lower_bound, !!sym(ev_col) <= upper_bound)
-
-  # Create quantile-based bins
-  data <- data %>%
-    mutate(ev_bin = cut(!!sym(ev_col),
-                        breaks = quantile(!!sym(ev_col),
-                                          probs = seq(0.05, 0.95, 0.15),
-                                          na.rm = TRUE),
-                        labels = FALSE, include.lowest = TRUE))
-
-  plot_data <- data %>%
-    group_by(ev_bin) %>%
-    summarise(
-      mean_choice = mean(!!sym(action_col) > 0, na.rm = TRUE),
-      se_choice = sd(!!sym(action_col) > 0, na.rm = TRUE) / sqrt(n()),
-      mean_ev = mean(!!sym(ev_col), na.rm = TRUE)
-    ) %>%
-    filter(!is.na(ev_bin))
-
-  # Calculate x-axis breaks and labels
-  breaks <- plot_data$mean_ev
-  labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
-
-  ggplot(data, aes(x = !!sym(ev_col),
-                   y = as.numeric(!!sym(action_col) > 0))) +
-    geom_hline(yintercept = 0.5, linetype = "dotted") +
-    geom_smooth(data = smooth_data, method = "glm",
-                method.args = list(family = "binomial"),
-                se = FALSE, color = "gray") +
-    geom_point(data = plot_data, aes(x = mean_ev,
-                                     y = mean_choice), size = 1) +
-    geom_errorbar(data = plot_data,
-                  aes(x = mean_ev, y = mean_choice,
-                      ymin = mean_choice - se_choice,
-                      ymax = mean_choice + se_choice),
-                  width = 0) +
-    labs(x = "Expected value (percentile)", y = "% Choice",
-         title = paste("Action", substr(action_col,
-                                        nchar(action_col),
-                                        nchar(action_col)),
-                       "Reward", substr(ev_col,
-                                        nchar(ev_col),
-                                        nchar(ev_col)))) +
-    scale_x_continuous(breaks = breaks, labels = labels) +
-    coord_cartesian(ylim = c(0.2, 0.6),
-                    xlim = c(min(plot_data$mean_ev),
-                             max(plot_data$mean_ev))) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1),
-                       limits = c(0, 1)) +
-    theme_classic() +
-    theme(
-      plot.title = element_text(size = 10),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
-    )
-}
-
-# Create a list to store all plots
-all_plots <- list()
-
-# Generate all 16 plots
-for (i in 1:4) {
-  for (j in 1:4) {
-    ev_col <- paste0("ev_", i, j)
-    action_col <- paste0("Frobenius.NNDSVD_teacher", i)
-
-    plot <- plot_reward_seeking(df_ev_uncertainty, ev_col, action_col)
-    all_plots[[paste(i, j, sep = "_")]] <- plot
-  }
-}
-
-```
-
-```{r}
-
-plot_uncertainty_aversion <- function(data, ev_col, uncertain_col, action_col) {
-  # Calculate delta EV and choice_uncertain
-  data <- data %>%
-    mutate(delta_ev = if_else(!!sym(uncertain_col) == 1,
-                              !!sym(ev_col), -!!sym(ev_col)),
-           choice_uncertain = xor(!!sym(action_col) == 0,
-                                  !!sym(uncertain_col) == 1))
-
-  # Calculate 5th and 95th percentiles
-  lower_bound <- quantile(data$delta_ev, 0.05, na.rm = TRUE)
-  upper_bound <- quantile(data$delta_ev, 0.95, na.rm = TRUE)
-
-  # Filter data for geom_smooth
-  smooth_data <- data %>%
-    filter(delta_ev >= lower_bound, delta_ev <= upper_bound)
-
-  # Create quantile-based bins
-  data <- data %>%
-    mutate(ev_bin = cut(delta_ev,
-                        breaks = quantile(delta_ev,
-                                          probs = seq(0.05, 0.95, 0.15),
-                                          na.rm = TRUE),
-                        labels = FALSE, include.lowest = TRUE))
-
-  plot_data <- data %>%
-    group_by(ev_bin) %>%
-    summarise(
-      mean_choice_uncertain = mean(choice_uncertain, na.rm = TRUE),
-      se_choice_uncertain = sd(choice_uncertain, na.rm = TRUE) / sqrt(n()),
-      mean_delta_ev = mean(delta_ev, na.rm = TRUE)
-    ) %>%
-    filter(!is.na(ev_bin))
-
-  # Calculate x-axis breaks and labels
-  breaks <- plot_data$mean_delta_ev
-  labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
-
-  ggplot(data, aes(x = delta_ev, y = as.numeric(choice_uncertain))) +
-    geom_hline(yintercept = 0.5, linetype = "dotted") +
-    geom_smooth(data = smooth_data, method = "glm",
-                method.args = list(family = "binomial"),
-                se = FALSE, color = "gray") +
-    geom_point(data = plot_data,
-               aes(x = mean_delta_ev, y = mean_choice_uncertain), size = 1) +
-    geom_errorbar(data = plot_data,
-                  aes(x = mean_delta_ev,
-                      y = mean_choice_uncertain,
-                      ymin = mean_choice_uncertain - se_choice_uncertain,
-                      ymax = mean_choice_uncertain + se_choice_uncertain),
-                  width = 0) +
-    labs(x = "ΔEV (Uncertain - Certain) (percentile)",
-         y = "% Choice Uncertain",
-         title = paste("Uncertainty Aversion:", substr(ev_col, 4, 5))) +
-    scale_x_continuous(breaks = breaks, labels = labels) +
-    coord_cartesian(ylim = c(0.25, 0.75),
-                    xlim = c(min(plot_data$mean_delta_ev),
-                             max(plot_data$mean_delta_ev))) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1),
-                       limits = c(0, 1)) +
-    theme_classic() +
-    theme(
-      plot.title = element_text(size = 10),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
-    )
-}
-
-# Create a list to store all plots
-all_uncertainty_plots <- list()
-for (i in 1:4) {
-  for (j in 1:4) {
-    ev_col <- paste0("ev_", i, j)
-    uncertain_col <- paste0("uncertain_", i, j)
-    action_col <- paste0("Frobenius.NNDSVD_teacher", i)
-
-    plot <- plot_uncertainty_aversion(df_ev_uncertainty, ev_col, uncertain_col, action_col)
-    all_uncertainty_plots[[paste(i, j, sep = "_")]] <- plot
-  }
-}
-
-# # Display the plots (you might want to arrange them in a grid)
-# library(gridExtra)
-# do.call(grid.arrange, c(all_uncertainty_plots, ncol = 4))
-```
-
-### Adaptation to Task Horizon
-
-```{r}
-
-plot_adaptation_to_task_horizon <- function(data, i, j, firstweek = 10) {
-  ev_col <- paste0("ev_", i, j)
-  sd_col <- paste0("sd_", i, j)
-  action_col <- paste0("Frobenius.NNDSVD_teacher", i)
-
-  # Filter for teachers who start on 2019-09-02 and adjust weeks
-  filtered_data <- data %>%
-    filter(week == firstweek & date == "2019-09-02") %>%
-    pull(Classroom.ID) %>%
-    {filter(data, Classroom.ID %in% .)} %>%
-    mutate(adjusted_week = week - firstweek + 1,
-           month = floor_date(as.Date(date), "month")) %>%
-    filter(adjusted_week >= 1)
-
-  plot_data <- filtered_data %>%
-    ungroup() %>%
-    arrange(Teacher.User.ID,adjusted_week) %>%
-    mutate(
-      higher_ev = !!sym(ev_col) > 0,
-      higher_uncertainty = !!sym(sd_col) > 0,
-      choice = !!sym(action_col) > 0
-    ) %>%
-    group_by(adjusted_week, month) %>%
-    summarise(
-      prop_ev = mean(choice == higher_ev, na.rm = TRUE),
-      prop_u = mean(choice == higher_uncertainty, na.rm = TRUE),
-      se_ev = sd(choice == higher_ev, na.rm = TRUE) / sqrt(n()),
-      se_u = sd(choice == higher_uncertainty, na.rm = TRUE) / sqrt(n())
-    ) %>%
-    na.omit()
-
-  month_breaks <- plot_data %>%
-    group_by(month) %>%
-    summarise(week = min(adjusted_week)) %>%
-    mutate(month_label = format(month, "%b"))
-
-  ggplot(plot_data, aes(x = adjusted_week)) +
-    geom_hline(yintercept = 0.5, linetype = "dashed",
-               size=0.25, color = "black") +
-    geom_line(aes(y = prop_ev, color = "EV"), size = 0.25) +
-    geom_errorbar(aes(ymin = prop_ev - se_ev,
-                      ymax = prop_ev + se_ev,
-                      color = "EV"),
-                  width = 0, size = 0.25) +
-    geom_point(aes(y = prop_ev, color = "EV", shape = "EV"),
-               size = 1.5, fill = "white") +
-    geom_line(aes(y = prop_u, color = "U"), size = 0.25) +
-    geom_errorbar(aes(ymin = prop_u - se_u,
-                      ymax = prop_u + se_u,
-                      color = "U"),
-                  width = 0, size = 0.25) +
-    geom_point(aes(y = prop_u, color = "U", shape = "U"),
-               size = 1.5, fill = "white") +
-    scale_color_manual(values = c("EV" = "red", "U" = "blue"),
-                       labels = c("EV" = "Expected Value",
-                                  "U" = "Uncertainty")) +
-    scale_shape_manual(values = c("EV" = 21, "U" = 22),
-                       labels = c("EV" = "Expected Value",
-                                  "U" = "Uncertainty")) +
-    labs(x = "Week", y = "% Chosen",
-         title = paste("Adaptation to task horizon -", i, j)) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold"),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      legend.position = "bottom",
-      legend.title = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      axis.ticks.x = element_line(color = "black", linewidth = 0.25),
-      axis.minor.ticks.x = element_line(color = "black", linewidth = 0.25)
-    ) +
-    scale_y_continuous(limits = c(0.25, 0.75),
-                       labels = scales::percent_format(accuracy = 1)) +
-    scale_x_continuous(breaks = month_breaks$week,
-                       labels = month_breaks$month_label,
-                       minor_breaks = seq(min(plot_data$adjusted_week),
-                                          max(plot_data$adjusted_week),
-                                          by = 1)) +
-    guides(color = guide_legend(override.aes = list(shape = c(21, 22),
-                                                    fill = "white",
-                                                    size = 2)),
-           shape = "none")  # remove the duplicate shape legend
-}
-
-# Create a list to store all plots
-adaptation_plots <- list()
-
-# Generate all 16 plots
-for (i in 1:4) {
-  for (j in 1:4) {
-    plot <- plot_adaptation_to_task_horizon(df_ev_uncertainty, i, j)
-    adaptation_plots[[paste(i, j, sep = "_")]] <- plot
-  }
-}
-
-```
-
-<!-- Check code -->
-```{r}
-
-# Assuming df_ev_uncertainty is your main dataframe
-plot_ev_u_over_time <- function(data, i, j) {
-  ev_col <- paste0("ev_", i, j)
-  sd_col <- paste0("sd_", i, j)
-
-
-  # Filter for teachers who start on 2019-09-02 and adjust weeks
-  plot_data <- data %>%
-    filter(week == firstweek & date == "2019-09-02") %>%
-    pull(Classroom.ID) %>%
-    {filter(data, Classroom.ID %in% .)} %>%
-    mutate(adjusted_week = week - firstweek + 1,
-           month = floor_date(as.Date(date), "month")) %>%
-    filter(adjusted_week >= 1) %>%
-    group_by(week, date) %>%
-    summarise(
-      mean_ev = mean(!!sym(ev_col), na.rm = TRUE),
-      se_ev = sd(!!sym(ev_col), na.rm = TRUE) / sqrt(n()),
-      mean_u = mean(!!sym(sd_col), na.rm = TRUE),
-      se_u = sd(!!sym(sd_col), na.rm = TRUE) / sqrt(n())
-    ) %>%
-    ungroup()
-
-  # Create month breaks for x-axis
-  month_breaks <- plot_data %>%
-    mutate(month = floor_date(as.Date(date), "month")) %>%
-    group_by(month) %>%
-    slice(1) %>%
-    ungroup()
-
-  ggplot(plot_data, aes(x = date)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
-    geom_line(aes(y = mean_ev, color = "EV"), size = 0.5) +
-    geom_ribbon(aes(ymin = mean_ev - se_ev,
-                    ymax = mean_ev + se_ev,
-                    fill = "EV"), alpha = 0.2) +
-    geom_line(aes(y = mean_u, color = "U"), size = 0.5) +
-    geom_ribbon(aes(ymin = mean_u - se_u,
-                    ymax = mean_u + se_u,
-                    fill = "U"), alpha = 0.2) +
-    scale_color_manual(values = c("EV" = "blue", "U" = "red"),
-                       labels = c("EV" = "Expected Value", "U" = "Uncertainty")) +
-    scale_fill_manual(values = c("EV" = "blue", "U" = "red"),
-                      labels = c("EV" = "Expected Value", "U" = "Uncertainty")) +
-    labs(x = "Date", y = "Value",
-         title = paste("EV and U over time -", i, j),
-         color = "Measure", fill = "Measure") +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold"),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      legend.position = "bottom",
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      axis.ticks.x = element_line(color = "black")
-    ) +
-    scale_x_date(date_breaks = "1 month", date_labels = "%b",
-                 limits = c(min(plot_data$date), max(plot_data$date)))
-}
-
-# Create a list to store all plots
-ev_u_plots <- list()
-
-# Generate plots for all combinations
-for (i in 1:4) {
-  for (j in 1:4) {
-    plot <- plot_ev_u_over_time(df_ev_uncertainty, i, j)
-    ev_u_plots[[paste(i, j, sep = "_")]] <- plot
-  }
-}
-
-```
-
-
-## Model Performance
-
-Drawing on the resulting metrics, we strategically narrowed our focus to the action-reward-state configurations that most closely align with Reinforcement Learning (RL) principles. @fig-RL-exploration delineates the top models based on their high fixed-effects Area Under the Curve (AUC) and mean teacher-specific AUC, as well as their Fixed Effects Bayesian Information Criterion (BIC) and higher mean teacher-specific log-likelihood. Panels A and B of the figure show the state-free and state-dependent models, respectively. Each point on the plot represents a different model, identified by its BIC and average teacher-specific AUC. The actions "Pedagogical Knowledge" and "Group Instruction" stand out for both models. However, the choice of associated rewards and states is unclear, suggesting the need to fit RL models using all configurations featuring these two actions.
-
-### Estimating RL Models
-
-The next step is to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the Bayesian Information Criterion (BIC). Our computational analysis identified a distinct group of models that excelled in their low BIC scores. @tbl-top-CBM provides a breakdown of scores for different combinations of rewards and states under this action, offering insight into the comparative performance of various model setups. Notably, all top-performing models featured "Pedagogical Knowledge" as their primary action. Models with "Badges" and "Activity" as their rewards outperform others, as do state-free models, likely due to their higher simplicity.
-
-```{r}
-#| label: tbl-top-CBM
-#| tbl-cap: "Best-fit models. The table presents the best-fit models, organized by their reward and state components, based on Bayesian Information Criterion (BIC) scores obtained from Laplace approximations. All models feature the 'Pedagogical Knowledge' action component. The BIC scores serve as a metric for model fit, penalizing model complexity, with lower scores indicating superior performance. Missing values in the State column denote Q-learning models, while non-empty State values indicate Actor-Critic models. Note that these estimates are not hierarchical; they represent the individual estimates of each teacher."
-
-# Define paths and models
-model_folder_path <- "CBM/zearn_results/aggr_results"
-models <- c("q_model", "logit_model", "cockburn_model","baseline_model")
-model_names <- c("Q-learning", "Lau & Glimcher", "Cockburn et al.","Baseline")
-
-# Create a mapping for action and reward
-action_reward_mapping <- list(
-  "1" = list(action = "Assessments", reward = "Badges"),
-  "2" = list(action = "Pedagogical Knowledge", reward = "Badges"),
-  "3" = list(action = "Group Instruction", reward = "Badges"),
-  "4" = list(action = "Curriculum Planning", reward = "Badges"),
-  "5" = list(action = "Assessments", reward = "Struggles"),
-  "6" = list(action = "Pedagogical Knowledge", reward = "Struggles"),
-  "7" = list(action = "Group Instruction", reward = "Struggles"),
-  "8" = list(action = "Curriculum Planning", reward = "Struggles"),
-  "9" = list(action = "Assessments", reward = "No. Students"),
-  "10" = list(action = "Pedagogical Knowledge", reward = "No. Students"),
-  "11" = list(action = "Group Instruction", reward = "No. Students"),
-  "12" = list(action = "Curriculum Planning", reward = "No. Students"),
-  "13" = list(action = "Assessments", reward = "Activity"),
-  "14" = list(action = "Pedagogical Knowledge", reward = "Activity"),
-  "15" = list(action = "Group Instruction", reward = "Activity"),
-  "16" = list(action = "Curriculum Planning", reward = "Activity")
-)
-
-# Create a data frame for model comparison
-model_comparison_df <- data.frame(
-  Action = character(),
-  Reward = character()
-)
-
-# Process models
-for (wrapper in 1:16) {
-  wrapper_str <- sprintf("%d", wrapper)
-
-  row_data <- data.frame(
-    Action = action_reward_mapping[[wrapper_str]]$action,
-    Reward = action_reward_mapping[[wrapper_str]]$reward
-  )
-
-  for (model in models) {
-    file_path <- file.path(model_folder_path, sprintf("lap_aggr_%s_%d.mat", model, wrapper))
-    if (file.exists(file_path)) {
-      mat_data <- readMat(file_path)
-      log_lik <- sum(mat_data[["cbm"]][[5]][[2]])
-      row_data[[model]] <- log_lik
-    } else {
-      row_data[[model]] <- NA
-    }
-  }
-
-  model_comparison_df <- rbind(model_comparison_df, row_data)
-}
-
-# Rename columns
-colnames(model_comparison_df)[3:6] <- model_names
-
-# Display the table
-model_comparison_df %>%
-  gt(groupname_col = "Action", row_group_as_column = TRUE) %>%
-  tab_header(title = "Model Comparison - Log Likelihood") %>%
-  fmt_number(columns = model_names, decimals = 2)
-
-```
-
-### Hierarchical Bayesian Inference (HBI) Results and Model Comparison
-
-To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more detailed comparison of the selected models. This statistical approach allows us to compare models not just by their individual fits but also by their ability to explain data across different subjects. In interpreting the results from HBI, we observed the differential performances of Q-learning (QL) and Actor-Critic (AC) models. @tbl-CBM-HBI provides quantifiable insights into each model's fit (BIC) and predictive power (AUC, the area under the receiver operating characteristic curve) across teachers. Generally, Q-learning models fit the data better than Actor-Critic models (i.e., lower BIC scores), and AC models outperform in terms of predictive power (higher AUC scores).
-
-<!-- tbl-CBM-HBI -->
-
-```{r}
-#| label: tbl-CBM-HBI
-#| tbl-cap: "Top Q-learning and Actor-Critic models under Hierarchical Bayesian Inference (HBI). The table presents the best-performing models, all featuring the 'Pedagogical Knowledge' action component, ranked by their Bayesian Information Criterion (BIC) scores. BIC quantifies the models' fit to the data, penalizing for model complexity, with lower values indicating better performance. The model frequency represents the proportion of teachers best described by each model. Q-learning models (denoted by missing values in the State column) assume teachers learn directly from rewards, while Actor-Critic models incorporate state information to guide decision-making."
-
-# Define paths
-model_folder_path <- "CBM/zearn_results/hbi_results"
-
-# Create a mapping for action and reward
-action_reward_mapping <- list(
-  "14" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student4"),
-  "10" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student3"),
-  "6" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student2"),
-  "2" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student1")
-)
-
-# Create a data frame for model comparison
-model_comparison_df <- data.frame(
-  Action = character(),
-  Reward = character(),
-  Q_learning = numeric(),
-  Lau_Glimcher = numeric(),
-  Cockburn = numeric()
-)
-
-# Process models
-for (wrapper in c("2", "6", "10", "14")) {
-  q_file <- list.files(path = model_folder_path,
-                       pattern = paste0("hbi_compare_wrapper_",
-                                        wrapper, "_model_1.mat"),
-                       full.names = TRUE)
-  lg_file <- list.files(path = model_folder_path,
-                        pattern = paste0("hbi_compare_wrapper_",
-                                         wrapper, "_model_2.mat"),
-                        full.names = TRUE)
-  cb_file <- list.files(path = model_folder_path,
-                        pattern = paste0("hbi_compare_wrapper_",
-                                         wrapper, "_model_3.mat"),
-                        full.names = TRUE)
-  bl_file <- list.files(path = model_folder_path,
-                        pattern = "hbi_compare_wrapper_2_model_4.mat",
-                        full.names = TRUE)
-
-  q_data <- readMat(q_file)
-  lg_data <- readMat(lg_file)
-  cb_data <- readMat(cb_file)
-  bl_data <- readMat(bl_file)
-
-  model_comparison_df <- rbind(model_comparison_df, data.frame(
-    Action = action_reward_mapping[[wrapper]]$action,
-    Reward = action_reward_mapping[[wrapper]]$reward,
-    Q_learning = mean(q_data[["cbm"]][[5]][[9]], na.rm = TRUE),
-    Lau_Glimcher = mean(lg_data[["cbm"]][[5]][[9]], na.rm = TRUE),
-    Cockburn = mean(cb_data[["cbm"]][[5]][[9]], na.rm = TRUE),
-    Baseline = mean(bl_data[["cbm"]][[5]][[9]], na.rm = TRUE)
-  ))
-}
-
-# Display the table
-model_comparison_df %>%
-  mutate(across(c(Action, Reward), ~ case_when(
-    . == "NNDSVD_student1" ~ "Badges",
-    . == "NNDSVD_student2" ~ "Struggles",
-    . == "NNDSVD_student3" ~ "No. Students",
-    . == "NNDSVD_student4" ~ "Activity",
-    . == "NNDSVD_teacher1" ~ "Assessments",
-    . == "NNDSVD_teacher2" ~ "Pedagogical Knowledge",
-    . == "NNDSVD_teacher3" ~ "Group Instruction",
-    . == "NNDSVD_teacher4" ~ "Curriculum Planning",
-    . == "None" ~ "NA",
-    .default = .
-    ))) %>%
-  gt() %>%
-  tab_header(title = "Model Comparison - Mean BIC Scores") %>%
-  fmt_number(columns = c(Q_learning, Lau_Glimcher, Cockburn), decimals = 3) %>%
-  cols_label(
-    Q_learning = "Q-learning",
-    Lau_Glimcher = "Lau & Glimcher",
-    Cockburn = "Cockburn et al."
-  )
-
-```
-
-## Posterior Predictive Checks
 
 ```{r}
 
@@ -1967,6 +1427,193 @@ load_all_predictions <- function() {
 all_predictions <- load_all_predictions()
 
 ```
+
+Drawing on the resulting metrics, we strategically narrowed our focus to the action-reward-state configurations that most closely align with Reinforcement Learning (RL) principles. @fig-RL-exploration delineates the top models based on their high fixed-effects Area Under the Curve (AUC) and mean teacher-specific AUC, as well as their Fixed Effects Bayesian Information Criterion (BIC) and higher mean teacher-specific log-likelihood. Panels A and B of the figure show the state-free and state-dependent models, respectively. Each point on the plot represents a different model, identified by its BIC and average teacher-specific AUC. The actions "Pedagogical Knowledge" and "Group Instruction" stand out for both models. However, the choice of associated rewards and states is unclear, suggesting the need to fit RL models using all configurations featuring these two actions.
+
+### Estimating RL Models
+
+The next step is to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the Bayesian Information Criterion (BIC). Our computational analysis identified a distinct group of models that excelled in their low BIC scores. @tbl-top-CBM provides a breakdown of scores for different combinations of rewards and states under this action, offering insight into the comparative performance of various model setups. Notably, all top-performing models featured "Pedagogical Knowledge" as their primary action. Models with "Badges" and "Activity" as their rewards outperform others, as do state-free models, likely due to their higher simplicity.
+
+<!-- Load and process model comparison data -->
+<!-- This section prepares data for comparing different models' performance -->
+
+```{r}
+#| label: tbl-top-CBM
+#| tbl-cap: "Model comparison based on log-likelihood. The table presents log-likelihood values for different models across various action-reward combinations. Less negative values indicate better fit. All models are compared against a baseline intercept-only regression model. The cost-free Q-learning models do not include a cost parameter and assume the starting q-value to be zero. Across all models, the 'Pedagogical Knowledge' action shows the best fit overall. Note that these estimates are not hierarchical; they represent the individual estimates of each teacher."
+
+# Define paths and models
+model_folder_path <- "CBM/zearn_results/aggr_results"
+models <- c("q_model", "logit_model", "cockburn_model",
+            "q_model_simple", "baseline_model")
+model_names <- c("Q-learning", "Lau & Glimcher",
+                 "Cockburn et al.",
+                 "Q-learning (cost-free)", "Baseline")
+
+# Create a mapping for action and reward
+action_reward_mapping <- list(
+  "1" = list(action = "Assessments", reward = "Badges"),
+  "2" = list(action = "Pedagogical Knowledge", reward = "Badges"),
+  "3" = list(action = "Group Instruction", reward = "Badges"),
+  "4" = list(action = "Curriculum Planning", reward = "Badges"),
+  "5" = list(action = "Assessments", reward = "Struggles"),
+  "6" = list(action = "Pedagogical Knowledge", reward = "Struggles"),
+  "7" = list(action = "Group Instruction", reward = "Struggles"),
+  "8" = list(action = "Curriculum Planning", reward = "Struggles"),
+  "9" = list(action = "Assessments", reward = "No. Students"),
+  "10" = list(action = "Pedagogical Knowledge", reward = "No. Students"),
+  "11" = list(action = "Group Instruction", reward = "No. Students"),
+  "12" = list(action = "Curriculum Planning", reward = "No. Students"),
+  "13" = list(action = "Assessments", reward = "Activity"),
+  "14" = list(action = "Pedagogical Knowledge", reward = "Activity"),
+  "15" = list(action = "Group Instruction", reward = "Activity"),
+  "16" = list(action = "Curriculum Planning", reward = "Activity")
+)
+
+# Create a data frame for model comparison
+model_comparison_df <- data.frame(
+  Action = character(),
+  Reward = character()
+)
+
+# Process models
+for (wrapper in 1:16) {
+  wrapper_str <- sprintf("%d", wrapper)
+
+  row_data <- data.frame(
+    Action = action_reward_mapping[[wrapper_str]]$action,
+    Reward = action_reward_mapping[[wrapper_str]]$reward
+  )
+
+  for (model in models) {
+    file_path <- file.path(model_folder_path, sprintf("lap_aggr_%s_%d.mat", model, wrapper))
+    if (file.exists(file_path)) {
+      mat_data <- readMat(file_path)
+      log_lik <- sum(mat_data[["cbm"]][[5]][[2]])
+      row_data[[model]] <- log_lik
+    } else {
+      row_data[[model]] <- NA
+    }
+  }
+
+  model_comparison_df <- rbind(model_comparison_df, row_data)
+}
+
+# Rename columns
+colnames(model_comparison_df)[3:7] <- model_names
+
+# Display the table
+model_comparison_df %>%
+  gt(groupname_col = "Action", row_group_as_column = TRUE) %>%
+  tab_stubhead("Action") %>%
+  tab_header(title = "Model Comparison - Log Likelihood") %>%
+  fmt_number(columns = model_names, decimals = 2)
+
+```
+
+### Hierarchical Bayesian Inference (HBI) Results and Model Comparison
+
+To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more detailed comparison of the selected models. This statistical approach allows us to compare models not just by their individual fits but also by their ability to explain data across different subjects. In interpreting the results from HBI, we observed the differential performances of Q-learning (QL) and Actor-Critic (AC) models. @tbl-CBM-HBI provides quantifiable insights into each model's fit (BIC) and predictive power (AUC, the area under the receiver operating characteristic curve) across teachers. Generally, Q-learning models fit the data better than Actor-Critic models (i.e., lower BIC scores), and AC models outperform in terms of predictive power (higher AUC scores).
+
+<!-- tbl-CBM-HBI -->
+
+```{r}
+#| label: tbl-CBM-HBI
+#| tbl-cap: "Comparison of model performance using Hierarchical Bayesian Inference (HBI). The table presents mean Bayesian Information Criterion (BIC) scores for different models, all featuring the 'Pedagogical Knowledge' action component, with various reward types. BIC quantifies the models' fit to the data, penalizing for model complexity, with lower values indicating better performance. The baseline model is an intercept-only regression model."
+
+# Define paths
+model_folder_path <- "CBM/zearn_results/hbi_results"
+
+# Create a mapping for action and reward
+action_reward_mapping <- list(
+  "14" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student4"),
+  "10" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student3"),
+  "6" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student2"),
+  "2" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student1")
+)
+
+# Create a data frame for model comparison
+model_comparison_df <- data.frame(
+  Action = character(),
+  Reward = character(),
+  Q_learning = numeric(),
+  Lau_Glimcher = numeric(),
+  Cockburn = numeric()
+)
+
+# Process models
+for (wrapper in c("2", "6", "10", "14")) {
+  q_file <- list.files(path = model_folder_path,
+                       pattern = paste0("hbi_compare_wrapper_",
+                                        wrapper, "_model_1.mat"),
+                       full.names = TRUE)
+  lg_file <- list.files(path = model_folder_path,
+                        pattern = paste0("hbi_compare_wrapper_",
+                                         wrapper, "_model_2.mat"),
+                        full.names = TRUE)
+  cb_file <- list.files(path = model_folder_path,
+                        pattern = paste0("hbi_compare_wrapper_",
+                                         wrapper, "_model_3.mat"),
+                        full.names = TRUE)
+  qs_file <- list.files(path = model_folder_path,
+                        pattern = paste0("hbi_compare_wrapper_",
+                                         wrapper, "_model_4.mat"),
+                        full.names = TRUE)
+  bl_file <- list.files(path = model_folder_path,
+                        pattern = "hbi_compare_wrapper_2_model_5.mat",
+                        full.names = TRUE)
+
+  q_data <- readMat(q_file)
+  lg_data <- readMat(lg_file)
+  cb_data <- readMat(cb_file)
+  qs_data <- readMat(qs_file)
+  bl_data <- readMat(bl_file)
+
+  model_comparison_df <- rbind(model_comparison_df, data.frame(
+    Action = action_reward_mapping[[wrapper]]$action,
+    Reward = action_reward_mapping[[wrapper]]$reward,
+    Q_learning = mean(q_data[["cbm"]][[5]][[9]], na.rm = TRUE),
+    Lau_Glimcher = mean(lg_data[["cbm"]][[5]][[9]], na.rm = TRUE),
+    Cockburn = mean(cb_data[["cbm"]][[5]][[9]], na.rm = TRUE),
+    Q_simple = mean(qs_data[["cbm"]][[5]][[9]], na.rm = TRUE),
+    Baseline = mean(bl_data[["cbm"]][[5]][[9]], na.rm = TRUE)
+  ))
+}
+
+# Display the table
+model_comparison_df %>%
+  mutate(across(c(Action, Reward), ~ case_when(
+    . == "NNDSVD_student1" ~ "Badges",
+    . == "NNDSVD_student2" ~ "Struggles",
+    . == "NNDSVD_student3" ~ "No. Students",
+    . == "NNDSVD_student4" ~ "Activity",
+    . == "NNDSVD_teacher1" ~ "Assessments",
+    . == "NNDSVD_teacher2" ~ "Pedagogical Knowledge",
+    . == "NNDSVD_teacher3" ~ "Group Instruction",
+    . == "NNDSVD_teacher4" ~ "Curriculum Planning",
+    . == "None" ~ "NA",
+    .default = .
+    ))) %>%
+  gt(groupname_col = "Action", row_group_as_column = TRUE) %>%
+  tab_stubhead("Action") %>%
+  tab_header(title = "Model Comparison - Mean BIC Scores") %>%
+  fmt_number(columns = c(
+    Q_learning, Lau_Glimcher, Cockburn,
+    Q_simple, Baseline
+    ), decimals = 3) %>%
+  cols_label(
+    Q_learning = "Q-learning",
+    Lau_Glimcher = "Lau & Glimcher",
+    Cockburn = "Cockburn et al.",
+    Q_simple = "Q-learning (no cost)",
+    Baseline = "Baseline"
+  )
+
+```
+
+## Posterior Predictive Checks
+
+<!-- Plot reward seeking behavior -->
+<!-- This function creates plots to visualize how teachers' choices are influenced by expected rewards compared to actual behavior -->
 
 ```{r}
 
@@ -2199,6 +1846,10 @@ for (wrapper in c(2, 6, 10, 14)) {
 
 ```
 
+<!-- # Plot uncertainty aversion -->
+<!-- # This function creates plots to show how teachers' choices are affected by uncertainty -->
+<!-- # It compares actual behavior with predictions from different models -->
+
 ```{r}
 
 plot_uncertainty_aversion <- function(sim_data, wrapper) {
@@ -2328,6 +1979,10 @@ for (wrapper in c(2, 10, 14)) {
 }
 
 ```
+
+<!-- # Plot prediction errors -->
+<!-- # This function visualizes how prediction errors from different models relate to subsequent choices -->
+<!-- # It helps in understanding how well each model captures learning dynamics -->
 
 ```{r}
 
@@ -2509,13 +2164,17 @@ for (wrapper in c(2, 6, 10, 14)) {
 
   plot <- plot_prediction_errors(
     full_data, wrapper,
-    paste0("CBM/zearn_results/model_results/hbi_compare_wrapper_",
+    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
            wrapper, "_model_", 1, ".mat")
     )
   all_pe_plots[[paste(wrapper, sep = "_")]] <- plot
 }
 
 ```
+
+<!-- # Plot learning curves -->
+<!-- # This function shows how prediction errors and rewards change over time -->
+<!-- # It provides insight into the learning process throughout the school year -->
 
 ```{r}
 
@@ -2702,13 +2361,17 @@ for (wrapper in c(2, 10, 14)) {
 
   plot <- plot_learning_curves(
     full_data, wrapper,
-    paste0("CBM/zearn_results/model_results/hbi_compare_wrapper_",
+    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
            wrapper, "_model_", 1, ".mat")
     )
   learning_curve_plots[[paste(wrapper, sep = "_")]] <- plot
 }
 
 ```
+
+<!-- # Plot action percentages -->
+<!-- # This function visualizes how the percentage of chosen actions changes over time -->
+<!-- # It compares actual behavior with model predictions -->
 
 ```{r}
 
@@ -2814,13 +2477,17 @@ for (wrapper in c(2, 10, 14)) {
 
   plot <- plot_action_percentages(
     full_data, wrapper,
-    paste0("CBM/zearn_results/model_results/hbi_compare_wrapper_",
+    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
            wrapper, "_model_", 1, ".mat")
     )
   action_percentage_plots[[paste(wrapper, sep = "_")]] <- plot
 }
 
 ```
+
+<!-- # Analyze performance split -->
+<!-- # This function examines how teacher behavior changes before and after identified change points -->
+<!-- # It helps in understanding adaptations in teaching strategies -->
 
 ```{r}
 
@@ -2947,14 +2614,13 @@ for (wrapper in c(2, 10, 14)) {
 
   plot <- analyze_performance_split(
     full_data, wrapper,
-    paste0("CBM/zearn_results/model_results/hbi_compare_wrapper_",
+    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
            wrapper, "_model_", 1, ".mat")
     )
   performance_split_plots[[paste(wrapper, sep = "_")]] <- plot
 }
 
 ```
-
 
 ```{r}
 #| label: tbl-CBM-second
