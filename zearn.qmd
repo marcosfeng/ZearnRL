@@ -186,7 +186,7 @@ $$ {#eq-q-learn}
 where $\alpha$ is the learning rate, which determines how much the Q-value is updated based on $\delta$, the reward prediction error. The reward prediction error is the difference between the estimated Q-value and the observed reward. This error is used to update the Q-value of the chosen action in the direction of the observed reward, scaled by the learning rate $\alpha$, as follows:
 
 $$
-\delta_t = \gamma R_t - \text{cost}(a) - Q_{t-1}(a)
+\delta_t = \gamma R_t - Q_{t-1}(a)
 $$ {#eq-RPE}
 
 where:
@@ -194,8 +194,6 @@ where:
 -   $a$ is the chosen action,
 
 -   $R_t$ is the immediate reward received after taking action $a$,
-
--   $\text{cost}(a)$ is the perceived effort or inconvenience associated with action $a$,
 
 -   $\gamma$ is the discount factor[^1],
 
@@ -206,16 +204,18 @@ where:
 In other words, $\alpha$ is the extent to which the newly acquired information will override the old information. A value of 0 means the agent does not learn anything. The agent starts with an initial Q-value (which can be arbitrary) and then updates the Q-values based on the experiences it gathers from interactions with the environment. The update rule is applied every time the agent takes action $a$ and receives a reward $R$. The agent selects actions based on a policy function of the Q-values. A common choice is the softmax action selection method, which chooses actions probabilistically based on their Q-values, as follows:
 
 $$
-\text{Pr}_t(a) = \frac{e^{\tau Q_t(a)}}{\sum_{a'} e^{\tau Q_t(a')}}
+\text{Pr}_t(a) = \frac{e^{\tau U_t(a)}}{\sum_{a'} e^{\tau U_t(a')}}
 $$ {#eq-softmax}
 
 where:
 
 -   $\Pr_t(a)$ is the probability of choosing action $a$ at time $t$,
 
--   $Q_t(a)$ is the Q-value of action $a$ at time $t$,
+-   $U_t(a) = Q_t(a) - \text{cost}(a)$ is the utility of action $a$ at time $t$, which is the difference between the Q-value of action $a$ ($Q_t(a)$) and the cost associated with taking that action,
 
 -   $\tau$ is a parameter known as the inverse temperature, or the degree of randomness in the choice behavior,[^2]
+
+-   $\text{cost}(a)$ is the perceived effort or inconvenience associated with action $a$,
 
 -   The denominator is the sum over all possible actions $a' \in A$ of the exponential of their Q-values multiplied by the inverse temperature, and it functions as a normalizing value.
 
@@ -223,19 +223,19 @@ where:
 
 ### Binary Actions
 
-For cases in which actions are binary (i.e., only two options $a_1$ and $a_2$), we set one of the actions as an outside option with a Q-value and cost of zero (i.e., base value $Q(a_2)=0$ and $\text{cost}(a_2)=0$). In this case, we only update the Q-value of the other variable ($Q(a_1)$), using the same Bellman equation but a modified prediction error:
+For cases in which actions are binary (i.e., only two options $a_1$ and $a_2$), we set one of the actions as an outside option with a Q-value and cost of zero (i.e., base value $Q(a_2)=0$ and $\text{cost}(a_2)=0$). In this case, we update the difference in Q-values, using the same Bellman equation but a modified prediction error:
 
 $$
 \delta_t =
 \begin{cases}
-\gamma R_t - \text{cost}(a_1) - Q_{t-1}(a) & \text{if } a_1 \text{ is chosen} \\
+\gamma R_t - \Delta Q_{t-1} & \text{if } a_1 \text{ is chosen} \\
 -\gamma R_t & \text{if } a_2 \text{ is chosen}
 \end{cases}
 $$ {#eq-state-free}
 
 where:
 
--   $Q_{t}(a)=Q_{t}(a_1)=Q_{t}(a_1)-Q_{t}(a_2)$ is the estimate of the difference in Q-values for the two actions,
+-   $\Delta Q_{t}=Q_{t}(a_1)-Q_{t}(a_2)$ is the estimate of the difference in Q-values for the two actions,
 
 -   $\alpha$ is the learning rate,
 
@@ -244,94 +244,14 @@ where:
 Thus, the probability of choosing a particular action is determined by the logistic function as follows:
 
 $$
-\text{Pr}_t(a_1) = \frac{1}{1+e^{-\tau Q_{t}(a)}}
+\text{Pr}_t(a_1) = \frac{1}{1+e^{-\tau \Delta U_{t}(a)}}
 \\
 \text{Pr}_t(a_2) = 1 - \text{Pr}_t(a_1)
 $$
 
-## The Actor-Critic Model
+where:
 
-In the previous example, we considered a state-independent model in which the teacher's actions were based solely on their Q-values. However, in many real-world scenarios, the best action may depend on the current state of the environment. For example, if the teacher uses the Zearn platform, the effectiveness of assigning homework or reviewing material may vary depending on the students' current level of understanding. To model this type of behavior, we use the Actor-Critic model, which divides the decision-making process into two components: the "actor" and the "critic" [@sutton2018b].
-
-Consider a teacher who, each week, observes how much the students understand and chooses an action based on this observation. For example, in week 4, the teacher sees that students struggled (e.g., more "tower alerts") with the week 3 material and believes that reviewing in class (action 2) helps students progress more than assigning extra homework (action 1). So, they review in class and observe the outcome. After taking this action, the teacher checks the students' performance and updates the action selection rule (the actor) and the state value estimate (the critic) based on the observed outcome.
-
-Over time, as the teacher continues to interact with the environment and receive feedback, the actor learns to select actions that lead to higher-than-expected returns, while the critic provides increasingly accurate estimates of state values.
-
-| Week | State               | Value         | Policy                               | Action | Reward | TD Error   | Updated Policy Weights      | Updated Value Weights       |
-|------|---------------------|---------------|--------------------------------------|--------|--------|------------|-----------------------------|-----------------------------|
-| $t$  | $S_t$               | $V_t=w_t S_t$ | $\pi_t=1/(1+e^{-\tau \theta_t S_t})$ | $a$    | $R_t$  | $\delta_t$ | $\theta_{t+1}$              | $w_{t+1}$                   |
-| 1    | \[1, 0, 0\]         | 0.7106        | 0.3582                               | 1      | 0.0000 | -0.2968    | \[-1.1045,0.0725, 0.6201\]  | \[0.4761, 1.1903, 0.3878\]  |
-| 2    | \[1, 0.066, 0.091\] | 0.5901        | 0.3555                               | 2      | 0.0116 | -0.5393    | \[-1.1447, 0.0669, 0.6205\] | \[0.0500, 1.1621, 0.3490\]  |
-| 3    | \[1, 0.080, 0.089\] | 0.1738        | 0.3502                               | 2      | 0.1354 | -0.4077    | \[-1.1530, 0.0650, 0.6207\] | \[-0.2722, 1.1364, 0.3202\] |
-| 4    | \[1, 0.041, 0.090\] | -0.1969       | 0.3489                               | 2      | 0.1040 | -0.1231    | \[-1.1536, 0.0648, 0.6207\] | \[-0.3694, 1.1325, 0.3114\] |
-| 5    | \[1, 0.129, 0.090\] | -0.1957       | 0.3495                               | 1      | 0.0953 | -0.2499    | \[-1.1540, 0.0646, 0.6207\] | \[-0.5669, 1.1071, 0.2935\] |
-| ...  |                     |               |                                      |        |        |            |                             |                             |
-
-: Example of an Actor-Critic model for a teacher on the Zearn platform. Each week (\$t\$), the teacher observes the state (\$S_t\$), which is a vector representing the students' struggles. The critic estimates the value (\$V_t\$) of the current state using the value weights (\$w_t\$). The actor selects an action (\$a\$) based on the policy (\$\\pi_t\$), which is determined by the policy weights (\$\\theta_t\$) and the state. After observing the reward (\$R_t\$) associated with the chosen action, the teacher computes the temporal difference (TD) error (\$\\delta_t\$). The policy weights and value weights are then updated using the TD error. As the teacher learns from experience, the actor learns to select actions that lead to higher-than-expected returns, while the critic provides increasingly accurate estimates of state values. The values used here were drawn from an actual Zearn account ($\alpha = 0.25$, $\tau = 10.57$, $\gamma = 0.46$, $\text{cost} = 1.38$). {#tbl-ac-example}
-
-More formally, the actor selects action $a \in A$ based on a policy function, denoted as $\pi_t(a|S_t)$, which maps states to actions, determining the probability of taking each action in each state.
-
-In our setting, we set the policy as a softmax function:
-
-$$
-\pi_t(a|S_t,\theta^a_t) = \frac{e^{\tau \theta^a_t S_t}}{\sum_{a'} e^{\tau \theta^{a'}_t S_t}}
-$$
-
-where $S_{t}$ is a vector that characterizes the current state, with the first element, $1$, allowing for a bias term, followed by the remaining state variables. $\theta^a_t S_t$ is a linear combination of the state variables as determined by the policy weights $\theta^a_t$ for action $a$ at time $t$.
-
-The "critic," on the other hand, evaluates the actions taken by the actor by learning a value function, denoted as $V_t$. Given the actor's current policy, the critic estimates the expected reward for each state, and the critic's feedback (i.e., value function) guides the actor's learning. In our case:
-
-$$
-V_t = w_t S_t
-$$
-
-where $w_t$ is the vector of value weights at time $t$.
-
-We update the value function based on the difference between the estimated and actual return, analogous to the Temporal Difference (TD) error:
-
-$$
-\delta_t = (R_{t} - \text{cost}(a)) + \gamma V_t - V_{t-1}
-$$
-
-where $a$ is the chosen action at $t-1$.
-
-The agent aims to learn a policy that maximizes the expected reward by taking the gradient ascent with the partial derivatives of the value and policy functions with respect to the parameters $w_t$ and $\theta^a_t$. The update rules for the critic and actor are as follows:
-
-$$
-w_{t+1} = w_{t} + \alpha^w \delta_t \nabla V_t
-$$
-
-$$
-\theta_{t+1} = \theta_{t} + \alpha^{\theta} \gamma^{t-1} \delta_t \nabla \ln \pi_t
-$$
-
-where $\alpha^w$ and $\alpha^{\theta}$ are the learning rates for the critic and actor, respectively.
-
-### Binary Actions
-
-For cases in which actions are binary (i.e., only two options $a_1$ and $a_2$), we set one of the actions as an outside option with $\pi_t(a_2) = 1 - \pi_t(a_1|S_t,\theta^{a_1}_t)$. In this case, we have the policy function:
-
-$$
-\pi_t(a_1|S_t,\theta_t) = \frac{1}{1 + e^{-\tau \theta_t S_t}}
-$$
-
-where we call $\theta_t = \theta^{a_1}_t - \theta^{a_2}_t$ for simplicity. Therefore, we update the value and policy weights as follows:
-
-$$
-\delta_t =
-\begin{cases}
-R_{t} - \text{cost}(a_1) + \gamma V_t - V_{t-1} & \text{if } a_1 \text{ is chosen} \\
-R_{t} + \gamma V_t - V_{t-1} & \text{if } a_2 \text{ is chosen}
-\end{cases}
-$$
-
-$$
-w_{t+1} = w_{t} + \alpha^w \delta_t S_t
-$$
-
-$$
-\theta_{t+1} = \theta_{t} + \alpha^{\theta} \gamma^{t-1} \delta_t \frac{\tau S_t}{1 + e^{\tau \theta_t S_t}}
-$$
+-   $\Delta U_{t}=\Delta Q_{t} - \text{cost}(a_1)$ is the estimate of the difference in Q-values for the two actions.
 
 ## Why Reinforcement Learning?
 
@@ -1514,99 +1434,60 @@ model_comparison_df %>%
 
 To further refine our selection, we employ Hierarchical Bayesian Inference (HBI) to perform a more detailed comparison of the selected models. This statistical approach allows us to compare models not just by their individual fits but also by their ability to explain data across different subjects. In interpreting the results from HBI, we observed the differential performances of Q-learning (QL) and Actor-Critic (AC) models. @tbl-CBM-HBI provides quantifiable insights into each model's fit (BIC) and predictive power (AUC, the area under the receiver operating characteristic curve) across teachers. Generally, Q-learning models fit the data better than Actor-Critic models (i.e., lower BIC scores), and AC models outperform in terms of predictive power (higher AUC scores).
 
-<!-- tbl-CBM-HBI -->
+<!-- tbl-model-summary -->
 
 ```{r}
-#| label: tbl-CBM-HBI
-#| tbl-cap: "Comparison of model performance using Hierarchical Bayesian Inference (HBI). The table presents mean Bayesian Information Criterion (BIC) scores for different models, all featuring the 'Pedagogical Knowledge' action component, with various reward types. BIC quantifies the models' fit to the data, penalizing for model complexity, with lower values indicating better performance. The baseline model is an intercept-only regression model."
+#| label: tbl-model-summary
+#| tbl-cap: "Summary of model fits for Pedagogical Knowledge as actions and Badges as rewards. Each of the models (N~par~ = number of parameters) was fitted to participants data using Matlab’s cbm toolbox. Using individual model-fitting, we computed the mean AIC (lower values indicate better model fit)."
 
-# Define paths
-model_folder_path <- "CBM/zearn_results/hbi_results"
+# Define models and parameters
+models <- c("q_model", "logit_model", "cockburn_model", "q_model_simple", "baseline_model")
+model_names <- c("Q-learning", "Lau & Glimcher", "Cockburn et al.", "Q-learning (cost-free)", "Baseline")
+n_par <- c(5, 5, 6, 3, 1)
 
-# Create a mapping for action and reward
-action_reward_mapping <- list(
-  "14" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student4"),
-  "10" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student3"),
-  "6" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student2"),
-  "2" = list(action = "NNDSVD_teacher2", reward = "NNDSVD_student1")
+# Create a data frame for model summary
+model_summary <- data.frame(
+  Model = model_names,
+  N_par = n_par,
+  AIC = NA_real_
 )
 
-# Create a data frame for model comparison
-model_comparison_df <- data.frame(
-  Action = character(),
-  Reward = character(),
-  Q_learning = numeric(),
-  Lau_Glimcher = numeric(),
-  Cockburn = numeric()
-)
+# Calculate AIC for each model (focusing on Badges reward, wrapper 2)
+model_folder_path <- "CBM/zearn_results/aggr_results"
+wrapper <- 2  # Corresponds to Pedagogical Knowledge and Badges
 
-# Process models
-for (wrapper in c("2", "6", "10", "14")) {
-  q_file <- list.files(path = model_folder_path,
-                       pattern = paste0("hbi_compare_wrapper_",
-                                        wrapper, "_model_1.mat"),
-                       full.names = TRUE)
-  lg_file <- list.files(path = model_folder_path,
-                        pattern = paste0("hbi_compare_wrapper_",
-                                         wrapper, "_model_2.mat"),
-                        full.names = TRUE)
-  cb_file <- list.files(path = model_folder_path,
-                        pattern = paste0("hbi_compare_wrapper_",
-                                         wrapper, "_model_3.mat"),
-                        full.names = TRUE)
-  qs_file <- list.files(path = model_folder_path,
-                        pattern = paste0("hbi_compare_wrapper_",
-                                         wrapper, "_model_4.mat"),
-                        full.names = TRUE)
-  bl_file <- list.files(path = model_folder_path,
-                        pattern = "hbi_compare_wrapper_2_model_5.mat",
-                        full.names = TRUE)
-
-  q_data <- readMat(q_file)
-  lg_data <- readMat(lg_file)
-  cb_data <- readMat(cb_file)
-  qs_data <- readMat(qs_file)
-  bl_data <- readMat(bl_file)
-
-  model_comparison_df <- rbind(model_comparison_df, data.frame(
-    Action = action_reward_mapping[[wrapper]]$action,
-    Reward = action_reward_mapping[[wrapper]]$reward,
-    Q_learning = mean(q_data[["cbm"]][[5]][[9]], na.rm = TRUE),
-    Lau_Glimcher = mean(lg_data[["cbm"]][[5]][[9]], na.rm = TRUE),
-    Cockburn = mean(cb_data[["cbm"]][[5]][[9]], na.rm = TRUE),
-    Q_simple = mean(qs_data[["cbm"]][[5]][[9]], na.rm = TRUE),
-    Baseline = mean(bl_data[["cbm"]][[5]][[9]], na.rm = TRUE)
-  ))
+for (i in seq_along(models)) {
+  file_path <- file.path(model_folder_path, sprintf("lap_aggr_%s_%d.mat", models[i], wrapper))
+  if (file.exists(file_path)) {
+    mat_data <- readMat(file_path)
+    log_lik <- mat_data[["cbm"]][[5]][[2]]
+    aic <- mean(-2 * log_lik + 2 * n_par[i])
+    model_summary$AIC[i] <- aic
+  }
 }
 
-# Display the table
-model_comparison_df %>%
-  mutate(across(c(Action, Reward), ~ case_when(
-    . == "NNDSVD_student1" ~ "Badges",
-    . == "NNDSVD_student2" ~ "Struggles",
-    . == "NNDSVD_student3" ~ "No. Students",
-    . == "NNDSVD_student4" ~ "Activity",
-    . == "NNDSVD_teacher1" ~ "Assessments",
-    . == "NNDSVD_teacher2" ~ "Pedagogical Knowledge",
-    . == "NNDSVD_teacher3" ~ "Group Instruction",
-    . == "NNDSVD_teacher4" ~ "Curriculum Planning",
-    . == "None" ~ "NA",
-    .default = .
-    ))) %>%
-  gt(groupname_col = "Action", row_group_as_column = TRUE) %>%
-  tab_stubhead("Action") %>%
-  tab_header(title = "Model Comparison - Mean BIC Scores") %>%
-  fmt_number(columns = c(
-    Q_learning, Lau_Glimcher, Cockburn,
-    Q_simple, Baseline
-    ), decimals = 3) %>%
+# Create the table
+model_summary_table <- model_summary %>%
+  gt() %>%
+  cols_align(align = "center") %>%
   cols_label(
-    Q_learning = "Q-learning",
-    Lau_Glimcher = "Lau & Glimcher",
-    Cockburn = "Cockburn et al.",
-    Q_simple = "Q-learning (no cost)",
-    Baseline = "Baseline"
+    N_par = "N~par~",
+    AIC = "AIC"
+  ) %>%
+  fmt_markdown() %>%
+  fmt_number(columns = AIC, decimals = 1) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
   )
+
+# Display the table
+model_summary_table
+
+# Commented code for future implementation of OOS acc, Frequency, and N_best
+# model_summary$OOS_acc <- NA  # Placeholder for out-of-sample accuracy
+# model_summary$Frequency <- NA  # Placeholder for frequency
+# model_summary$N_best <- NA  # Placeholder for N_best
 
 ```
 
@@ -1616,6 +1497,169 @@ model_comparison_df %>%
 <!-- This function creates plots to visualize how teachers' choices are influenced by expected rewards compared to actual behavior -->
 
 ```{r}
+#| label: fig-reward-seeking
+#| fig-cap: "Reward-seeking behavior. The graphs compare three models (Q-learning, Lau & Glimcher, and Baseline) in their ability to capture teachers' reward-seeking behavior. The x-axis represents the percentile of the difference in Q-values between action and inaction. The y-axis shows the proportion of times teachers chose to act. Black points represent mean proportions observed across teachers, with error bars depicting the standard error of these means. The dashed black line represents the smoothed trend of observed teacher behavior. Colored lines and shaded areas show model predictions with 95% confidence intervals."
+
+plot_reward_seeking <- function(sim_data, wrapper, 
+                                lower_bound = 0.05, upper_bound = 0.95,
+                                y_limits = c(0.29,0.41),
+                                models = c("Q-learning",
+                                           "Baseline",
+                                           "Lau & Glimcher")) {
+  # Calculate EV and Uncertainty
+  sim_data <- sim_data %>%
+    group_by(Classroom.ID) %>%
+    mutate(
+      q_val_1_percentile = percent_rank(q_val_1)
+    ) %>%
+    ungroup()
+
+  # Filter data for geom_smooth
+  smooth_data <- sim_data %>%
+    filter(q_val_1_percentile >= lower_bound,
+           q_val_1_percentile <= upper_bound)
+
+  # Create quantile-based bins for EV
+  sim_data <- smooth_data %>%
+    mutate(
+      q_bin = cut(
+        q_val_1_percentile,
+        breaks = seq(lower_bound, upper_bound,
+                     (upper_bound-lower_bound)/6),
+        labels = FALSE,
+        include.lowest = TRUE
+        ))
+
+  # Prepare plot data
+  plot_data_qv <- sim_data %>%
+    group_by(q_bin) %>%
+    summarise(
+      mean_choice = mean(action, na.rm = TRUE),
+      se_choice = sd(action, na.rm = TRUE) / sqrt(n()),
+      mean_q_diff = mean(q_val_1, na.rm = TRUE),
+      mean_q_diff_perc = mean(q_val_1_percentile, na.rm = TRUE),
+      mean_pred_1 = mean(pred_2_1, na.rm = TRUE),
+      se_pred_1 = sd(pred_2_1, na.rm = TRUE) / sqrt(n()),
+      mean_pred_2 = mean(pred_2_2, na.rm = TRUE),
+      se_pred_2 = sd(pred_2_2, na.rm = TRUE) / sqrt(n()),
+      mean_pred_3 = mean(pred_2, na.rm = TRUE),
+      se_pred_3 = sd(pred_2, na.rm = TRUE) / sqrt(n())
+    ) %>%
+    filter(!is.na(q_bin))
+
+  # Calculate x-axis breaks and labels
+  breaks_q <- plot_data_qv$mean_q_diff_perc
+  labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
+
+  model_colors <- c(
+    "Data" = "black", 
+    "Q-learning" = brewer.pal(8, "Set2")[2],
+    "Lau & Glimcher" = brewer.pal(8, "Set2")[1],
+    "Baseline" = brewer.pal(8, "Set2")[8])
+
+  p <- ggplot(smooth_data) +
+    geom_smooth(aes(x = q_val_1_percentile,
+                    y = action), color = model_colors["Data"],
+                method = "glm", method.args = list(family = "binomial"),
+                se = FALSE, linetype = "dashed") +
+    geom_point(data = plot_data_qv,
+               aes(x = mean_q_diff_perc,
+                   y = mean_choice), color = model_colors["Data"], size = 1) +
+    geom_errorbar(data = plot_data_qv,
+                  aes(x = mean_q_diff_perc, y = mean_choice,
+                      ymin = mean_choice - se_choice,
+                      ymax = mean_choice + se_choice),
+                  color = model_colors["Data"], width = 0)
+
+  # Create a list to store the last points for each model
+  last_points <- list()
+
+  for (model in models) {
+    if (model == "Baseline") {
+      y_col <- "pred_2"
+    } else if (model == "Lau & Glimcher") {
+      y_col <- "pred_2_2"
+    } else if (model == "Q-learning") {
+      y_col <- "pred_2_1"
+    }
+    
+    p <- p + geom_smooth(aes(x = q_val_1_percentile,
+                             y = !!sym(y_col)), 
+                         method = "glm",
+                         method.args = list(family = "quasibinomial"),
+                         se = TRUE, alpha = 0.2,
+                         color = model_colors[model],
+                         fill = model_colors[model])
+
+    # Get the last point for this model
+    last_point <- smooth_data %>%
+      filter(q_val_1_percentile == max(q_val_1_percentile)) %>%
+      summarise(x = max(q_val_1_percentile),
+                y = mean(!!sym(y_col), na.rm = TRUE),
+                model = model)
+    
+    last_points[[model]] <- last_point
+  }
+
+  # Combine all last points
+  all_last_points <- bind_rows(last_points)
+  
+  p + labs(x = "Q-value difference (percentile)",
+           y = "% Choice",
+           title = paste("Reward Seeking -",
+                         action_reward_mapping[[wrapper]]$reward)) +
+    geom_label_repel(data = all_last_points, 
+                     aes(x = x, y = y, 
+                         label = model, color = model),
+                     nudge_x = 0.1,
+                     direction = "y",
+                     segment.color = "gray50",
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    scale_x_continuous(breaks = breaks_q, labels = labels) +
+    coord_cartesian(ylim = y_limits,
+                    xlim = c(min(breaks_q), max(breaks_q) + 0.15)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    scale_color_manual(values = model_colors) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(size = 10),
+      axis.line = element_line(colour = "black"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"  # Remove the legend
+    )
+}
+
+all_reward_seeking_plots <- map(c(2, 14), function(wrapper) {
+  full_data <- all_predictions[[
+    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
+  ]] %>%
+    full_join(all_predictions[[
+      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
+    ]], by = c("Classroom.ID", "week", "action", "reward"),
+    suffix = c("_1", "_2")
+    ) %>%
+    full_join(all_predictions[[
+      paste0("hbi_compare_wrapper_", 2, "_model_", 5, ".mat")
+    ]], by = c("Classroom.ID", "week", "action"))
+  plot_reward_seeking(full_data, wrapper)
+})
+
+all_reward_seeking_plots
+
+```
+
+<!-- # Plot uncertainty aversion -->
+<!-- # This function creates plots to show how teachers' choices are affected by uncertainty -->
+<!-- # It compares actual behavior with predictions from different models -->
+
+```{r}
+#| label: fig-uncertainty-aversion
+#| fig-cap: "Uncertainty aversion. The graphs compare three models (Q-learning, Lau & Glimcher, and Baseline) in their ability to capture teachers' uncertainty-related behavior. The x-axis represents the percentile of the difference in expected value (EV) between uncertain and certain options, calculated from the cumulative means and standard deviations of rewards associated with each action. The y-axis shows the proportion of times teachers chose the uncertain option. Black points represent mean proportions observed across teachers, with error bars depicting the standard error of these means. The dashed black line represents the smoothed trend of observed teacher behavior. Colored lines and shaded areas show model predictions with 95% confidence intervals. The horizontal dashed line at 50% represents indifference between certain and uncertain options."
 
 # Function to calculate cumulative mean ignoring NAs
 cummean_ignore_na <- function(x) {
@@ -1668,191 +1712,14 @@ calculate_ev_uncertainty <- function(action, outcome) {
   return(list(ev = ev, uncertainty = uncertainty))
 }
 
-plot_reward_seeking <- function(sim_data, wrapper) {
-  # Calculate EV and Uncertainty
-  sim_data <- sim_data %>%
-    group_by(Classroom.ID) %>%
-    mutate(ev = calculate_ev_uncertainty(action, reward)[[1]],
-           sd = calculate_ev_uncertainty(action, reward)[[2]]) %>%
-    mutate(
-      # Create lagged predictors
-      lag_ev = c(0, ev[-n()]),
-      lag_sd = c(0, replace_na(sd[-n()], 0))
-    ) %>%
-    mutate(
-      q_val_1_percentile = percent_rank(q_val_1),
-      lag_ev_percentile = percent_rank(lag_ev)
-    ) %>%
-    ungroup()
 
-  lower_bound = 0.05
-  upper_bound = 0.95
-  # Filter data for geom_smooth
-  smooth_data <- sim_data %>%
-    filter(lag_ev_percentile >= lower_bound,
-           lag_ev_percentile <= upper_bound,
-           q_val_1_percentile >= lower_bound,
-           q_val_1_percentile <= upper_bound)
-
-  # Create quantile-based bins for EV
-  sim_data <- smooth_data %>%
-    mutate(
-      ev_bin = cut(
-        lag_ev_percentile,
-        breaks = seq(0.05, 0.95, 0.15),
-        labels = FALSE,
-        include.lowest = TRUE),
-      q_bin = cut(
-        q_val_1_percentile,
-        breaks = seq(0.05, 0.95, 0.15),
-        labels = FALSE,
-        include.lowest = TRUE
-        ))
-
-  # Prepare plot data
-  plot_data_ev <- sim_data %>%
-    group_by(ev_bin) %>%
-    summarise(
-      mean_choice = mean(action, na.rm = TRUE),
-      se_choice = sd(action, na.rm = TRUE) / sqrt(n()),
-      mean_ev = mean(lag_ev, na.rm = TRUE),
-      mean_ev_perc = mean(lag_ev_percentile, na.rm = TRUE),
-      mean_uncertainty = mean(lag_sd, na.rm = TRUE),
-      mean_pred_1 = mean(pred_2_1, na.rm = TRUE),
-      se_pred_1 = sd(pred_2_1, na.rm = TRUE) / sqrt(n()),
-      mean_pred_2 = mean(pred_2_2, na.rm = TRUE),
-      se_pred_2 = sd(pred_2_2, na.rm = TRUE) / sqrt(n()),
-      mean_pred_3 = mean(pred_2, na.rm = TRUE),
-      se_pred_3 = sd(pred_2, na.rm = TRUE) / sqrt(n())
-    ) %>%
-    filter(!is.na(ev_bin))
-  plot_data_qv <- sim_data %>%
-    group_by(q_bin) %>%
-    summarise(
-      mean_choice = mean(action, na.rm = TRUE),
-      se_choice = sd(action, na.rm = TRUE) / sqrt(n()),
-      mean_q_diff = mean(q_val_1, na.rm = TRUE),
-      mean_q_diff_perc = mean(q_val_1_percentile, na.rm = TRUE),
-      mean_uncertainty = mean(lag_sd, na.rm = TRUE),
-      mean_pred_1 = mean(pred_2_1, na.rm = TRUE),
-      se_pred_1 = sd(pred_2_1, na.rm = TRUE) / sqrt(n()),
-      mean_pred_2 = mean(pred_2_2, na.rm = TRUE),
-      se_pred_2 = sd(pred_2_2, na.rm = TRUE) / sqrt(n()),
-      mean_pred_3 = mean(pred_2, na.rm = TRUE),
-      se_pred_3 = sd(pred_2, na.rm = TRUE) / sqrt(n())
-    ) %>%
-    filter(!is.na(q_bin))
-
-  # Calculate x-axis breaks and labels
-  breaks_ev <- plot_data_ev$mean_ev_perc
-  breaks_q <- plot_data_qv$mean_q_diff_perc
-  labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
-
-  ggplot(smooth_data) +
-    geom_hline(yintercept = 0.5, linetype = "dotted") +
-    # Lau & Glimcher model (pred_2_2)
-    geom_smooth(aes(x = lag_ev_percentile, y = pred_2_2), method = "glm",
-                method.args = list(family = "quasibinomial"),
-                color = "red", fill = "red", alpha = 0.2) +
-    # Model 3 (pred_3)
-    geom_smooth(aes(x = lag_ev_percentile, y = pred_2), method = "glm",
-                method.args = list(family = "quasibinomial"),
-                color = "green", fill = "green", alpha = 0.2) +
-    # Q-learning model (pred_2_1)
-    geom_smooth(aes(x = q_val_1_percentile, y = pred_2_1), method = "glm",
-                method.args = list(family = "quasibinomial"),
-                color = "blue", fill = "blue", alpha = 0.2) +
-    # Smooth line for real data
-    geom_smooth(aes(x = lag_ev_percentile, y = action),
-                method = "glm", method.args = list(family = "binomial"),
-                se = FALSE, color = "black", linetype = "dashed") +
-    # Points and error bars for binned data
-    geom_point(data = plot_data_ev,
-               aes(x = mean_ev_perc, y = mean_choice), size = 1) +
-    geom_errorbar(data = plot_data_ev,
-                  aes(x = mean_ev_perc, y = mean_choice,
-                      ymin = mean_choice - se_choice,
-                      ymax = mean_choice + se_choice),
-                  width = 0) +
-    # Q-diff plot
-    geom_smooth(data = smooth_data,
-                aes(x = q_val_1_percentile, y = action),
-                method = "glm", method.args = list(family = "binomial"),
-                se = FALSE, color = "gray", linetype = "dashed") +
-    geom_point(data = plot_data_qv,
-               aes(x = mean_q_diff_perc, y = mean_choice),
-               size = 1, color = "gray") +
-    geom_errorbar(data = plot_data_qv,
-                  aes(x = mean_q_diff_perc, y = mean_choice,
-                      ymin = mean_choice - se_choice,
-                      ymax = mean_choice + se_choice),
-                  width = 0, color = "gray") +
-    labs(x = "Expected value / Q-value difference (percentile)",
-         y = "% Choice",
-         title = paste("Reward Seeking", wrapper)) +
-    scale_x_continuous(
-      # sec.axis = sec_axis(~ ., breaks = breaks_q, labels = labels),
-      breaks = breaks_ev,
-      labels = labels
-    ) +
-    coord_cartesian(ylim = c(0.2, 0.6)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1),
-                       limits = c(0, 1)) +
-    scale_color_manual(values = c("Data (EV)" = "black", 
-                                  "Data (Q-value)" = "gray", 
-                                  "Q-learning" = "blue", 
-                                  "Lau & Glimcher" = "red", 
-                                  "Cockburn" = "green")) +
-    theme_classic() +
-    theme(
-      plot.title = element_text(size = 10),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      legend.position = "bottom"
-    )
-    
-}
-
-# Create a list to store all plots
-all_reward_seeking_plots <- list()
-
-# Generate all 4 plots
-for (wrapper in c(2, 6, 10, 14)) {
-  full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
-  ]] %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"),
-    suffix = c("_1", "_2")
-    ) %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 3, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"))
-  full_data <- full_data %>%
-    # Filter data for teachers with week 9
-    group_by(Classroom.ID) %>%
-    filter(week == 9) %>%
-    pull(Classroom.ID) %>%
-    {filter(full_data, Classroom.ID %in% .)} %>%
-    mutate(adjusted_week = week - 9 + 1) %>%
-    filter(adjusted_week >= 1)
-
-  plot <- plot_reward_seeking(full_data, wrapper)
-  all_reward_seeking_plots[[paste(wrapper, sep = "_")]] <- plot
-}
-
-```
-
-<!-- # Plot uncertainty aversion -->
-<!-- # This function creates plots to show how teachers' choices are affected by uncertainty -->
-<!-- # It compares actual behavior with predictions from different models -->
-
-```{r}
-
-plot_uncertainty_aversion <- function(sim_data, wrapper) {
+plot_uncertainty_aversion <- function(sim_data, wrapper, 
+                                      lower_bound = 0.05,
+                                      upper_bound = 0.95,
+                                      y_limits = c(0.35, 0.65),
+                                      models = c("Q-learning",
+                                                 "Baseline",
+                                                 "Lau & Glimcher")) {
   # Calculate delta EV and choice_uncertain
   sim_data <- sim_data %>%
     group_by(Classroom.ID) %>%
@@ -1862,29 +1729,36 @@ plot_uncertainty_aversion <- function(sim_data, wrapper) {
       lag_ev = c(0, ev[-n()]),
       lag_sd = c(0, replace_na(sd[-n()], 0)),
       delta_ev = if_else(lag_sd > 0, lag_ev, -lag_ev),
+      delta_ev_percentile = percent_rank(delta_ev),
       choice_uncertain = as.numeric(xor(action == 0, lag_sd > 0)),
-      # Calculate choice_uncertain for each model
-      choice_uncertain_pred_1 = as.numeric(xor(pred_1_1 > 0.5, lag_sd > 0)),
-      choice_uncertain_pred_2 = as.numeric(xor(pred_1_2 > 0.5, lag_sd > 0)),
-      choice_uncertain_pred_3 = as.numeric(xor(pred_1 > 0.5, lag_sd > 0))
+      # choice_uncertain for each model
+      choice_uncertain_pred_1 = if_else(lag_sd > 0,
+                                        pred_2_1,
+                                        1 - pred_2_1),
+      choice_uncertain_pred_2 = if_else(lag_sd > 0,
+                                        pred_2_2,
+                                        1 - pred_2_2),
+      choice_uncertain_pred_3 = if_else(lag_sd > 0,
+                                        pred_2,
+                                        1 - pred_2)
     ) %>%
     ungroup()
 
-  # Calculate 5th and 95th percentiles
-  lower_bound <- quantile(sim_data$delta_ev, 0.05, na.rm = TRUE)
-  upper_bound <- quantile(sim_data$delta_ev, 0.95, na.rm = TRUE)
-
   # Filter data for geom_smooth
   smooth_data <- sim_data %>%
-    filter(delta_ev >= lower_bound, delta_ev <= upper_bound)
+    filter(delta_ev_percentile >= lower_bound,
+           delta_ev_percentile <= upper_bound)
 
   # Create quantile-based bins
-  sim_data <- sim_data %>%
-    mutate(ev_bin = cut(delta_ev,
-                        breaks = quantile(delta_ev,
-                                          probs = seq(0.05, 0.95, 0.15),
-                                          na.rm = TRUE),
-                        labels = FALSE, include.lowest = TRUE))
+  sim_data <- smooth_data %>%
+    mutate(
+      ev_bin = cut(
+        delta_ev_percentile,
+        breaks = seq(lower_bound, upper_bound,
+                     (upper_bound-lower_bound)/6),
+        labels = FALSE,
+        include.lowest = TRUE
+      ))
 
   # Prepare plot data
   plot_data <- sim_data %>%
@@ -1893,67 +1767,107 @@ plot_uncertainty_aversion <- function(sim_data, wrapper) {
       mean_choice_uncertain = mean(choice_uncertain, na.rm = TRUE),
       se_choice_uncertain = sd(choice_uncertain, na.rm = TRUE) / sqrt(n()),
       mean_delta_ev = mean(delta_ev, na.rm = TRUE),
-      mean_pred_1 = mean(choice_uncertain_pred_1, na.rm = TRUE),
+      mean_delta_ev_perc = mean(delta_ev_percentile, na.rm = TRUE),
       se_pred_1 = sd(choice_uncertain_pred_1, na.rm = TRUE) / sqrt(n()),
-      mean_pred_2 = mean(choice_uncertain_pred_2, na.rm = TRUE),
+      choice_uncertain_pred_1 = mean(
+        choice_uncertain_pred_1, na.rm = TRUE),
       se_pred_2 = sd(choice_uncertain_pred_2, na.rm = TRUE) / sqrt(n()),
-      mean_pred_3 = mean(choice_uncertain_pred_3, na.rm = TRUE),
-      se_pred_3 = sd(choice_uncertain_pred_3, na.rm = TRUE) / sqrt(n())
+      choice_uncertain_pred_2 = mean(
+        choice_uncertain_pred_2, na.rm = TRUE),
+      se_pred_3 = sd(choice_uncertain_pred_3, na.rm = TRUE) / sqrt(n()),
+      choice_uncertain_pred_3 = mean(
+        choice_uncertain_pred_3, na.rm = TRUE)
     ) %>%
     filter(!is.na(ev_bin))
 
   # Calculate x-axis breaks and labels
-  breaks <- plot_data$mean_delta_ev
+  breaks_q <- plot_data$mean_delta_ev_perc
   labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
 
-  ggplot(smooth_data, aes(x = delta_ev, y = as.numeric(choice_uncertain))) +
-    geom_hline(yintercept = 0.5, linetype = "dotted") +
-    # Lau & Glimcher model (pred_2)
-    geom_smooth(aes(y = choice_uncertain_pred_2), method = "glm",
-                method.args = list(family = "binomial"),
-                color = "red", fill = "red", alpha = 0.2) +
-    # Model 3 (pred_3)
-    geom_smooth(aes(y = choice_uncertain_pred_3), method = "glm",
-                method.args = list(family = "binomial"),
-                color = "green", fill = "green", alpha = 0.2) +
-    # Q-learning model (pred_1)
-    geom_smooth(aes(y = choice_uncertain_pred_1), method = "glm",
-                method.args = list(family = "binomial"),
-                color = "blue", fill = "blue", alpha = 0.2) +
-    # Smooth line for real data
-    geom_smooth(method = "glm", method.args = list(family = "binomial"),
-                se = FALSE, color = "black", linetype = "dashed") +
-    # Points and error bars for binned data
+  model_colors <- c(
+    "Data" = "black", 
+    "Q-learning" = brewer.pal(8, "Set2")[2],
+    "Lau & Glimcher" = brewer.pal(8, "Set2")[1],
+    "Baseline" = brewer.pal(8, "Set2")[8])
+
+  p <- ggplot(smooth_data) +
+    geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+    geom_smooth(aes(x = delta_ev_percentile, y = choice_uncertain),
+                color = model_colors["Data"],
+                method = "glm", method.args = list(family = "binomial"),
+                se = FALSE, linetype = "dashed") +
     geom_point(data = plot_data,
-               aes(x = mean_delta_ev, y = mean_choice_uncertain), size = 1) +
+               aes(x = mean_delta_ev_perc, y = mean_choice_uncertain),
+               color = model_colors["Data"], size = 1) +
     geom_errorbar(data = plot_data,
-                  aes(x = mean_delta_ev,
-                      y = mean_choice_uncertain,
+                  aes(x = mean_delta_ev_perc, y = mean_choice_uncertain,
                       ymin = mean_choice_uncertain - se_choice_uncertain,
                       ymax = mean_choice_uncertain + se_choice_uncertain),
-                  width = 0) +
-    labs(x = "ΔEV (Uncertain - Certain) (percentile)",
-         y = "% Choice Uncertain",
-         title = paste("Uncertainty Aversion", wrapper)) +
-    scale_x_continuous(breaks = breaks, labels = labels) +
-    coord_cartesian(ylim = c(0, 1)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1),
-                       limits = c(0, 1)) +
+                  color = model_colors["Data"], width = 0)
+
+  # Create a list to store the last points for each model
+  last_points <- list()
+
+  for (model in models) {
+    if (model == "Baseline") {
+      y_col <- "choice_uncertain_pred_3"
+    } else if (model == "Lau & Glimcher") {
+      y_col <- "choice_uncertain_pred_2"
+    } else if (model == "Q-learning") {
+      y_col <- "choice_uncertain_pred_1"
+    }
+    
+    p <- p + geom_smooth(aes(x = delta_ev_percentile, y = !!sym(y_col)), 
+                         method = "glm",
+                         method.args = list(family = "quasibinomial"),
+                         se = TRUE, alpha = 0.2,
+                         color = model_colors[model],
+                         fill = model_colors[model])
+
+    # Get the last point for this model
+    last_point <- plot_data %>%
+      filter(mean_delta_ev_perc == max(mean_delta_ev_perc)) %>%
+      summarise(x = max(mean_delta_ev_perc),
+                y = !!sym(y_col),
+                model = model)
+    
+    last_points[[model]] <- last_point
+  }
+
+  # Combine all last points
+  all_last_points <- bind_rows(last_points)
+  
+  p + labs(x = "Diff. EV (Uncertain - Certain) (percentile)",
+           y = "% Choice Uncertain",
+           title = paste("Uncertainty Aversion -",
+                         action_reward_mapping[[wrapper]]$reward)) +
+    geom_label_repel(data = all_last_points, 
+                     aes(x = x, y = y, 
+                         label = model, color = model),
+                     nudge_x = 0.2,
+                     direction = "y",
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    scale_x_continuous(breaks = breaks_q, labels = labels) +
+    coord_cartesian(ylim = y_limits,
+                    xlim = c(min(breaks_q), max(breaks_q) + 0.25)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    scale_color_manual(values = model_colors) +
     theme_classic() +
     theme(
       plot.title = element_text(size = 10),
       axis.line = element_line(colour = "black"),
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"  # Remove the legend
     )
 }
 
-# Create a list to store all plots
-all_uncertainty_plots <- list()
-
-# Generate all 4 plots
-for (wrapper in c(2, 10, 14)) {
+all_uncertainty_plots <- map(c(2, 14), function(wrapper) {
   full_data <- all_predictions[[
     paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
   ]] %>%
@@ -1963,20 +1877,12 @@ for (wrapper in c(2, 10, 14)) {
     suffix = c("_1", "_2")
     ) %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 3, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"))
-  full_data <- full_data %>%
-    # Filter data for teachers with week 9
-    group_by(Classroom.ID) %>%
-    filter(week == 9) %>%
-    pull(Classroom.ID) %>%
-    {filter(full_data, Classroom.ID %in% .)} %>%
-    mutate(adjusted_week = week - 9 + 1) %>%
-    filter(adjusted_week >= 1)
+      paste0("hbi_compare_wrapper_", 2, "_model_", 5, ".mat")
+    ]] %>% select(-reward), by = c("Classroom.ID", "week", "action"))
+  plot_uncertainty_aversion(full_data, wrapper)
+})
 
-  plot <- plot_uncertainty_aversion(full_data, wrapper)
-  all_uncertainty_plots[[paste(wrapper, sep = "_")]] <- plot
-}
+all_uncertainty_plots
 
 ```
 
@@ -1984,7 +1890,7 @@ for (wrapper in c(2, 10, 14)) {
 <!-- # This function visualizes how prediction errors from different models relate to subsequent choices -->
 <!-- # It helps in understanding how well each model captures learning dynamics -->
 
-```{r}
+```{r load_parameters}
 
 load_parameters <- function(file_path) {
   mat_data <- readMat(file_path)
@@ -2014,145 +1920,235 @@ load_parameters <- function(file_path) {
   return(data)
 }
 
-plot_prediction_errors <- function(sim_data, wrapper, matlab_file) {
-  parameters <- load_parameters(matlab_file)
+```
+
+```{r}
+#| label: fig-prediction-errors
+#| fig-cap: "Learning curves. The plots show the mean reward prediction errors across teachers over time. The x-axis represents biweekly periods throughout the school year. The solid line represents mean values and the shaded area represents the standard error of the mean. A dashed horizontal line at y=0 serves as a reference for zero prediction error. The curve illustrates a general trend of increasing prediction accuracy (decreasing absolute prediction error) until March."
+
+plot_prediction_errors <- function(sim_data, wrapper) {
+  # Load parameters
+  parameters <- load_parameters(
+    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
+           wrapper, "_model_1.mat")
+    )
   
-  # Calculate prediction errors
-  sim_data <- sim_data %>%
+  # Calculate prediction errors and prepare data
+  plot_data <- sim_data %>%
     inner_join(parameters, by = "Classroom.ID") %>%
     group_by(Classroom.ID) %>%
+    arrange(Classroom.ID, week) %>%
     mutate(
-      # Q-learning PE
-      q_pe = gamma * reward - q_val_1,
-      
-      # Cockburn PE: reward - EV
-      ev = calculate_ev_uncertainty(action, reward)[[1]],
-      cockburn_pe = reward - ev,
-      
-      # Shift actions to align with previous week's PE
-      next_action = lead(action)
-    ) %>%
-    ungroup()
-
-  # Calculate 5th and 95th percentiles for both PEs
-  lower_bound_q <- quantile(sim_data$q_pe, 0.05, na.rm = TRUE)
-  upper_bound_q <- quantile(sim_data$q_pe, 0.95, na.rm = TRUE)
-  lower_bound_c <- quantile(sim_data$cockburn_pe, 0.05, na.rm = TRUE)
-  upper_bound_c <- quantile(sim_data$cockburn_pe, 0.95, na.rm = TRUE)
-  
-  # Filter data for geom_smooth
-  smooth_data <- sim_data %>%
-    filter(q_pe >= lower_bound_q, q_pe <= upper_bound_q,
-           cockburn_pe >= lower_bound_c, cockburn_pe <= upper_bound_c)
-
-  # Create quantile-based bins for both PEs
-  sim_data <- sim_data %>%
-    mutate(
-      q_pe_bin = cut(
-        q_pe, 
-        breaks = quantile(q_pe, probs = seq(0.05, 0.95, 0.15), na.rm = TRUE),
-        labels = FALSE,
-        include.lowest = TRUE
+      time_diff = week - lag(week),
+      q_pe = case_when(
+        lag(action) == 1 ~  gamma^time_diff * reward - q_val,
+        lag(action) == 0 ~ -gamma^time_diff * reward,
+        TRUE ~ NA_real_
       ),
-      cockburn_pe_bin = cut(
-        cockburn_pe, 
-        breaks = quantile(cockburn_pe, probs = seq(0.05, 0.95, 0.15), na.rm = TRUE),
-        labels = FALSE,
-        include.lowest = TRUE
-      )
+      biweek = ceiling(adjusted_week / 2)
+    ) %>%
+    ungroup() %>%
+    group_by(biweek) %>%
+    summarise(
+      mean_q_pe = mean(q_pe, na.rm = TRUE),
+      se_q_pe = sd(q_pe, na.rm = TRUE) / sqrt(n()),
+      date = mean(date)
     )
 
-  # Prepare plot data
-  plot_data_q <- sim_data %>%
-    group_by(q_pe_bin) %>%
-    summarise(
-      mean_choice_q = mean(next_action, na.rm = TRUE),
-      se_choice_q = sd(next_action, na.rm = TRUE) / sqrt(n()),
-      mean_q_pe = mean(q_pe, na.rm = TRUE)
-    ) %>%
-    filter(!is.na(q_pe_bin))
-  plot_data_cb <- sim_data %>%
-    group_by(cockburn_pe_bin) %>%
-    summarise(
-      mean_choice_cb = mean(next_action, na.rm = TRUE),
-      se_choice_cb = sd(next_action, na.rm = TRUE) / sqrt(n()),
-      mean_cockburn_cb = mean(cockburn_pe, na.rm = TRUE)
-    ) %>%
-    filter(!is.na(cockburn_pe_bin))
+  # Prepare x-axis breaks and labels
+  month_breaks <- plot_data %>%
+    mutate(month = floor_date(date, "month")) %>%
+    group_by(month) %>%
+    summarise(biweek = first(biweek)) %>%
+    mutate(month_label = format(month, "%b")) %>%
+    mutate(month_label = if_else(month_label == "Aug", "", month_label))
 
-  # Calculate x-axis breaks and labels
-  breaks_q <- plot_data_q$mean_q_pe
-  breaks_c <- plot_data_cb$mean_cockburn_cb
-  labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
+  # Define color scheme
+  colors <- c("Prediction Error" = brewer.pal(8, "Set2")[1])
 
   # Create the plot
-  p <- ggplot() +
-    geom_hline(yintercept = 0.5, linetype = "dotted") +
-    # Q-learning PE plot
-    geom_smooth(data = smooth_data,
-                aes(x = q_pe, y = next_action), 
-                method = "glm", method.args = list(family = "binomial"),
-                se = FALSE, color = "blue", linetype = "dashed") +
-    geom_point(data = plot_data_q,
-               aes(x = mean_q_pe, y = mean_choice_q), 
-               size = 1, color = "blue") +
-    geom_errorbar(data = plot_data_q, 
-                  aes(x = mean_q_pe, y = mean_choice_q,
-                      ymin = mean_choice_q - se_choice_q,
-                      ymax = mean_choice_q + se_choice_q), 
-                  width = 0, color = "blue") +
-    # Cockburn PE plot
-    geom_smooth(data = smooth_data,
-                aes(x = cockburn_pe, y = next_action), 
-                method = "glm", method.args = list(family = "binomial"),
-                se = FALSE, color = "red", linetype = "dashed") +
-    geom_point(data = plot_data_cb,
-               aes(x = mean_cockburn_cb, y = mean_choice_cb), 
-               size = 1, color = "red") +
-    geom_errorbar(data = plot_data_cb, 
-                  aes(x = mean_cockburn_cb, y = mean_choice_cb,
-                      ymin = mean_choice_cb - se_choice_cb,
-                      ymax = mean_choice_cb + se_choice_cb), 
-                  width = 0, color = "red") +
-    labs(x = "Previous Week's Prediction Error (percentile)", 
-         y = "% Choice This Week", 
-         title = paste("Next Week's Choice vs. This Week's Prediction Errors", wrapper)) +
-    scale_x_continuous(
-      sec.axis = sec_axis(~ ., breaks = breaks_c, labels = labels),
-      breaks = breaks_q, 
-      labels = labels
-    ) +
-    coord_cartesian(ylim = c(0.1, 0.7)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1),
-                       limits = c(0, 1)) +
+  ggplot(plot_data, aes(x = biweek)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+    geom_line(aes(y = mean_q_pe, color = "Prediction Error")) +
+    geom_ribbon(aes(ymin = mean_q_pe - se_q_pe, 
+                    ymax = mean_q_pe + se_q_pe, 
+                    fill = "Prediction Error"), alpha = 0.2) +
+    labs(x = "Biweekly Period", 
+         y = "Value",
+         title = paste("Learning Curves -", 
+                       action_reward_mapping[[wrapper]]$reward),
+         color = "Measure", fill = "Measure") +
+    scale_color_manual(values = colors) +
+    scale_fill_manual(values = colors) +
     theme_classic() +
     theme(
-      plot.title = element_text(size = 10),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
+      plot.title = element_text(size = 12, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "bottom"
+    ) +
+    scale_x_continuous(breaks = month_breaks$biweek,
+                       labels = month_breaks$month_label)
+    # coord_cartesian(ylim = y_limits)
+}
+
+# Generate plots
+prediction_error_plots <- map(c(2, 14), function(wrapper) {
+  full_data <- all_predictions[[
+    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
+  ]]
+  
+  full_data <- full_data %>%
+    group_by(Classroom.ID) %>%
+    filter(week == 10) %>%
+    pull(Classroom.ID) %>%
+    {filter(full_data, Classroom.ID %in% .)} %>%
+    mutate(adjusted_week = week - 8) %>%
+    filter(adjusted_week >= 1) %>%
+    mutate(date = as_date("2019-08-26") + weeks(adjusted_week - 1))
+  plot_prediction_errors(full_data, wrapper)
+})
+
+prediction_error_plots
+
+```
+
+<!-- # Plot learning curves -->
+<!-- # This function shows how prediction errors and rewards change over time -->
+<!-- # It provides insight into the learning process throughout the school year -->
+
+```{r}
+#| label: fig-q-value-reward-diff
+#| fig-cap: "Q-value and reward differences over time. The x-axis represents biweekly periods throughout the school year. The y-axis shows the difference in Q-values or mean rewards between action and inaction. Shaded areas represent the standard error of the mean."
+
+plot_q_value_reward_diff <- function(sim_data, wrapper, window_size = 4) {
+  parameters <- load_parameters(
+    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
+           wrapper, "_model_1.mat")
+  )
+  plot_data <- sim_data %>%
+    inner_join(parameters, by = "Classroom.ID") %>%
+    group_by(Classroom.ID) %>%
+    arrange(Classroom.ID, week) %>%
+    mutate(
+      rolling_reward_action = rollmean(
+        reward * lag(action, default = 0),
+        k = window_size, fill = NA,
+        align = "right"
+        ),
+      rolling_reward_inaction = rollmean(
+        reward * lag(1 - action, default = 1),
+        k = window_size, fill = NA,
+        align = "right"
+        ),
+      date = as_date("2019-08-26") + weeks(week - 1)
     )
 
-  return(p)
+  # Check for NA or infinite values
+  plot_data <- plot_data %>%
+    mutate(across(where(is.numeric),
+                  ~ifelse(is.infinite(.) | is.na(.), 0, .)))
+
+  # Add rolling averages
+  plot_data <- plot_data %>%
+    mutate(
+      biweek = ceiling(adjusted_week / 2)
+    ) %>%
+    ungroup() %>%
+    group_by(biweek) %>%
+    mutate(
+      mean_q_val = mean(q_val, na.rm = TRUE),
+      se_q_val = sd(q_val, na.rm = TRUE) / sqrt(n()),
+      mean_reward_action = mean(rolling_reward_action, na.rm = TRUE),
+      se_reward_action = sd(rolling_reward_action, na.rm = TRUE) / sqrt(n()),
+      mean_reward_inaction = mean(rolling_reward_inaction, na.rm = TRUE),
+      se_reward_inaction = sd(rolling_reward_inaction, na.rm = TRUE) / sqrt(n())
+    ) %>%
+    mutate(
+      reward_diff = mean_reward_action - mean_reward_inaction,
+      se_reward_diff = sqrt(se_reward_action^2 + se_reward_inaction^2)
+    )
+  
+  # Prepare month breaks
+  month_breaks <- plot_data %>%
+    mutate(month = floor_date(date, "month")) %>%
+    group_by(month) %>%
+    summarise(biweek = first(biweek)) %>%
+    mutate(month_label = format(month, "%b")) %>%
+    mutate(month_label = if_else(month_label == "Aug", "", month_label))
+  
+   # Prepare label data
+  last_points <- plot_data %>%
+    ungroup() %>%
+    filter(biweek == max(biweek)) %>%
+    summarise(
+      x = max(biweek),
+      y_q = mean(mean_q_val),
+      y_r = mean(reward_diff)
+    )
+
+  ggplot(plot_data, aes(x = biweek)) +
+    geom_line(aes(y = mean_q_val, color = "Q-value difference")) +
+    geom_ribbon(aes(ymin = mean_q_val - se_q_val, 
+                    ymax = mean_q_val + se_q_val, 
+                    fill = "Q-value difference"), alpha = 0.2) +
+    geom_line(aes(y = reward_diff, color = "Difference in mean reward")) +
+    geom_ribbon(aes(ymin = reward_diff - se_reward_diff, 
+                    ymax = reward_diff + se_reward_diff, 
+                    fill = "Difference in mean reward"), alpha = 0.2) +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y_q, 
+                         label = "Q-value difference",
+                         color = "Q-value difference"),
+                     nudge_x = 1,
+                     direction = "y",
+                     segment.color = "gray50",
+                     segment.size = 0.2,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y_r, 
+                         label = "Difference in mean reward",
+                         color = "Difference in mean reward"),
+                     nudge_x = 1,
+                     direction = "y",
+                     segment.color = "gray50",
+                     segment.size = 0.2,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    labs(x = "Biweekly Period", 
+         y = "Difference",
+         title = paste("Q-value and Reward Differences -", 
+                       action_reward_mapping[[wrapper]]$reward)) +
+    scale_color_manual(values = c("Q-value difference" = brewer.pal(8, "Set2")[2],
+                                  "Difference in mean reward" = brewer.pal(8, "Set2")[1])) +
+    scale_fill_manual(values = c("Q-value difference" = brewer.pal(8, "Set2")[2],
+                                 "Difference in mean reward" = brewer.pal(8, "Set2")[1])) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    ) +
+    scale_x_continuous(breaks = month_breaks$biweek,
+                       labels = month_breaks$month_label,
+                       minor_breaks = seq(min(plot_data$biweek),
+                                          max(plot_data$biweek),
+                                          by = 1)) +
+    coord_cartesian(xlim = c(min(plot_data$biweek), max(plot_data$biweek) + 1.5))
 }
 
 # Create a list to store all plots
 all_pe_plots <- list()
 
 # Generate all 4 plots
-for (wrapper in c(2, 6, 10, 14)) {
+for (wrapper in c(2, 14)) {
   full_data <- all_predictions[[
     paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
-  ]] %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"),
-    suffix = c("_1", "_2")
-    ) %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 3, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"))
+  ]]
   full_data <- full_data %>%
     # Filter data for teachers with week 9
     group_by(Classroom.ID) %>%
@@ -2162,247 +2158,57 @@ for (wrapper in c(2, 6, 10, 14)) {
     mutate(adjusted_week = week - 9 + 1) %>%
     filter(adjusted_week >= 1)
 
-  plot <- plot_prediction_errors(
-    full_data, wrapper,
-    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
-           wrapper, "_model_", 1, ".mat")
+  plot <- plot_q_value_reward_diff(
+    full_data, wrapper
     )
   all_pe_plots[[paste(wrapper, sep = "_")]] <- plot
 }
 
-```
-
-<!-- # Plot learning curves -->
-<!-- # This function shows how prediction errors and rewards change over time -->
-<!-- # It provides insight into the learning process throughout the school year -->
-
-```{r}
-
-plot_learning_curves <- function(sim_data, wrapper, matlab_file) {
-  parameters <- load_parameters(matlab_file)
-  
-  # Calculate prediction errors
-  sim_data <- sim_data %>%
-    inner_join(parameters, by = "Classroom.ID") %>%
-    remove_holiday_weeks() %>%
-    group_by(Classroom.ID) %>%
-    mutate(
-      # Q-learning PE
-      q_pe = gamma * reward - q_val_1,
-      
-      # Cockburn PE: reward - EV
-      ev = calculate_ev_uncertainty(action, reward)[[1]],
-      cockburn_pe = reward - ev,
-      
-      # Shift actions to align with previous week's PE
-      next_action = lead(action)
-    ) %>%
-    ungroup()
-  
-  plot_data <- sim_data %>%
-    # Prepare plot data
-    group_by(adjusted_week) %>%
-    summarise(
-      mean_q_pe = mean(q_pe, na.rm = TRUE),
-      se_q_pe = sd(q_pe, na.rm = TRUE) / sqrt(n()),
-      mean_cb_pe = mean(cockburn_pe, na.rm = TRUE),
-      se_cb_pe = sd(cockburn_pe, na.rm = TRUE) / sqrt(n()),
-      mean_q_value = mean(q_val_1, na.rm = TRUE),
-      se_q_value = sd(q_val_1, na.rm = TRUE) / sqrt(n()),
-      mean_reward = mean(reward, na.rm = TRUE),
-      se_reward = sd(reward, na.rm = TRUE) / sqrt(n())
-    )
-
-  # Prepare plot data
-  month_breaks <- sim_data %>%
-    mutate(month = floor_date(as.Date(date), "month")) %>%
-    group_by(month) %>%
-    summarise(week = min(adjusted_week)) %>%
-    mutate(month_label = format(month, "%b")) %>%
-    # Remove August label
-    mutate(month_label = if_else(month_label == "Aug", "", month_label))
-
-  # Create the plot
-  ggplot(plot_data, aes(x = adjusted_week, y = mean_q_pe)) +
-    geom_line(color = "blue", size = 0.5) +
-    geom_ribbon(aes(ymin = mean_q_pe - se_q_pe, ymax = mean_q_pe + se_q_pe),
-                fill = "blue", alpha = 0.2) +
-    geom_line(aes(y = mean_reward), color = "black", linetype = "dashed") +
-    geom_ribbon(aes(ymin = mean_reward - se_reward,
-                    ymax = mean_reward + se_reward),
-                fill = "black", alpha = 0.2) +
-    geom_line(aes(y = mean_cb_pe), color = "red", size = 0.5) +
-    geom_ribbon(aes(ymin = mean_cb_pe - se_cb_pe, ymax = mean_cb_pe + se_cb_pe),
-                fill = "red", alpha = 0.2) +
-    labs(x = "Week", y = "Mean Absolute Prediction Error",
-         title = paste("Learning Curve -", wrapper)) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold"),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      axis.ticks.x = element_line(color = "black", linewidth = 0.25),
-      axis.minor.ticks.x = element_line(color = "black", linewidth = 0.25)
-    ) +
-    scale_x_continuous(breaks = month_breaks$week,
-                       labels = month_breaks$month_label,
-                       minor_breaks = seq(min(plot_data$adjusted_week),
-                                          max(plot_data$adjusted_week),
-                                          by = 1))
-}
-
-plot_learning_curves <- function(sim_data, wrapper, matlab_file) {
-  parameters <- load_parameters(matlab_file)
-  
-  # Calculate prediction errors
-  sim_data <- sim_data %>%
-    inner_join(parameters, by = "Classroom.ID") %>%
-    remove_holiday_weeks() %>%
-    group_by(Classroom.ID) %>%
-    mutate(
-      # Q-learning PE
-      q_pe = gamma * reward - q_val_1,
-      
-      # Cockburn PE: reward - EV
-      ev = calculate_ev_uncertainty(action, reward)[[1]],
-      cockburn_pe = reward - ev,
-      
-      # Shift actions to align with previous week's PE
-      next_action = lead(action),
-      
-      # Create a biweekly grouping
-      biweek = ceiling(adjusted_week / 2)
-    ) %>%
-    ungroup()
-  
-  plot_data <- sim_data %>%
-    # Prepare plot data, now grouped by biweek
-    group_by(biweek) %>%
-    summarise(
-      mean_q_pe = mean(q_pe, na.rm = TRUE),
-      se_q_pe = sd(q_pe, na.rm = TRUE) / sqrt(n()),
-      mean_cb_pe = mean(cockburn_pe, na.rm = TRUE),
-      se_cb_pe = sd(cockburn_pe, na.rm = TRUE) / sqrt(n()),
-      mean_q_value = mean(q_val_1, na.rm = TRUE),
-      se_q_value = sd(q_val_1, na.rm = TRUE) / sqrt(n()),
-      mean_reward = mean(reward, na.rm = TRUE),
-      se_reward = sd(reward, na.rm = TRUE) / sqrt(n()),
-      date = mean(date)  # Take the average date for each biweek
-    )
-
-  # Prepare plot data
-  month_breaks <- plot_data %>%
-    mutate(month = floor_date(date, "month")) %>%
-    group_by(month) %>%
-    summarise(biweek = first(biweek)) %>%
-    mutate(month_label = format(month, "%b")) %>%
-    # Remove August label
-    mutate(month_label = if_else(month_label == "Aug", "", month_label))
-
-  # Create the plot
-  ggplot(plot_data, aes(x = biweek)) +
-    geom_line(aes(y = mean_q_pe, color = "Q-learning PE"), size = 0.5) +
-    geom_ribbon(aes(ymin = mean_q_pe - se_q_pe, ymax = mean_q_pe + se_q_pe, fill = "Q-learning PE"), alpha = 0.2) +
-    geom_line(aes(y = mean_reward, color = "Reward"), linetype = "dashed") +
-    geom_ribbon(aes(ymin = mean_reward - se_reward, ymax = mean_reward + se_reward, fill = "Reward"), alpha = 0.2) +
-    geom_line(aes(y = mean_cb_pe, color = "Cockburn PE"), size = 0.5) +
-    geom_ribbon(aes(ymin = mean_cb_pe - se_cb_pe, ymax = mean_cb_pe + se_cb_pe, fill = "Cockburn PE"), alpha = 0.2) +
-    labs(x = "Biweekly Period", y = "Mean Prediction Error",
-         title = paste("Learning Curve -", wrapper),
-         color = "Measure", fill = "Measure") +
-    scale_color_manual(values = c("Q-learning PE" = "blue", "Reward" = "black", "Cockburn PE" = "red")) +
-    scale_fill_manual(values = c("Q-learning PE" = "blue", "Reward" = "black", "Cockburn PE" = "red")) +
-    theme_minimal() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold"),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      axis.ticks.x = element_line(color = "black", linewidth = 0.25),
-      axis.minor.ticks.x = element_line(color = "black", linewidth = 0.25),
-      legend.position = "bottom"
-    ) +
-    scale_x_continuous(breaks = month_breaks$biweek,
-                       labels = month_breaks$month_label,
-                       minor_breaks = seq(min(plot_data$biweek),
-                                          max(plot_data$biweek),
-                                          by = 1))
-}
-
-# Create a list to store all plots
-learning_curve_plots <- list()
-
-# Generate all 4 plots
-for (wrapper in c(2, 10, 14)) {
-  full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
-  ]] %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"),
-    suffix = c("_1", "_2")
-    ) %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 3, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"))
-  full_data <- full_data %>%
-    # Filter data for teachers with week 10
-    group_by(Classroom.ID) %>%
-    filter(week == 10) %>%
-    pull(Classroom.ID) %>%
-    {filter(full_data, Classroom.ID %in% .)} %>%
-    # Keep week 9
-    mutate(adjusted_week = week - 8) %>%
-    filter(adjusted_week >= 1) %>%
-    mutate(date = as_date("2019-08-26") + weeks(adjusted_week - 1))
-
-  plot <- plot_learning_curves(
-    full_data, wrapper,
-    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
-           wrapper, "_model_", 1, ".mat")
-    )
-  learning_curve_plots[[paste(wrapper, sep = "_")]] <- plot
-}
+all_pe_plots
 
 ```
+
 
 <!-- # Plot action percentages -->
 <!-- # This function visualizes how the percentage of chosen actions changes over time -->
 <!-- # It compares actual behavior with model predictions -->
 
 ```{r}
+#| label: fig-action-percentages
+#| fig-cap: "Observed teacher behavior and model predictions over the academic year. The graph shows the percentage of times teachers chose to engage in Pedagogical Content activities. The x-axis represents biweekly periods throughout the school year. The black dashed line represents observed teacher behavior, while colored lines represent predictions from different models. Shaded areas represent the 95% confidence intervals for each model's predictions."
 
-plot_action_percentages <- function(sim_data, wrapper, matlab_file) {
-  parameters <- load_parameters(matlab_file)
-  
+plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
+  parameters <- load_parameters(
+    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
+           wrapper, "_model_1.mat")
+  )
+
   # Calculate action percentages
-  sim_data <- sim_data %>%
+  plot_data <- sim_data %>%
     inner_join(parameters, by = "Classroom.ID") %>%
-    remove_holiday_weeks() %>%
     group_by(Classroom.ID) %>%
+    arrange(Classroom.ID, week) %>%
     mutate(
       biweek = ceiling(adjusted_week / 2),
       actual_action = action,
-      q_action = ifelse(pred_2_1 > 0.5, 1, 0),  # Q-learning prediction
-      cockburn_action = ifelse(pred_2 > 0.5, 1, 0)  # Cockburn model prediction
+      q_action = pred_2_1,  # Q-learning prediction
+      lau_glimcher_action = pred_2_2,  # Lau & Glimcher prediction
+      baseline_action = pred_2  # Baseline model prediction
     ) %>%
-    ungroup()
-  
-  plot_data <- sim_data %>%
+    ungroup() %>%
     group_by(biweek) %>%
     summarise(
       actual_percent = mean(actual_action, na.rm = TRUE),
       se_actual = sd(actual_action, na.rm = TRUE) / sqrt(n()),
       q_percent = mean(q_action, na.rm = TRUE),
       se_q = sd(q_action, na.rm = TRUE) / sqrt(n()),
-      cockburn_percent = mean(cockburn_action, na.rm = TRUE),
-      se_cockburn = sd(cockburn_action, na.rm = TRUE) / sqrt(n()),
+      lau_glimcher_percent = mean(lau_glimcher_action, na.rm = TRUE),
+      se_lau_glimcher = sd(lau_glimcher_action, na.rm = TRUE) / sqrt(n()),
+      baseline_percent = mean(baseline_action, na.rm = TRUE),
+      se_baseline = sd(baseline_action, na.rm = TRUE) / sqrt(n()),
       date = mean(date)
     )
-
+  
   # Prepare plot data
   month_breaks <- plot_data %>%
     mutate(month = floor_date(date, "month")) %>%
@@ -2411,35 +2217,95 @@ plot_action_percentages <- function(sim_data, wrapper, matlab_file) {
     mutate(month_label = format(month, "%b")) %>%
     mutate(month_label = if_else(month_label == "Aug", "", month_label))
 
+  # Prepare label data
+  last_points <- plot_data %>%
+    filter(biweek == max(biweek)) %>%
+    summarise(
+      x = max(biweek),
+      y_actual = actual_percent,
+      y_q = q_percent,
+      y_lau_glimcher = lau_glimcher_percent,
+      y_baseline = baseline_percent
+    )
+  
   # Create the plot
   ggplot(plot_data, aes(x = biweek)) +
-    geom_line(aes(y = actual_percent, color = "Actual"), size = 0.5) +
+    geom_line(aes(y = actual_percent, color = "Data"),
+                  linetype = "dashed") +
     geom_ribbon(aes(ymin = actual_percent - se_actual, 
                     ymax = actual_percent + se_actual, 
-                    fill = "Actual"), alpha = 0.2) +
-    geom_line(aes(y = q_percent, color = "Q-learning"), size = 0.5) +
+                    fill = "Data"), alpha = 0.2) +
+    geom_line(aes(y = q_percent, color = "Q-learning")) +
     geom_ribbon(aes(ymin = q_percent - se_q, 
                     ymax = q_percent + se_q, 
                     fill = "Q-learning"), alpha = 0.2) +
-    geom_line(aes(y = cockburn_percent, color = "Cockburn"), size = 0.5) +
-    geom_ribbon(aes(ymin = cockburn_percent - se_cockburn, 
-                    ymax = cockburn_percent + se_cockburn, 
-                    fill = "Cockburn"), alpha = 0.2) +
-    labs(x = "Biweekly Period", y = "Action Percentage",
-         title = paste("Action Percentages -", wrapper),
-         color = "Model", fill = "Model") +
-    scale_color_manual(values = c("Actual" = "black", "Q-learning" = "blue", "Cockburn" = "red")) +
-    scale_fill_manual(values = c("Actual" = "black", "Q-learning" = "blue", "Cockburn" = "red")) +
-    theme_minimal() +
+    geom_line(aes(y = lau_glimcher_percent, color = "Lau & Glimcher")) +
+    geom_ribbon(aes(ymin = lau_glimcher_percent - se_lau_glimcher, 
+                    ymax = lau_glimcher_percent + se_lau_glimcher, 
+                    fill = "Lau & Glimcher"), alpha = 0.2) +
+    geom_line(aes(y = baseline_percent, color = "Baseline")) +
+    geom_ribbon(aes(ymin = baseline_percent - se_baseline, 
+                    ymax = baseline_percent + se_baseline, 
+                    fill = "Baseline"), alpha = 0.2) +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y_q, 
+                         label = "Q-learning",
+                         color = "Q-learning"),
+                     nudge_x = 1.5,
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y_actual, 
+                         label = "Data",
+                         color = "Data"),
+                     nudge_x = 1.5,
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y_baseline, 
+                         label = "Baseline",
+                         color = "Baseline"),
+                     nudge_x = 1.5,
+                     nudge_y = -.02,
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y_lau_glimcher, 
+                         label = "Lau & Glimcher",
+                         color = "Lau & Glimcher"),
+                     nudge_x = 1.5,
+                     nudge_y = .01,
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
+    labs(x = "Biweekly Period", 
+         y = "Action Percentage",
+         title = paste("Action Percentages -", 
+                       action_reward_mapping[[wrapper]]$reward)) +
+    scale_color_manual(values = c("Data" = "black",
+                                  "Q-learning" = brewer.pal(8, "Set2")[2],
+                                  "Lau & Glimcher" = brewer.pal(8, "Set2")[1],
+                                  "Baseline" = brewer.pal(8, "Set2")[3])) +
+    scale_fill_manual(values = c("Data" = "black",
+                                 "Q-learning" = brewer.pal(8, "Set2")[2],
+                                 "Lau & Glimcher" = brewer.pal(8, "Set2")[1],
+                                 "Baseline" = brewer.pal(8, "Set2")[3])) +
+    theme_classic() +
     theme(
       plot.title = element_text(size = 12, face = "bold"),
-      axis.line = element_line(colour = "black"),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
       axis.text.x = element_text(angle = 45, hjust = 1),
-      axis.ticks.x = element_line(color = "black", linewidth = 0.25),
-      axis.minor.ticks.x = element_line(color = "black", linewidth = 0.25),
-      legend.position = "bottom"
+      legend.position = "none"
     ) +
     scale_x_continuous(breaks = month_breaks$biweek,
                        labels = month_breaks$month_label,
@@ -2447,14 +2313,17 @@ plot_action_percentages <- function(sim_data, wrapper, matlab_file) {
                                           max(plot_data$biweek),
                                           by = 1)) +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1),
-                       limits = c(0, 1))
+                       limits = c(0, 1)) +
+    coord_cartesian(xlim = c(min(plot_data$biweek),
+                             max(plot_data$biweek) + 2),
+                    ylim = y_lim)
 }
 
 # Create a list to store all plots
 action_percentage_plots <- list()
 
 # Generate all plots
-for (wrapper in c(2, 10, 14)) {
+for (wrapper in c(2, 14)) {
   full_data <- all_predictions[[
     paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
   ]] %>%
@@ -2464,8 +2333,8 @@ for (wrapper in c(2, 10, 14)) {
     suffix = c("_1", "_2")
     ) %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 3, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"))
+      paste0("hbi_compare_wrapper_", 2, "_model_", 5, ".mat")
+    ]] %>% select(-reward), by = c("Classroom.ID", "week", "action"))
   full_data <- full_data %>%
     group_by(Classroom.ID) %>%
     filter(week == 10) %>%
@@ -2476,234 +2345,22 @@ for (wrapper in c(2, 10, 14)) {
     mutate(date = as_date("2019-08-26") + weeks(adjusted_week - 1))
 
   plot <- plot_action_percentages(
-    full_data, wrapper,
-    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
-           wrapper, "_model_", 1, ".mat")
+    full_data, wrapper
     )
   action_percentage_plots[[paste(wrapper, sep = "_")]] <- plot
 }
 
-```
-
-<!-- # Analyze performance split -->
-<!-- # This function examines how teacher behavior changes before and after identified change points -->
-<!-- # It helps in understanding adaptations in teaching strategies -->
-
-```{r}
-
-library(changepoint)
-
-analyze_performance_split <- function(sim_data, wrapper, matlab_file, weeks_to_show = 4) {
-  parameters <- load_parameters(matlab_file)
-
-  # Calculate running average of teacher actions
-  sim_data <- sim_data %>%
-    inner_join(parameters, by = "Classroom.ID") %>%
-    remove_holiday_weeks() %>%
-    group_by(MDR.School.ID, adjusted_week) %>%
-    summarize(
-      action_avg = mean(action),
-      q_prediction = mean(pred_2_1),
-      cockburn_prediction = mean(pred_2)
-    ) %>%
-    filter(!is.na(action_avg)) %>%
-    filter(n() > weeks_to_show) %>%
-    group_by(MDR.School.ID) %>%
-    mutate(
-      change_point = cpt.meanvar(action_avg)@cpts[1],
-      weeks_from_change = adjusted_week - change_point,
-      pre_change_mean = mean(
-        action_avg[weeks_from_change < 0 & weeks_from_change >= -weeks_to_show],
-        na.rm = TRUE),
-      post_change_mean = mean(
-        action_avg[weeks_from_change >= 0 & weeks_from_change <= weeks_to_show],
-        na.rm = TRUE),
-      change_direction = ifelse(post_change_mean > pre_change_mean,
-                                "Increase", "Decrease")
-    ) %>%
-    ungroup()
-  
-# Prepare data for plotting
-  plot_data <- sim_data %>%
-    filter(abs(weeks_from_change) <= weeks_to_show) %>%
-    mutate(period = ifelse(weeks_from_change <= 0, "Before", "After"))
-  
-  # Calculate averages across teachers after realignment
-  avg_data <- plot_data %>%
-    group_by(change_direction, weeks_from_change) %>%
-    summarize(
-      avg_action = mean(action_avg, na.rm = TRUE),
-      se_action = sd(action_avg, na.rm = TRUE) / sqrt(n()),
-      avg_q_prediction = mean(q_prediction, na.rm = TRUE),
-      se_q_prediction = sd(q_prediction, na.rm = TRUE) / sqrt(n()),
-      avg_cockburn_prediction = mean(cockburn_prediction, na.rm = TRUE),
-      se_cockburn_prediction = sd(cockburn_prediction, na.rm = TRUE) / sqrt(n())
-    )
-  
-  # Create plots for increase and decrease
-  create_plot <- function(data, direction) {
-    ggplot(data = data, aes(x = weeks_from_change)) +
-      geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
-      geom_line(aes(y = avg_action, color = "Actual Avg"), size = 1) +
-      geom_ribbon(aes(ymin = avg_action - se_action, 
-                      ymax = avg_action + se_action, 
-                      fill = "Actual Avg"), alpha = 0.2) +
-      geom_line(aes(y = avg_q_prediction, color = "Q-learning"), size = 1) +
-      geom_ribbon(aes(ymin = avg_q_prediction - se_q_prediction, 
-                      ymax = avg_q_prediction + se_q_prediction, 
-                      fill = "Q-learning"), alpha = 0.2) +
-      geom_line(aes(y = avg_cockburn_prediction, color = "Cockburn"), size = 1) +
-      geom_ribbon(aes(ymin = avg_cockburn_prediction - se_cockburn_prediction, 
-                      ymax = avg_cockburn_prediction + se_cockburn_prediction, 
-                      fill = "Cockburn"), alpha = 0.2) +
-      scale_color_manual(values = c("Actual Avg" = "blue",
-                                    "Q-learning" = "red",
-                                    "Cockburn" = "green")) +
-      scale_fill_manual(values = c("Actual Avg" = "blue",
-                                   "Q-learning" = "red",
-                                   "Cockburn" = "green")) +
-      labs(x = "Weeks from Change Point", y = "% Action",
-           title = paste("Performance Split Analysis -", wrapper, "-", direction),
-           subtitle = "Average across teachers, aligned at individual change points",
-           color = "Measure", fill = "Measure") +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(size = 12, face = "bold"),
-        axis.line = element_line(colour = "black"),
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.position = "bottom"
-      ) +
-      scale_y_continuous(labels = scales::percent_format(accuracy = 1))
-  }
-  
-  increase_plot <- create_plot(filter(avg_data, change_direction == "Increase"), "Increase")
-  decrease_plot <- create_plot(filter(avg_data, change_direction == "Decrease"), "Decrease")
-  
-  return(list(increase = increase_plot, decrease = decrease_plot))
-}
-
-# Create a list to store all plots
-performance_split_plots <- list()
-
-# Generate all plots
-for (wrapper in c(2, 10, 14)) {
-  full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
-  ]] %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward"),
-    suffix = c("_1", "_2")
-    ) %>%
-    full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 3, ".mat")
-    ]], by = c("Classroom.ID", "week", "action", "reward")) %>%
-    right_join(df %>%
-                 select(Classroom.ID, MDR.School.ID) %>%
-                 unique(),
-               by = c("Classroom.ID"))
-  full_data <- full_data %>%
-    group_by(Classroom.ID) %>%
-    filter(week == 10) %>%
-    pull(Classroom.ID) %>%
-    {filter(full_data, Classroom.ID %in% .)} %>%
-    mutate(adjusted_week = week - 8) %>%
-    filter(adjusted_week >= 1) %>%
-    mutate(date = as_date("2019-08-26") + weeks(adjusted_week - 1))
-
-  plot <- analyze_performance_split(
-    full_data, wrapper,
-    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
-           wrapper, "_model_", 1, ".mat")
-    )
-  performance_split_plots[[paste(wrapper, sep = "_")]] <- plot
-}
+action_percentage_plots
 
 ```
 
-```{r}
-#| label: tbl-CBM-second
-#| tbl-cap: "Comparative fit of hybrid models. The columns Logit, RL, Logit-RL Hybrid, and QL-AC Hybrid present the proportion of data best explained by each model configuration when the four models are compared. The top model (highest percentage) from each row is then included in a final comparison, with the results displayed in the 'Top Model Frequency' column. All models are based on the action 'Pedagogical Knowledge.' The QL-AC Hybrid model combines predictions from an Actor-Critic model with a Q-learning model that shares the same action and reward components."
-
-# Load the MATLAB files for the comparative models
-comp_models <- list(
-  readMat('CBM/zearn_results/comp_results/hbi/hbi_compare_3.mat'),
-  readMat('CBM/zearn_results/comp_results/hbi/hbi_compare_7.mat'),
-  readMat('CBM/zearn_results/comp_results/hbi/hbi_compare_51s.mat'),
-  readMat('CBM/zearn_results/comp_results/hbi/hbi_compare_13s.mat')
-)
-BIC_comp <- sapply(comp_models, FUN = function(x) {
-  apply(x[["cbm"]][[5]][[11]], 2, mean, na.rm = TRUE)
-}) %>% t()
-AUC_comp <- sapply(comp_models, FUN = function(x) {
-  apply(x[["cbm"]][[5]][[8]], 2, mean, na.rm = TRUE)
-}) %>% t()
-model_freq <- data.frame(cbind(BIC_comp,AUC_comp))
-names(model_freq) <- c(paste0("BIC_",c("Logit", "RL", "Hybrid")),
-                       paste0("AUC_",c("Logit", "RL", "Hybrid")))
-
-model_freq$Reward <- c(
-  "Struggles", # QL 3
-  "Activity", # QL 7
-  "Activity", # AC 51
-  "Badges" # AC 13
-)
-model_freq$State <- c(
-  NA, # QL
-  NA,
-  "Struggles, No. Students", # AC 51
-  "Struggles, No. Students, Activity" # AC 13
-)
-
-# Find the maximum value in each row (excluding the "Top Model Frequency" column)
-min_bics <- apply(model_freq[, 1:3], 1, min)
-max_aucs <- apply(model_freq[, 4:6], 1, max)
-
-model_freq %>%
-  gt(groupname_col = "Reward",
-     row_group_as_column = T) %>%
-  tab_spanner_delim(delim = "_") %>%
-  tab_stubhead(label = "Reward") %>%
-  cols_move_to_start(State) %>%
-  sub_missing() %>%
-  fmt_number(columns = gt::starts_with("BIC"),
-              decimals = 1) %>%
-  fmt_number(columns = gt::starts_with("AUC"),
-              decimals = 3) %>%
-  tab_style(style = list(cell_fill(color = brewer.pal(8, "Set2")[6])),
-            locations = cells_body(columns = BIC_Logit,
-                                   rows = BIC_Logit == min_bics)) %>%
-  tab_style(style = list(cell_fill(color = brewer.pal(8, "Set2")[6])),
-            locations = cells_body(columns = BIC_RL,
-                                   rows = BIC_RL == min_bics)) %>%
-  tab_style(style = list(cell_fill(color = brewer.pal(8, "Set2")[6])),
-            locations = cells_body(columns = BIC_Hybrid,
-                                   rows = BIC_Hybrid == min_bics)) %>%
-  tab_style(style = list(cell_fill(color = brewer.pal(8, "Set2")[6])),
-            locations = cells_body(columns = AUC_Logit,
-                                   rows = AUC_Logit == max_aucs)) %>%
-  tab_style(style = list(cell_fill(color = brewer.pal(8, "Set2")[6])),
-            locations = cells_body(columns = AUC_RL,
-                                   rows = AUC_RL == max_aucs)) %>%
-  tab_style(style = list(cell_fill(color = brewer.pal(8, "Set2")[6])),
-            locations = cells_body(columns = AUC_Hybrid,
-                                   rows = AUC_Hybrid == max_aucs)) %>%
-  tab_footnote(
-    footnote = "Q-learning model in state-free case and Actor-Critic in state-dependent case.",
-    locations = cells_column_labels(columns = gt::ends_with("RL"))
-  ) %>%
-  tab_footnote(
-    footnote = "Combines predictions of Logit and RL models through a linear combination.",
-    locations = cells_column_labels(columns = gt::ends_with("Hybrid"))
-  )
-```
 
 ### Top Model Selection
 
 @tbl-CBM-second also shows that Q-learning consistently outperforms logistic regression and actor-critic models in BIC scores. As such, we further analyze the fit from the top models from this table to the entire dataset. That is, we compare both Q-learning models and the top actor-critic model with their corresponding logistic regression. The histogram of teacher-specific log-likelihoods in @fig-loglik-histogram reveals that the Q-learning model with "Struggles" as the reward has the lowest BIC scores.
 
 ```{r}
+#| eval: false
 #| label: fig-loglik-histogram
 #| fig-cap: "Distribution of teacher-specific Bayesian Information Criteria (BIC). The histogram displays the spread of individual teachers' log-likelihoods, with higher values indicating better fit. The dashed line represents the median log-likelihood across all teachers."
 
@@ -2785,6 +2442,7 @@ ggplot(data = loglik_df, aes(x = BIC, fill = interaction(Model, Reward),
 The spread of BIC scores in @fig-loglik-histogram also implies a diversity in model fit, which warrants further investigation into heterogeneity. We analyzed teacher-specific parameters to capture these individual differences. @fig-params-histogram provides a set of visualizations depicting relationships between teacher-specific parameters and various contextual factors. We observed differences in the cost parameter across poverty levels, with high-poverty schools showing lower cost estimates (a). The learning rate parameter (alpha) also varied across poverty levels (b), with high-poverty schools exhibiting lower learning rates. The number of weeks a teacher used the platform showed a small negative correlation with the estimated cost (r = -0.11, p \< .001) (d), while it positively correlated with the inverse temperature parameter (tau) (r = 0.14, p = 1.5e-09) (e). When examining the relationship between the learning rate, inverse temperature, and student outcomes (c, f), we found a positive correlation between inverse temperature and both average badges (r = 0.17, p \< .001) and average tower alerts (r = 0.1, p \< .001). However, the learning rate did not significantly correlate with average badges earned (r = 0.03, p = 0.23) or average tower alerts (r = 0.0, p = .85).
 
 ```{r}
+#| eval: false
 #| label: fig-params-histogram
 #| fig-cap: "Histogram of Teacher-Specific Parameters"
 #| fig-subcap:
@@ -3655,141 +3313,141 @@ auc_plot_se_st
 
 
 
-### Predictors of Choice
+<!-- ### Predictors of Choice -->
 
-```{r}
-## Cockburn et al. (2022) logit model:
+<!-- ```{r} -->
+<!-- ## Cockburn et al. (2022) logit model: -->
 
-# Function to run model and extract results
-run_model <- function(data, i, j) {
-  action_col <- paste0("Frobenius.NNDSVD_teacher", i)
-  ev_col <- paste0("ev_", i, j)
-  uncertain_col <- paste0("sd_", i, j)
+<!-- # Function to run model and extract results -->
+<!-- run_model <- function(data, i, j) { -->
+<!--   action_col <- paste0("Frobenius.NNDSVD_teacher", i) -->
+<!--   ev_col <- paste0("ev_", i, j) -->
+<!--   uncertain_col <- paste0("sd_", i, j) -->
 
-  # Create unit-scaled trial number t and lagged predictors
-  data <- data %>%
-    group_by(Teacher.User.ID) %>%
-    mutate(t = (week - min(week)) / (max(week) - min(week))) %>%
-    group_by(Classroom.ID) %>%
-    mutate(lag_ev = lag(!!sym(ev_col)),
-           lag_sd = lag(!!sym(uncertain_col))) %>%
-    mutate(
-      complete_obs = sum(!is.na(lag_ev) & !is.na(lag_sd) & !is.na(t))
-      ) %>%
-  filter(complete_obs >= 6) %>%
-    ungroup()
+<!--   # Create unit-scaled trial number t and lagged predictors -->
+<!--   data <- data %>% -->
+<!--     group_by(Teacher.User.ID) %>% -->
+<!--     mutate(t = (week - min(week)) / (max(week) - min(week))) %>% -->
+<!--     group_by(Classroom.ID) %>% -->
+<!--     mutate(lag_ev = lag(!!sym(ev_col)), -->
+<!--            lag_sd = lag(!!sym(uncertain_col))) %>% -->
+<!--     mutate( -->
+<!--       complete_obs = sum(!is.na(lag_ev) & !is.na(lag_sd) & !is.na(t)) -->
+<!--       ) %>% -->
+<!--   filter(complete_obs >= 6) %>% -->
+<!--     ungroup() -->
 
-  formula <- as.formula(paste0(action_col, " > 0 ~ ",
-                               "1 + (lag_ev + lag_sd) * t + ",
-                               "(1 + (lag_ev + lag_sd) * t | Classroom.ID)"))
+<!--   formula <- as.formula(paste0(action_col, " > 0 ~ ", -->
+<!--                                "1 + (lag_ev + lag_sd) * t + ", -->
+<!--                                "(1 + (lag_ev + lag_sd) * t | Classroom.ID)")) -->
 
-  model <- glmmTMB(formula, data = data, family = binomial)
+<!--   model <- glmmTMB(formula, data = data, family = binomial) -->
 
-  # Extract fixed effects with standard errors
-  fixed_effects_se <- tidy(model, effects = "fixed", conf.int = TRUE)
+<!--   # Extract fixed effects with standard errors -->
+<!--   fixed_effects_se <- tidy(model, effects = "fixed", conf.int = TRUE) -->
 
-  # Extract random effects
-  random_effects <- tidy(model, effects = "ran_vals")
+<!--   # Extract random effects -->
+<!--   random_effects <- tidy(model, effects = "ran_vals") -->
 
-  list(model = model, fixed = fixed_effects_se, random = random_effects)
-}
+<!--   list(model = model, fixed = fixed_effects_se, random = random_effects) -->
+<!-- } -->
 
-# Determine the number of cores to use
-num_cores <- detectCores() - 1  # Use all but one core
+<!-- # Determine the number of cores to use -->
+<!-- num_cores <- detectCores() - 1  # Use all but one core -->
 
-# Set up the parallel backend
-cl <- makeCluster(num_cores)
-registerDoParallel(cl)
+<!-- # Set up the parallel backend -->
+<!-- cl <- makeCluster(num_cores) -->
+<!-- registerDoParallel(cl) -->
 
-# Run all 16 models in parallel
-all_models <- foreach(i = 1:4, .combine = c,
-                      .packages = c("glmmTMB", "broom.mixed", "dplyr")) %:%
-  foreach(j = 1:4, .combine = c,
-          .packages = c("glmmTMB", "broom.mixed", "dplyr")) %dopar% {
-    result <- run_model(df_ev_uncertainty, i, j)
-    setNames(list(result), paste0(i, "_", j))
-  }
+<!-- # Run all 16 models in parallel -->
+<!-- all_models <- foreach(i = 1:4, .combine = c, -->
+<!--                       .packages = c("glmmTMB", "broom.mixed", "dplyr")) %:% -->
+<!--   foreach(j = 1:4, .combine = c, -->
+<!--           .packages = c("glmmTMB", "broom.mixed", "dplyr")) %dopar% { -->
+<!--     result <- run_model(df_ev_uncertainty, i, j) -->
+<!--     setNames(list(result), paste0(i, "_", j)) -->
+<!--   } -->
 
-# Stop the parallel backend
-stopCluster(cl)
+<!-- # Stop the parallel backend -->
+<!-- stopCluster(cl) -->
 
-# Combine all results with model identifiers
-fixed_effects <- map2_dfr(all_models,
-                          names(all_models),
-                          ~mutate(.x$fixed, model = .y))
-random_effects <- map2_dfr(all_models,
-                           names(all_models),
-                           ~mutate(.x$random, model = .y))
+<!-- # Combine all results with model identifiers -->
+<!-- fixed_effects <- map2_dfr(all_models, -->
+<!--                           names(all_models), -->
+<!--                           ~mutate(.x$fixed, model = .y)) -->
+<!-- random_effects <- map2_dfr(all_models, -->
+<!--                            names(all_models), -->
+<!--                            ~mutate(.x$random, model = .y)) -->
 
-```
+<!-- ``` -->
 
-```{r}
+<!-- ```{r} -->
 
-# Prepare data for plotting
-plot_data <- fixed_effects %>%
-  mutate(factor = case_when(
-    term == "lag_ev" ~ "EV",
-    term == "lag_sd" ~ "U",
-    term == "lag_ev:t" ~ "EV x t",
-    term == "lag_sd:t" ~ "U x t",
-    TRUE ~ NA_character_
-  )) %>%
-  filter(!is.na(factor)) %>%
-  mutate(significance = case_when(
-    p.value < 0.001 ~ "***",
-    p.value < 0.01 ~ "**",
-    p.value < 0.05 ~ "*",
-    TRUE ~ ""
-  ))
+<!-- # Prepare data for plotting -->
+<!-- plot_data <- fixed_effects %>% -->
+<!--   mutate(factor = case_when( -->
+<!--     term == "lag_ev" ~ "EV", -->
+<!--     term == "lag_sd" ~ "U", -->
+<!--     term == "lag_ev:t" ~ "EV x t", -->
+<!--     term == "lag_sd:t" ~ "U x t", -->
+<!--     TRUE ~ NA_character_ -->
+<!--   )) %>% -->
+<!--   filter(!is.na(factor)) %>% -->
+<!--   mutate(significance = case_when( -->
+<!--     p.value < 0.001 ~ "***", -->
+<!--     p.value < 0.01 ~ "**", -->
+<!--     p.value < 0.05 ~ "*", -->
+<!--     TRUE ~ "" -->
+<!--   )) -->
 
-random_data <- random_effects %>%
-  mutate(factor = case_when(
-    term == "lag_ev" ~ "EV",
-    term == "lag_sd" ~ "U",
-    term == "lag_ev:t" ~ "EV x t",
-    term == "lag_sd:t" ~ "U x t",
-    TRUE ~ NA_character_
-  )) %>%
-  filter(!is.na(factor))
+<!-- random_data <- random_effects %>% -->
+<!--   mutate(factor = case_when( -->
+<!--     term == "lag_ev" ~ "EV", -->
+<!--     term == "lag_sd" ~ "U", -->
+<!--     term == "lag_ev:t" ~ "EV x t", -->
+<!--     term == "lag_sd:t" ~ "U x t", -->
+<!--     TRUE ~ NA_character_ -->
+<!--   )) %>% -->
+<!--   filter(!is.na(factor)) -->
 
-# Create a separate plot for each model
-plot_list <- map(unique(plot_data$model),
-                 function(model_name) {
-  model_random_data <- filter(random_data, model == model_name)
-  model_plot_data <- filter(plot_data, model == model_name)
+<!-- # Create a separate plot for each model -->
+<!-- plot_list <- map(unique(plot_data$model), -->
+<!--                  function(model_name) { -->
+<!--   model_random_data <- filter(random_data, model == model_name) -->
+<!--   model_plot_data <- filter(plot_data, model == model_name) -->
 
-  y_max <- max(c(model_plot_data$estimate + model_plot_data$estimate,
-                 quantile(model_random_data$estimate, 1, na.rm = TRUE)),
-               na.rm = TRUE)
-  y_min <- min(c(model_plot_data$estimate - model_plot_data$conf.low,
-                 quantile(model_random_data$estimate, 0, na.rm = TRUE)),
-               na.rm = TRUE)
+<!--   y_max <- max(c(model_plot_data$estimate + model_plot_data$estimate, -->
+<!--                  quantile(model_random_data$estimate, 1, na.rm = TRUE)), -->
+<!--                na.rm = TRUE) -->
+<!--   y_min <- min(c(model_plot_data$estimate - model_plot_data$conf.low, -->
+<!--                  quantile(model_random_data$estimate, 0, na.rm = TRUE)), -->
+<!--                na.rm = TRUE) -->
 
-  ggplot() +
-    geom_violin(data = model_random_data, aes(x = factor, y = estimate),
-                alpha = 0.3, bounds = c(y_min,y_max),
-                scale = "width") +
-    geom_hline(yintercept = 0, linetype = "dashed") +
-    geom_pointrange(data = model_plot_data,
-                    aes(x = factor, y = estimate,
-                        ymin = conf.low, ymax = conf.high),
-                    color = "red", size = 0.2) +
-    geom_text(data = model_plot_data,
-              aes(x = factor, y = y_max + 0.05 * (y_max - y_min),
-                  label = significance),
-              vjust = 0) +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          panel.grid = element_blank(),
-          axis.line = element_line(color = "black"),
-          axis.ticks = element_line(color = "black")) +
-   labs(x = "Factor", y = "Estimate",
-         title = paste("Predictors of Choice -", model_name)) +
-    scale_x_discrete(limits = c("EV", "EV x t", "U", "U x t"))
-})
+<!--   ggplot() + -->
+<!--     geom_violin(data = model_random_data, aes(x = factor, y = estimate), -->
+<!--                 alpha = 0.3, bounds = c(y_min,y_max), -->
+<!--                 scale = "width") + -->
+<!--     geom_hline(yintercept = 0, linetype = "dashed") + -->
+<!--     geom_pointrange(data = model_plot_data, -->
+<!--                     aes(x = factor, y = estimate, -->
+<!--                         ymin = conf.low, ymax = conf.high), -->
+<!--                     color = "red", size = 0.2) + -->
+<!--     geom_text(data = model_plot_data, -->
+<!--               aes(x = factor, y = y_max + 0.05 * (y_max - y_min), -->
+<!--                   label = significance), -->
+<!--               vjust = 0) + -->
+<!--     theme_minimal() + -->
+<!--     theme(axis.text.x = element_text(angle = 45, hjust = 1), -->
+<!--           panel.grid = element_blank(), -->
+<!--           axis.line = element_line(color = "black"), -->
+<!--           axis.ticks = element_line(color = "black")) + -->
+<!--    labs(x = "Factor", y = "Estimate", -->
+<!--          title = paste("Predictors of Choice -", model_name)) + -->
+<!--     scale_x_discrete(limits = c("EV", "EV x t", "U", "U x t")) -->
+<!-- }) -->
 
 
-```
+<!-- ``` -->
 
 
 ### Regression Models Coefficient Analyses
@@ -3866,1042 +3524,6 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 
 {{< pagebreak >}}
 
-<!-- FE Logit Model Summary -->
-
-<!-- FE Logit State-free -->
-
-```{r, results='asis'}
-#| label: tbl-fe-results-statefree-full
-#| tbl-cap: "State-Free Panel Logistic Regression Results"
-
-# Load the results from both subset and restricted analyses
-load("Regressions/fe-subset-results.RData")
-original_results <- results
-load("Regressions/fe-restricted-results.RData")
-restricted_results <- results
-
-# Combine the model stats from original and restricted results for comparison
-original_models <- do.call(rbind, lapply(original_results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  data.frame(
-    Action = x$Method,
-    Reward = x$Reward,
-    AUC = x$AUC,
-    BIC = x$bic,
-    Type = "Original"
-  )
-}))
-
-# Select top 2 AUC models and top 2 BIC models for both original and restricted
-top_models <- original_models %>%
-  arrange(desc(AUC)) %>%
-  slice_head(n = 2)
-top_models <- original_models %>%
-  arrange(BIC) %>%
-  slice_head(n = 2) %>%
-  bind_rows(top_models)
-
-# Prepare the results from selected top models for the table
-tidy_fe_results <- lapply(original_results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  if (!(paste(x$Method, x$Reward) %in%
-        paste(top_models$Action, top_models$Reward))) return(NULL)
-  temp <- as.data.frame(x$fecoef) %>%
-    rownames_to_column(var = "Term") %>%
-    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
-                  as.numeric)) %>%
-    filter(Term != "(Intercept)" & Term != "week_lag")
-
-  return(list(
-    Model = paste(x$Method, x$Reward,"Full"),
-    Data  = temp,
-    BIC   = x$bic,
-    N     = length(x$recoef$Teacher.User.ID)))
-})
-tidy_fe_results <- tidy_fe_results[!sapply(tidy_fe_results, is.null)]
-tidy_fe_results_restrict <- lapply(restricted_results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  if (!(paste(x$Method, x$Reward) %in%
-        paste(top_models$Action, top_models$Reward))) return(NULL)
-  temp <- as.data.frame(x$fecoef) %>%
-    rownames_to_column(var = "Term") %>%
-    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
-                  as.numeric)) %>%
-    filter(Term != "(Intercept)" & Term != "week_lag")
-
-  return(list(
-    Model = paste(x$Method, x$Reward,"Restricted"),
-    Data  = temp,
-    BIC   = x$bic,
-    N     = length(x$recoef$Teacher.User.ID)))
-})
-tidy_fe_results_restrict <-
-  tidy_fe_results_restrict[!sapply(tidy_fe_results_restrict, is.null)]
-tidy_fe_results <- c(tidy_fe_results, tidy_fe_results_restrict)
-
-# Combine all model summaries into one dataframe
-model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
-  x_name <- unlist(strsplit(x[[1]], " "))
-  x_data <- x$Data %>%
-    rename(Coefficient = Estimate,
-           Std_Error = `Std. Error`) %>%
-    mutate(
-      Significance = case_when(
-        `Pr(>|z|)` < .001 ~ "***",
-        `Pr(>|z|)` < .01 ~ "**",
-        `Pr(>|z|)` < .05 ~ "*",
-        TRUE ~ ""),
-      Term = gsub(x_name[1], "lag", Term),
-      Term = gsub(x_name[2], "rwd", Term),
-      Term = gsub("_", "",  Term),
-      Term = gsub(":", "_",  Term)) %>%
-    add_row(Term = "BIC", Coefficient = x[[3]]) %>%
-    add_row(Term = "N", Coefficient = x[[4]])
-  x_data$Model <- x[[1]]
-
-  x_data
-})) %>%
-  dplyr::select(Model, Term, Coefficient, Std_Error, Significance) %>%
-  mutate(Model = gsub(" ", "&", Model),
-         Model = gsub("Frobenius.NNDSVD_student1", "Badges", Model),
-         Model = gsub("Frobenius.NNDSVD_student2", "Struggles", Model),
-         Model = gsub("Frobenius.NNDSVD_student3", "No. Students", Model),
-         Model = gsub("Frobenius.NNDSVD_student4", "Activity", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher1", "Assessments", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher2", "Pedagogical Knowledge", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher3", "Group Instruction", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher4", "Curriculum Planning", Model))
-
-# Create the table using the 'gt' package
-gt_table <- model_summary %>%
-  filter(!Term %in% c("rwd1","rwd2","lag1","lag2")) %>%
-  mutate(Estimate = ifelse(Term %in% c("BIC", "N"),
-                           sprintf("%d", as.integer(Coefficient)),
-                           sprintf("%1.3f%s\n(%1.3f)",
-                                   Coefficient, Significance, Std_Error)),
-         Term = factor(Term, levels = c("rwd1_lag1", "rwd1_lag2", "lag2_rwd2",
-                                        # "lag1", "lag2",
-                                        "st", "lag1_st",
-                                        "BIC", "N"),
-                       labels = c("R(t-1) x \n A(t-1)",
-                                  "R(t-1) x \n A(t-2)",
-                                  "R(t-2) x \n A(t-2)",
-                                  # "Action(t-1)", "Action(t-2)",
-                                  "S(t)", "S(t) x \n A(t-1)",
-                                  "BIC", "N"))) %>%
-  dplyr::select(-Coefficient, -Std_Error, -Significance) %>%
-  # Pivot wider to have one column per model
-  pivot_wider(names_from = Model,
-              values_from = Estimate,
-              names_sep = "_") %>%
-  dplyr::select(order(names(.))) %>%
-  arrange(Term) %>%
-  gt(rowname_col = "Term") %>%
-  sub_missing() %>%
-  tab_spanner_delim("&") %>%
-  tab_header(
-    title = "Fixed Effects Logistic Regression Results"
-  )
-
-# Print the table
-gt_table %>% as_latex()
-```
-
-<!-- FE Logit State-based -->
-
-```{r}
-#| label: tbl-fe-results-full
-#| tbl-cap: "State-Based Panel Logistic Regression Results"
-
-load("Regressions/fe-state-subset-results.RData")
-
-# Combine the model stats from original and restricted results for comparison
-results_df <- do.call(rbind, lapply(results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  data.frame(
-    Action = x$Method,
-    Reward = x$Reward,
-    State = x$State,
-    AUC = x$AUC,
-    BIC = x$bic,
-    Type = "Original"
-  )
-}))
-# Select top 2 AUC models and top 2 BIC models for both original and restricted
-top_models <- results_df %>%
-  arrange(desc(AUC)) %>%
-  slice_head(n = 2)
-top_models <- results_df %>%
-  arrange(BIC) %>%
-  slice_head(n = 2) %>%
-  bind_rows(top_models)
-
-# Filter and tidy the results
-tidy_fe_results <- lapply(results, function(x) {
-  if (x$Lag != 2) return(NULL)
-  if (top_models %>%
-      filter(Action == x$Method &
-             Reward == x$Reward &
-             State  == x$State) %>%
-      nrow() == 0) return(NULL)
-  temp <- x$fecoef %>%
-    as.data.frame() %>%
-    rownames_to_column(var = "Term") %>%
-    mutate(across(c(Estimate, `Std. Error`, `z value`, `Pr(>|z|)`),
-                  ~ as.numeric(.))) %>%
-    filter(Term != "(Intercept)" & Term != "week_lag")
-
-  return(list(
-    Model = paste(x$Method, x$Reward, x$State),
-    Data  = temp,
-    BIC   = x$bic,
-    N     = length(x$recoef$Teacher.User.ID)))
-})
-tidy_fe_results <- tidy_fe_results[!sapply(tidy_fe_results, is.null)]
-
-# Combine all model summaries into one dataframe
-model_summary <- do.call(rbind, lapply(tidy_fe_results, function(x) {
-  x_name <- unlist(strsplit(x$Model, " "))
-  x_data <- x$Data %>%
-    rename(Coefficient = Estimate,
-           Std_Error = `Std. Error`) %>%
-    mutate(
-      Significance = case_when(
-        `Pr(>|z|)` < .001 ~ "***",
-        `Pr(>|z|)` < .01 ~ "**",
-        `Pr(>|z|)` < .05 ~ "*",
-        TRUE ~ ""),
-      Term = gsub(x_name[1], "lag", Term),
-      Term = gsub(x_name[2], "rwd", Term),
-      Term = gsub(x_name[3], "st",  Term),
-      Term = gsub("_", "",  Term),
-      Term = gsub(":", "_",  Term)) %>%
-    add_row(Term = "BIC", Coefficient = x[[3]]) %>%
-    add_row(Term = "N", Coefficient = x[[4]])
-  x_data$Model <- x$Model
-
-  x_data
-})) %>% dplyr::select(Model, Term, Coefficient, Std_Error, Significance) %>%
-  mutate(Model = gsub(" ", "&", Model),
-         Model = gsub("Frobenius.NNDSVD_student1", "Badges", Model),
-         Model = gsub("Frobenius.NNDSVD_student2", "Struggles", Model),
-         Model = gsub("Frobenius.NNDSVD_student3", "No. Students", Model),
-         Model = gsub("Frobenius.NNDSVD_student4", "Activity", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher1", "Assessments", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher2", "Pedagogical Knowledge", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher3", "Group Instruction", Model),
-         Model = gsub("Frobenius.NNDSVD_teacher4", "Curriculum Planning", Model))
-
-# Create the table using the 'gt' package
-gt_table <- model_summary %>%
-  filter(!Term %in% c("rwd1","rwd2","lag1","lag2")) %>%
-  mutate(Estimate = ifelse(Term %in% c("BIC", "N"),
-                           sprintf("%d", as.integer(Coefficient)),
-                           sprintf("%1.3f%s\n(%1.3f)",
-                                   Coefficient, Significance, Std_Error)),
-         Term = factor(Term, levels = c("rwd1_lag1", "rwd1_lag2", "lag2_rwd2",
-                                        # "lag1", "lag2",
-                                        "st1", "lag2_st1",
-                                         "BIC", "N"),
-                       labels = c("R(t-1) x \n A(t-1)",
-                                  "R(t-1) x \n A(t-2)",
-                                  "R(t-2) x \n A(t-2)",
-                                  # "Action(t-1)", "Action(t-2)",
-                                  "S(t-1)", "S(t-1) x \n A(t-2)",
-                                  "BIC", "N"))) %>%
-  dplyr::select(-Coefficient, -Std_Error, -Significance) %>%
-  # Pivot wider to have one column per model
-  pivot_wider(names_from = Model,
-              values_from = Estimate,
-              names_sep = "_") %>%
-  dplyr::select(order(names(.))) %>%
-  arrange(Term) %>%
-  gt(rowname_col = "Term") %>%
-  sub_missing() %>%
-  tab_spanner_delim("&") %>%
-  tab_header(
-    title = "Fixed Effects Logistic Regression Results"
-    )
-
-# Print the table
-gt_table
-
-```
-
-<!-- VC Logit Model Summary -->
-
-```{r, results='asis'}
-#| label: tbl-re-estimation-statefree
-#| tbl-cap: "Summary statistics of coefficients from state-free mixed effects logistic regression models predicting teacher actions. Each row group represents a predictor variable: R(t-1) x A(t-1) is the interaction between the reward at time t-1 and the action taken at time t-1, R(t-1) x A(t-2) is the interaction between the reward at t-1 and action at t-2, and R(t-2) x A(t-2) is the interaction between the reward and action at time t-2. Columns represent different combinations of action, reward, and state, where the actions are teacher NMF components, and the rewards are student NMF components. Cell values show the mean, standard deviation, quartiles, and proportion of teachers that show RL-like coefficients (i.e., those in the direction predicted by reinforcement learning: positive for positive rewards and negative for negative rewards)."
-
-load("Regressions/me-standardized-coef.RData")
-
-large_coef_threshold <- 10
-
-filtered_results <- lapply(results, function(x) {
-  if (!is.null(x$State)) return(NULL)
-  if (!x$convergence) return(NULL)
-  temp <- data.frame(
-    Action = x$Method,
-    Reward = x$Reward,
-    State = "None"
-  ) %>%
-  mutate(across(c(Action, Reward),
-                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Badges",
-                            . == "Frobenius.NNDSVD_student2" ~ "Struggles",
-                            . == "Frobenius.NNDSVD_student3" ~ "No. Students",
-                            . == "Frobenius.NNDSVD_student4" ~ "Activity",
-                            . == "Frobenius.NNDSVD_teacher1" ~ "Assessments",
-                            . == "Frobenius.NNDSVD_teacher2" ~ "Pedagogical Knowledge",
-                            . == "Frobenius.NNDSVD_teacher3" ~ "Group Instruction",
-                            . == "Frobenius.NNDSVD_teacher4" ~ "Curriculum Planning",
-                            .default = .)))
-  # if(nrow(
-  #   temp %>%
-  #   semi_join(selected_models, by = c("Action", "Reward", "State"))
-  #   ) == 0) return(NULL)
-  if(x$AUC < 0.5) return(NULL)
-  x$recoef <- do.call(cbind, x$recoef[-c(1, length(x$recoef))]) %>%
-    as.data.frame() %>%
-    filter(if_all(everything(),
-                  ~ . >= find_hdr(.)[1] &
-                    . <= find_hdr(.)[2])) %>%
-    rownames_to_column(var = "Teacher.User.ID")
-  if (any(abs(colMeans(x$recoef[,-1])) > large_coef_threshold)) return(NULL)
-
-  return(list(
-    Action = temp$Action,
-    Reward = temp$Reward,
-    AUCmodel = x$AUC,
-    BICmodel = x$bic,
-    coef = data.frame(
-      Teacher.User.ID = as.integer(x$recoef[,1]),
-      lag1 = x$recoef[,3],
-      lag2 = x$recoef[,7],
-      rwd1 = x$recoef[,2],
-      rwd2 = x$recoef[,6],
-      rwd1_lag1 = x$recoef[,4],
-      rwd1_lag2 = x$recoef[,5],
-      rwd2_lag2 = x$recoef[,8]
-    ) %>%
-      inner_join(x$perform_df %>%
-                   select(Teacher.User.ID, auc_out, logLik_ind) %>%
-                   filter(if_all(everything(), ~ . >= find_hdr(.)[1] &
-                                                 . <= find_hdr(.)[2])) %>%
-                   filter(0.5 < auc_out & auc_out < 1),
-                 by = "Teacher.User.ID")
-  ))
-})
-filtered_results <- filtered_results[!sapply(filtered_results, is.null)]
-
-# Gather AUC and BIC and calculate thresholds
-all_auc_bic <- do.call(
-  rbind,
-  lapply(filtered_results, function(x) {
-    return(c(x$AUCmodel, x$BICmodel))
-    }))
-auc75 <- quantile(all_auc_bic[,1], 0.75, na.rm = TRUE)
-bic25 <- quantile(all_auc_bic[,2], 0.25, na.rm = TRUE)
-
-model_summary <- do.call(rbind, lapply(filtered_results, function(x) {
-  summary <- data.frame(
-    Action = x$Action,
-    Reward = x$Reward,
-    AUC = x$AUCmodel,
-    BIC = x$BICmodel
-  )
-  summary$lag1 = list(x$coef$lag1)
-  summary$lag2 = list(x$coef$lag2)
-  summary$rwd1_lag1 = list(x$coef$rwd1_lag1)
-  summary$rwd1_lag2 = list(x$coef$rwd1_lag2)
-  summary$rwd2_lag2 = list(x$coef$rwd2_lag2)
-  summary$auc_ind = list(x$coef$auc_out)
-  summary$logLik_ind = list(x$coef$logLik_ind)
-
-  summary <- summary %>%
-    # # Standardize the coefficients by dividing by the standard deviation
-    # mutate(across(c(rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
-    #               ~ lapply(., function(x) x / sd(x, na.rm = T)))) %>%
-    # # Fill in x$State == "None" with 0s
-    # mutate(across(c(st, st_lag1), ~ if_else(is.na(.), list(0), .))) %>%
-    mutate(n_teachers = lapply(summary$lag1, length)) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2,
-                    auc_ind, logLik_ind),
-                  ~ lapply(., mean, na.rm = T),
-                  .names = "{.col}.mean")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2
-                    ),
-                  ~ lapply(., sd, na.rm = T),
-                  .names = "{.col}.sd")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2
-                    ),
-                  ~ lapply(., quantile, 0.25, names = F),
-                  .names = "{.col}.q1")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2
-                    ),
-                  ~ lapply(., median, na.rm = T),
-                  .names = "{.col}.median")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2
-                    ),
-                  ~ lapply(., quantile, 0.75, names = F),
-                  .names = "{.col}.q3")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2
-                    ),
-                  ~ lapply(., function(x) mean(x > 0, na.rm = T)),
-                  .names = "{.col}.pos")) %>%
-    select(-c(lag1, lag2,
-              rwd1_lag1,
-              rwd1_lag2,
-              rwd2_lag2,
-              auc_ind, logLik_ind, auc_ind.mean, logLik_ind.mean))
-
-  return(summary)
-}))
-
-# Transform the model_summary dataframe to a long format for plotting
-model_summary_long <- model_summary %>%
-  mutate(across(!c(Action, Reward), as.numeric)) %>%
-  mutate(across(dplyr::ends_with(".pos") & dplyr::starts_with("rwd"),
-                ~ case_when(Reward == "Struggle" ~ 1 - ., .default = .))) %>%
-  filter(AUC >= auc75 | BIC <= bic25) %>%
-  select(!c(AUC, BIC)) %>%
-  pivot_longer(cols = -c(Action, Reward),
-               names_to = c("variable", "statistic"), values_to = "value",
-               names_sep = "\\.") %>%
-  arrange(Action, Reward) %>%
-  pivot_wider(names_from = c(Action, Reward), values_from = c(value))
-
-max <- model_summary_long %>%
-  filter(statistic == "pos" & !variable %in% c("lag1","lag2")) %>%
-  rowwise() %>%
-  # Remove columns that do not have the max of at least 1 row
-  mutate(max_val = max(c_across(is.numeric), na.rm = T)) %>%
-  ungroup() %>%
-  mutate(across(is.numeric, ~ if_else(. == max_val, ., NA))) %>%
-  select(where(~ !all(is.na(.)))) %>%
-  select(-c("max_val","statistic")) %>%
-  mutate(across(is.numeric, ~ !is.na(.))) %>%
-  pivot_longer(cols = -variable, names_to = "model", values_to = "keep") %>%
-  filter(keep) %>% select(-keep)
-
-model_summary_long %>%
-  filter(!variable %in% c("lag1", "lag2")) %>%
-  mutate(statistic = factor(statistic,
-                            levels = c("mean", "sd", "q1", "median", "q3", "pos"),
-                            labels = c("Mean", "SD", "Q1", "Median", "Q3", "RL-like")),
-         variable = factor(variable,
-                           levels = c(
-                             # "lag1", "lag2",
-                             "rwd1_lag1",
-                             "rwd1_lag2",
-                             "rwd2_lag2",
-                             "n_teachers"),
-                           labels = c(
-                             # "Action(t-1)",
-                             # "Action(t-2)",
-                             "R(t-1) x \n A(t-1)",
-                             "R(t-1) x \n A(t-2)",
-                             "R(t-2) x \n A(t-2)",
-                             "N"
-                             ))) %>%
-  select(order(names(model_summary_long))) %>%
-  group_by(variable) %>%
-  gt(rowname_col = "statistic", row_group_as_column = T) %>%
-  row_group_order(groups = c(
-    # "Action(t-1)",
-    # "Action(t-2)",
-    "R(t-1) x \n A(t-1)",
-    "R(t-1) x \n A(t-2)",
-    "R(t-2) x \n A(t-2)",
-    "N")) %>%
-  tab_stubhead(label = "Action \n Reward") %>%
-  fmt_markdown(columns = "variable") %>%
-  fmt_number(decimals = 2) %>%
-  fmt_integer(rows = variable == "N") %>%
-  fmt_percent(rows = statistic == "RL-like") %>%
-  # cols_hide(starts_with("Assessments_No. Students")) %>%
-  sub_missing() %>%
-  tab_spanner_delim("_") %>%
-  tab_header(
-    title = "Summary of Model Coefficients"
-  ) %>%
-  tab_options(
-    table.font.size = "small"
-  ) %>%
-  as_latex()
-
-```
-
-{{< pagebreak >}}
-
-```{r, results='asis'}
-#| label: tbl-re-estimation
-#| tbl-cap: "Summary statistics of coefficients from state-based mixed effects logistic regression models predicting teacher actions. Each row group represents a predictor variable: R(t-1) x A(t-1) is the interaction between the reward at time t-1 and the action taken at time t-1, R(t-1) x A(t-2) is the interaction between the reward at t-1 and action at t-2, R(t-2) x A(t-2) is the interaction between the reward and action at time t-2, S(t) is the state at time t, and S(t) x A(t-1) is the interaction between the current state and the previous action. Columns represent different combinations of action, reward, and state, where the actions are teacher NMF components, and the rewards and states are student NMF components (but the state is never the same component as its associated reward). Cell values show the mean, standard deviation, quartiles, and proportion of teachers that show RL-like coefficients (i.e., those in the direction predicted by reinforcement learning: positive for positive rewards and negative for negative rewards)."
-
-load("Regressions/me-standardized-coef.RData")
-
-large_coef_threshold <- 10
-
-filtered_results <- lapply(results, function(x) {
-  if (is.null(x$State)) return(NULL)
-  if (!x$convergence) return(NULL)
-  temp <- data.frame(
-    Action = x$Method,
-    Reward = x$Reward,
-    State = x$State
-  ) %>%
-  mutate(across(c(Action, Reward, State),
-                ~ case_when(. == "Frobenius.NNDSVD_student1" ~ "Badges",
-                            . == "Frobenius.NNDSVD_student2" ~ "Struggles",
-                            . == "Frobenius.NNDSVD_student3" ~ "No. Students",
-                            . == "Frobenius.NNDSVD_student4" ~ "Activity",
-                            . == "Frobenius.NNDSVD_teacher1" ~ "Assessments",
-                            . == "Frobenius.NNDSVD_teacher2" ~ "Pedagogical Knowledge",
-                            . == "Frobenius.NNDSVD_teacher3" ~ "Group Instruction",
-                            . == "Frobenius.NNDSVD_teacher4" ~ "Curriculum Planning",
-                            .default = .)))
-  # if(nrow(
-  #   temp %>%
-  #   semi_join(selected_models, by = c("Action", "Reward", "State"))
-  #   ) == 0) return(NULL)
-  if(x$AUC < 0.5) return(NULL)
-  x$recoef <- do.call(cbind, x$recoef[-c(1, length(x$recoef))]) %>%
-    as.data.frame() %>%
-    filter(if_all(everything(),
-                  ~ . >= find_hdr(.)[1] & . <= find_hdr(.)[2])) %>%
-    rownames_to_column(var = "Teacher.User.ID")
-  if (any(abs(colMeans(x$recoef[,-1])) > large_coef_threshold)) return(NULL)
-
-  return(list(
-    Action = temp$Action,
-    Reward = temp$Reward,
-    State = temp$State,
-    AUCmodel = x$AUC,
-    BICmodel = x$bic,
-    coef = data.frame(
-      Teacher.User.ID = as.integer(x$recoef[,1]),
-      lag1 = x$recoef[,3],
-      lag2 = x$recoef[,7],
-      rwd1 = x$recoef[,2],
-      rwd2 = x$recoef[,6],
-      rwd1_lag1 = x$recoef[,4],
-      rwd1_lag2 = x$recoef[,5],
-      rwd2_lag2 = x$recoef[,8],
-      st = x$recoef[,9],
-      st_lag1 = x$recoef[,10]
-    ) %>%
-      inner_join(x$perform_df %>%
-                   select(Teacher.User.ID, auc_out, logLik_ind) %>%
-                   filter(auc_out >= 0.5 & auc_out < 1),
-                 by = "Teacher.User.ID")
-  ))
-  })
-filtered_results <- filtered_results[!sapply(filtered_results, is.null)]
-
-# Gather AUC and BIC and calculate thresholds
-all_auc_bic <- do.call(
-  rbind,
-  lapply(filtered_results, function(x) {
-    return(c(x$AUCmodel, x$BICmodel))
-    }))
-auc75 <- quantile(all_auc_bic[,1], 0.75, na.rm = TRUE)
-bic25 <- quantile(all_auc_bic[,2], 0.25, na.rm = TRUE)
-
-model_summary <- do.call(rbind, lapply(filtered_results, function(x) {
-  summary <- data.frame(
-    Action = x$Action,
-    Reward = x$Reward,
-    State = x$State,
-    AUC = x$AUCmodel,
-    BIC = x$BICmodel
-  )
-  summary$lag1 = list(x$coef$lag1)
-  summary$lag2 = list(x$coef$lag2)
-  summary$rwd1_lag1 = list(x$coef$rwd1_lag1)
-  summary$rwd1_lag2 = list(x$coef$rwd1_lag2)
-  summary$rwd2_lag2 = list(x$coef$rwd2_lag2)
-  summary$st = ifelse(x$State == "None", list(0), list(x$coef$st))
-  summary$st_lag1 = ifelse(x$State == "None", list(0), list(x$coef$st_lag1))
-  summary$auc_ind = list(x$coef$auc_out)
-  summary$logLik_ind = list(x$coef$logLik_ind)
-
-  summary <- summary %>%
-    # # Standardize the coefficients by dividing by the standard deviation
-    # mutate(across(c(rwd1_lag1, rwd1_lag2, rwd2_lag2, st, st_lag1),
-    #               ~ lapply(., function(x) x / sd(x, na.rm = T)))) %>%
-    # # Fill in x$State == "None" with 0s
-    # mutate(across(c(st, st_lag1), ~ if_else(is.na(.), list(0), .))) %>%
-    mutate(n_teachers = lapply(summary$lag1, length)) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2,
-                    st, st_lag1,
-                    auc_ind, logLik_ind),
-                  ~ lapply(., mean, na.rm = T),
-                  .names = "{.col}.mean")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2,
-                    st, st_lag1),
-                  ~ lapply(., sd, na.rm = T),
-                  .names = "{.col}.sd")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2,
-                    st, st_lag1),
-                  ~ lapply(., quantile, 0.25, names = F),
-                  .names = "{.col}.q1")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2,
-                    st, st_lag1),
-                  ~ lapply(., median, na.rm = T),
-                  .names = "{.col}.median")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2,
-                    st, st_lag1),
-                  ~ lapply(., quantile, 0.75, names = F),
-                  .names = "{.col}.q3")) %>%
-    mutate(across(c(lag1, lag2,
-                    rwd1_lag1,
-                    rwd1_lag2,
-                    rwd2_lag2,
-                    st, st_lag1),
-                  ~ lapply(., function(x) mean(x > 0, na.rm = T)),
-                  .names = "{.col}.pos")) %>%
-    select(-c(lag1, lag2,
-              rwd1_lag1,
-              rwd1_lag2,
-              rwd2_lag2,
-              st, st_lag1,
-              auc_ind, logLik_ind, auc_ind.mean, logLik_ind.mean))
-
-  return(summary)
-}))
-
-# Transform the model_summary dataframe to a long format for plotting
-model_summary_long <- model_summary %>%
-  mutate(across(!c(Action, Reward, State), as.numeric)) %>%
-  mutate(across(dplyr::ends_with(".pos") & dplyr::starts_with("st"),
-                ~ case_when(State == "Struggle" ~ 1 - ., .default = .)),
-         across(dplyr::ends_with(".pos") & dplyr::starts_with("rwd"),
-                ~ case_when(Reward == "Struggle" ~ 1 - ., .default = .))) %>%
-  filter(AUC >= auc75 | BIC <= bic25) %>%
-  select(!c(AUC, BIC)) %>%
-  mutate(across(dplyr::starts_with("st", ignore.case = F),
-                ~ if_else(State == "None", NA, .))) %>%
-  pivot_longer(cols = -c(Action, Reward, State),
-               names_to = c("variable", "statistic"), values_to = "value",
-               names_sep = "\\.") %>%
-  arrange(Action, Reward, State) %>%
-  pivot_wider(names_from = c(Action, Reward, State), values_from = c(value))
-
-max <- model_summary_long %>%
-  filter(statistic == "pos" & !variable %in% c("lag1","lag2")) %>%
-  rowwise() %>%
-  # Remove columns that do not have the max of at least 1 row
-  mutate(max_val = max(c_across(is.numeric), na.rm = T)) %>%
-  ungroup() %>%
-  mutate(across(is.numeric, ~ if_else(. == max_val, ., NA))) %>%
-  select(where(~ !all(is.na(.)))) %>%
-  select(-c("max_val","statistic")) %>%
-  mutate(across(is.numeric, ~ !is.na(.))) %>%
-  pivot_longer(cols = -variable, names_to = "model", values_to = "keep") %>%
-  filter(keep) %>% select(-keep)
-
-model_summary_long %>%
-  filter(!variable %in% c("lag1", "lag2")) %>%
-  mutate(statistic = factor(statistic,
-                            levels = c("mean", "sd", "q1", "median", "q3", "pos"),
-                            labels = c("Mean", "SD", "Q1", "Median", "Q3", "RL-like")),
-         variable = factor(variable,
-                           levels = c(
-                             # "lag1", "lag2",
-                             "rwd1_lag1",
-                             "rwd1_lag2",
-                             "rwd2_lag2",
-                             "st", "st_lag1",
-                             "n_teachers"),
-                           labels = c(
-                             # "Action(t-1)",
-                             # "Action(t-2)",
-                             "R(t-1) x \n A(t-1)",
-                             "R(t-1) x \n A(t-2)",
-                             "R(t-2) x \n A(t-2)",
-                             "S(t)",
-                             "S(t) x \n A(t-1)",
-                             "N"
-                             ))) %>%
-  select(order(names(model_summary_long))) %>%
-  group_by(variable) %>%
-  gt(rowname_col = "statistic", row_group_as_column = T) %>%
-  row_group_order(groups = c(
-    # "Action(t-1)",
-    # "Action(t-2)",
-    "R(t-1) x \n A(t-1)",
-    "R(t-1) x \n A(t-2)",
-    "R(t-2) x \n A(t-2)",
-    "S(t)",
-    "S(t) x \n A(t-1)",
-    "N")) %>%
-  tab_stubhead(label = "Action \n Reward \n State") %>%
-  fmt_markdown(columns = "variable") %>%
-  fmt_number(decimals = 2) %>%
-  fmt_integer(rows = variable == "No. Teachers") %>%
-  fmt_percent(rows = statistic == "RL-like") %>%
-  # cols_hide(starts_with("Assessments_No. Students")) %>%
-  sub_missing() %>%
-  tab_spanner_delim("_") %>%
-  tab_header(
-    title = "Summary of Model Coefficients"
-  ) %>%
-  tab_options(
-    table.font.size = "small"
-  ) %>%
-  as_latex()
-
-```
-
-<!-- QL Model Summary -->
-
-<!-- AC Model Summary -->
-
-```{r}
-#| label: tbl-CBM-teachers
-#| tbl-cap: "Comparison of Teacher Characteristics by Model Type. The table presents the differences in means across various characteristics between teachers classified into Logit or Actor-Critic models."
-
-# T-tests for differences in means by model type
-heterogeneity %>%
-  filter(!is.na(Teacher.User.ID)) %>%
-  dplyr::select(Model, `Charter School`, `Paid Account`, Poverty,
-         `No. of Weeks`, `Total Students`, `No. of Classes`,
-         `Active Students`, `Avg. Badges`, `Avg. Tower Alerts`,
-         Action, Reward, State) %>%
-  tbl_summary(
-    by = Model,  # Grouping variable
-    type = list(`No. of Classes` ~ "continuous"),
-    statistic = list(all_continuous() ~ "{mean} ({sd})",
-                     all_categorical() ~ "{p}%")
-  ) %>%
-  add_n() %>%
-  add_difference() %>%
-  modify_column_hide(columns = ci) %>%
-  add_q()
-
-```
-
-```{r}
-#| label: tbl-CBM-teachers-full
-#| tbl-cap: "Comparison of Teacher Characteristics by Model Fit. The table presents the differences in means across various characteristics between teachers classified into Good Fit or Bad Fit groups."
-
-# T-tests for differences in means by model type and fit group
-full_data %>%
-  dplyr::select(FitGroup, `Charter School`, `Paid Account`, Poverty,
-         `No. of Weeks`, `Total Students`, `No. of Classes`,
-         `Active Students`, `Avg. Badges`, `Avg. Tower Alerts`,
-         Action, Reward, State) %>%
-  tbl_summary(
-    by = c("FitGroup"), # Grouping variables
-    type = list(`No. of Classes` ~ "continuous"),
-    statistic = list(all_continuous() ~ "{mean} ({sd})",
-                     all_categorical() ~ "{p}%")
-  ) %>%
-  add_n() %>%
-  add_difference() %>%
-  modify_column_hide(columns = ci) %>%
-  add_q()
-
-
-```
-
-```{r, results='asis'}
-#| label: tbl-optimality
-#| tbl-cap: "Impact of RL parameters on Weekly Badges and Tower Alerts. Six linear regression models were used to examine the correlations between a teacher's RL parameters and two measures of student engagement: average weekly Badges earned per student (Models 1-3) and average weekly Tower Alerts per student (Models 4-6). Models 2-3 and 5-6 also control for other variables including number of active students, number of classes taught, grade level, weeks, poverty level, income level, whether the school is a charter school, and whether the school has a paid account. Coefficients and standard errors are provided for each parameter in each model."
-
-ordered_factor <- function(fact_var) {
-  categories <- levels(fact_var)
-  n_cat <- length(categories)
-  cont <- matrix(data = 0, nrow = n_cat, ncol = (n_cat - 1))
-  cont[col(cont) < row(cont)] <- 1
-  rownames(cont) <- categories
-  colnames(cont) <- paste(categories[2:n_cat],
-                          categories[1:(n_cat - 1)],
-                          sep = " vs. ")
-  contrasts(fact_var) <- cont
-  return(fact_var)
-}
-full_data <- full_data %>%
-  dplyr::mutate(
-    Income = factor(Income, ordered = TRUE),
-    grade = factor(grade, ordered = TRUE,
-                   levels = c("Kindergarten",
-                              "1st", "2nd", "3rd", "4th", "5th")),
-    Poverty = factor(Poverty, ordered = TRUE)
-  ) %>%
-  dplyr::mutate(
-    Income = ordered_factor(Income),
-    grade = ordered_factor(grade),
-    Poverty = ordered_factor(Poverty)
-  )
-
-# Run regression models using the median split groups
-model1 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init,
-             data = full_data)
-model2 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
-               BIC + `No. of Weeks` + `Total Students` + `No. of Classes`,
-             data = full_data)
-model3 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
-               BIC + `No. of Weeks` + `Total Students` + `No. of Classes` +
-               grade +  Poverty + `Charter School` + `Paid Account`,
-             data = full_data)
-model4 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init,
-             data = full_data)
-model5 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init  +
-               BIC + `No. of Weeks` + `Total Students` + `No. of Classes`,
-             data = full_data)
-model6 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init +
-               BIC + `No. of Weeks` + `Total Students` + `No. of Classes` +
-               grade +  Poverty + `Charter School` + `Paid Account`,
-             data = full_data)
-
-# # Gather tidy summaries of each model
-# model_summaries <- list(
-#   tidy(model1), tidy(model2), tidy(model3),
-#   tidy(model4), tidy(model5), tidy(model6)
-# )
-#
-# # Create a function to format model summaries for gt
-# format_for_gt <- function(model_summary, model_name) {
-#   model_summary %>%
-#     mutate(model = model_name) %>%
-#     dplyr::select(model, term, estimate, std.error, statistic, p.value)
-# }
-#
-# # Apply the function to each model summary with an appropriate model name
-# formatted_summaries <- lapply(seq_along(model_summaries), function(i) {
-#   format_for_gt(model_summaries[[i]], paste("Model", i))
-# }) %>%
-#   bind_rows()
-#
-# # Generate a gt table
-# table_gt <- gt(formatted_summaries) %>%
-#   cols_label(
-#     model = "Model",
-#     term = "Term",
-#     estimate = "Estimate",
-#     std.error = "Standard Error",
-#     statistic = "T Value",
-#     p.value = "P Value"
-#   ) %>%
-#   tab_spanner(
-#     label = "Statistics",
-#     columns = c(estimate, std.error, statistic, p.value)
-#   ) %>%
-#   fmt_number(
-#     columns = c(estimate, std.error, statistic, p.value),
-#     decimals = 3
-#   ) %>%
-#   data_color(
-#     columns = c(p.value),
-#     colors = scales::col_numeric(
-#       palette = c("red", "yellow", "green"),
-#       domain = c(0, 0.05)
-#     )
-#   )
-#
-# # Print the table
-# print(table_gt)
-
-# Create table with stargazer
-stargazer(model1, model2, model3,
-          type = "latex",
-          header=FALSE,
-          align = TRUE,
-          covariate.labels = c("$\\alpha$", "$\\gamma$",
-                               "$\\tau$", "Cost", "Starting Q-value",
-                               "No. of Weeks", "No. of Students",
-                               "No. of Classes",
-                               "Charter School", "Paid Zearn Account"),
-          omit = c("BIC", "grade", "Poverty"),
-          dep.var.labels = "Badges",
-          star.cutoffs = c(.05, .01, .001),
-          star.char = c("*", "**", "***"),
-          add.lines = list(c("Control for BIC",
-                             "", "Yes", "Yes", "", "Yes", "Yes"),
-                           c("Control for Grade Level",
-                             "", "", "Yes", "", "", "Yes"),
-                           c("Control for Poverty Level",
-                             "", "", "Yes", "", "", "Yes")))
-
-```
-
-```{r, results='asis'}
-#| label: tbl-optimality-2
-#| tbl-cap: "Impact of RL parameters on Weekly Badges and Tower Alerts. Six linear regression models were used to examine the correlations between a teacher's RL parameters and two measures of student engagement: average weekly Badges earned per student (Models 1-3) and average weekly Tower Alerts per student (Models 4-6). Models 2-3 and 5-6 also control for other variables including number of active students, number of classes taught, grade level, weeks, poverty level, income level, whether the school is a charter school, and whether the school has a paid account. Coefficients and standard errors are provided for each parameter in each model."
-
-# Create table with stargazer
-stargazer(model4, model5, model6,
-          type = "latex",
-          header=FALSE,
-          align = TRUE,
-          covariate.labels = c("$\\alpha$", "$\\gamma$",
-                               "$\\tau$", "Cost", "Starting Q-value",
-                               "No. of Weeks", "No. of Students",
-                               "No. of Classes",
-                               "Charter School", "Paid Zearn Account"),
-          omit = c("BIC", "grade", "Poverty"),
-          dep.var.labels = "Tower Alerts",
-          star.cutoffs = c(.05, .01, .001),
-          star.char = c("*", "**", "***"),
-          add.lines = list(c("Control for BIC",
-                             "", "Yes", "Yes", "", "Yes", "Yes"),
-                           c("Control for Grade Level",
-                             "", "", "Yes", "", "", "Yes"),
-                           c("Control for Poverty Level",
-                             "", "", "Yes", "", "", "Yes")))
-
-```
-
-```{r}
-#| label: fig-heterogeneity-reg
-#| fig-cap: "Predicting classroom variables with RL parameters. The data comes from a comprehensive set of classroom records, including income level, poverty level, charter school status, whether a school account is paid, and the number of classes each teaches. These classroom variables (columns) are regressed on the estimated cost parameter, the discount rate, the learning rate, and the inverse temperature. Each cell in the heatmap represents the estimate of a linear, Poisson, or logistic regression model, depending on the variable type. For ordinal classroom variables (Income Level and Poverty Level), ordered logistic regression (proportional odds model) is used, while for binary variables (Charter School, Paid School Account), logistic regression is applied. The number of classes by each teacher, being a count data, is modeled with Poisson regression. The coefficients are scaled estimates of the effect of each parameter on the respective classroom variable. The asterisks indicate the level of statistical significance based on p-values (p < .1; p < .01; p < .001). The coefficients are color-coded with a gradient from light blue (negative) to white (zero) to dark blue (positive)."
-
-# Ensure the predictors are scaled
-predictors <- c("alpha", "gamma", "tau", "ev_init", "cost")
-# predictors <- c("alpha_w", "alpha_theta", "gamma", "tau",
-#                 "cost", "theta_init", "w_init")
-full_data[predictors] <- scale(full_data[predictors])
-
-# Define responses for which models will be run
-responses <- c("Income", "Poverty", "`Paid Account`", "`No. of Weeks`")
-predictors_formula <- paste(predictors, collapse = " + ")
-
-# Run models for each response and extract coefficients
-coef_matrix <- map_dfr(responses, function(response) {
-  formula <- as.formula(paste0(response, " ~ ", predictors_formula))
-  if (response %in% c("Income", "Poverty")) {
-    model <- polr(formula, data = full_data, Hess = TRUE)
-  } else if (response == "`No. of Weeks`") {
-    model <- glm(formula, data = full_data, family = poisson(link = "log"))
-  } else {
-    model <- glm(formula, data = full_data, family = binomial(link = "logit"))
-  }
-
-  tidy(model, p.values = TRUE) %>%
-    filter(term %in% predictors) %>%
-    dplyr::select(term, estimate, p.value) %>%
-    mutate(response = response,
-           sig = case_when(
-             p.value < 0.001 ~ "***",
-             p.value < 0.01 ~ "**",
-             p.value < 0.05 ~ "*",
-             TRUE ~ ""
-           ))
-})
-
-# Convert to wide format for plotting
-coef_matrix <- coef_matrix %>%
-  pivot_wider(names_from = term, values_from = c(estimate, p.value, sig)) %>%
-  mutate(response = factor(response, levels = responses)) %>%
-  arrange(response)
-
-coef_matrix_long <- coef_matrix %>%
-  pivot_longer(cols = starts_with("estimate"), names_to = "term", values_to = "estimate") %>%
-  pivot_longer(cols = starts_with("sig"), names_to = "term_sig", values_to = "sig")
-# Clean up term names
-coef_matrix_long$term <- str_replace(coef_matrix_long$term, "estimate_", "")
-coef_matrix_long$term_sig <- str_replace(coef_matrix_long$term_sig, "sig_", "")
-# Make sure the term columns match
-coef_matrix_long <- coef_matrix_long[coef_matrix_long$term == coef_matrix_long$term_sig,]
-
-# Plot the heatmap
-ggplot(coef_matrix_long, aes(x = response, y = term, fill = as.numeric(estimate))) +
-  geom_tile() +
-  geom_text(aes(label = paste0(signif(as.numeric(estimate), 2), sig)), size = 3) +
-  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, "RdYlBu"),
-                       limits = c(-1, 1),
-                       name = "Estimate") +
-  theme_minimal() +
-  labs(x = NULL, y = NULL) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
-
-```{r}
-#| label: fig-heterogeneity-pcor
-#| fig-cap: "Partial correlations between classroom variables and RL parameters. The data comes from a comprehensive set of classroom records, including income level, poverty level, charter school status, whether a school account is paid, and the number of classes each teaches. These classroom variables (columns) are correlated with the estimated cost parameter, the discount rate, the learning rate, and the inverse temperature, while controlling for the other predictors. Each cell in the heatmap represents the partial correlation coefficient. The asterisks indicate the level of statistical significance based on p-values (p < .1; p < .01; p < .001). The coefficients are color-coded with a gradient from light blue (negative) to white (zero) to dark blue (positive)."
-
-# Ensure the predictors are scaled
-predictors <- c("alpha", "gamma", "tau", "ev_init", "cost")
-
-# Define responses for which partial correlations will be calculated
-responses <- c("Income", "Poverty",
-               "Paid Account", "No. of Weeks")
-pcor_list <- pcor(full_data[,c(predictors, responses)] %>%
-                    mutate(across(everything(),as.numeric)) %>%
-                    na.omit(), method = c("spearman"))
-coef_matrix <- pcor_list$estimate[responses, predictors]
-pval_matrix <- pcor_list$p.value[responses, predictors]
-
-# Create a dataframe for plotting
-coef_matrix_long <- coef_matrix %>%
-  as.data.frame() %>%
-  rownames_to_column("response") %>%
-  pivot_longer(cols = -response, names_to = "term", values_to = "estimate")
-
-pval_matrix_long <- pval_matrix %>%
-  as.data.frame() %>%
-  rownames_to_column("response") %>%
-  pivot_longer(cols = -response, names_to = "term", values_to = "p.value")
-
-coef_matrix_plot <- coef_matrix_long %>%
-  left_join(pval_matrix_long, by = c("response", "term")) %>%
-  mutate(
-    response = factor(response, levels = responses),
-    sig = case_when(
-      p.value < 0.001 ~ "***",
-      p.value < 0.01 ~ "**",
-      p.value < 0.05 ~ "*",
-      TRUE ~ ""
-    )
-  )
-
-# Plot the heatmap
-ggplot(coef_matrix_plot, aes(x = response, y = term, fill = estimate)) +
-  geom_tile() +
-  geom_text(aes(label = paste0(signif(estimate, 2), sig)), size = 3) +
-  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(11, "RdYlBu"),
-                       limits = c(-1, 1),
-                       name = "Partial Correlation") +
-  theme_minimal() +
-  labs(x = NULL, y = NULL) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-```
 
 ## Supplemental Figures {#sec-supp-fig}
 
