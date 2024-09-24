@@ -1291,14 +1291,15 @@ cumsd <- function(x) {
 ```{r load-Matlab-predictions}
 
 load_predictions <- function(file_path) {
-  mat_data <- readMat(file_path)
   if(grepl("_2", file_path)) student_var = 1
   if(grepl("_6", file_path)) student_var = 2
   if(grepl("_10", file_path)) student_var = 3
   if(grepl("_14", file_path)) student_var = 4
+  if(!exists("student_var")) return(NULL)
+  mat_data <- readMat(file_path)
   raw_data <- mat_data[["cbm"]][[5]][[5]]
   predictions <- mat_data[["cbm"]][[5]][[4]]
-  if(grepl("q_model", file_path)) q_values <- mat_data[["cbm"]][[5]][[12]]
+  if(grepl("q_model", file_path)) q_values <- mat_data[["cbm"]][[5]][[6]]
 
   # Create a data frame
   data <- list_rbind(
@@ -1319,8 +1320,8 @@ load_predictions <- function(file_path) {
         week = as.vector(week_number),
         action = as.vector(action),
         reward = as.vector(reward),
-        pred_1 = pred[,1],
-        pred_2 = pred[,2],
+        pred_0 = pred[,1],
+        pred_1 = pred[,2],
         q_val = q_val
         )
       })
@@ -1343,7 +1344,8 @@ load_all_predictions <- function() {
 }
 
 # Load all predictions
-all_predictions <- load_all_predictions()
+all_predictions <- load_all_predictions() %>%
+  discard(is.null)
 
 ```
 
@@ -1356,6 +1358,7 @@ The next step is to identify and evaluate reinforcement learning (RL) models tha
 <!-- Load and process model comparison data -->
 
 ```{r}
+#| cache: true
 #| label: tbl-top-CBM
 #| tbl-cap: "Model comparison based on log-likelihood. The table presents log-likelihood values for different models across various action-reward combinations. Less negative values indicate better fit. All models are compared against a baseline intercept-only regression model. The cost-free Q-learning models do not include a cost parameter and assume the starting q-value to be zero. Across all models, the 'Pedagogical Knowledge' action shows the best fit overall. Note that these estimates are not hierarchical; they represent the individual estimates of each teacher."
 
@@ -1434,6 +1437,7 @@ To further refine our selection, we employ Hierarchical Bayesian Inference (HBI)
 <!-- tbl-model-summary -->
 
 ```{r}
+#| cache: true
 #| label: tbl-model-summary
 #| tbl-cap: "Summary of model fits for Pedagogical Knowledge as actions and Badges as rewards. Each of the models (N~par~ = number of parameters) was fitted to participants data using Matlab’s cbm toolbox. Using individual model-fitting, we computed the mean AIC (lower values indicate better model fit)."
 
@@ -1505,7 +1509,7 @@ model_summary_table
 
 plot_reward_seeking <- function(sim_data, wrapper, 
                                 lower_bound = 0.05, upper_bound = 0.95,
-                                y_limits = c(0.29,0.41),
+                                y_limits = c(0.2,0.5),
                                 models = c("Q-learning",
                                            "Lau & Glimcher",
                                            "Baseline")) {
@@ -1513,20 +1517,20 @@ plot_reward_seeking <- function(sim_data, wrapper,
   sim_data <- sim_data %>%
     group_by(Classroom.ID) %>%
     mutate(
-      q_val_1_percentile = percent_rank(q_val_1)
+      q_val_percentile = percent_rank(q_val_ql)
     ) %>%
     ungroup()
 
   # Filter data for geom_smooth
   smooth_data <- sim_data %>%
-    filter(q_val_1_percentile >= lower_bound,
-           q_val_1_percentile <= upper_bound)
+    filter(q_val_percentile >= lower_bound,
+           q_val_percentile <= upper_bound)
 
   # Create quantile-based bins for EV
   sim_data <- smooth_data %>%
     mutate(
       q_bin = cut(
-        q_val_1_percentile,
+        q_val_percentile,
         breaks = seq(lower_bound, upper_bound,
                      (upper_bound-lower_bound)/6),
         labels = FALSE,
@@ -1539,14 +1543,14 @@ plot_reward_seeking <- function(sim_data, wrapper,
     summarise(
       mean_choice = mean(action, na.rm = TRUE),
       se_choice = sd(action, na.rm = TRUE) / sqrt(n()),
-      mean_q_diff = mean(q_val_1, na.rm = TRUE),
-      mean_q_diff_perc = mean(q_val_1_percentile, na.rm = TRUE),
-      mean_pred_1 = mean(pred_2_1, na.rm = TRUE),
-      se_pred_1 = sd(pred_2_1, na.rm = TRUE) / sqrt(n()),
-      mean_pred_2 = mean(pred_2_2, na.rm = TRUE),
-      se_pred_2 = sd(pred_2_2, na.rm = TRUE) / sqrt(n()),
-      mean_pred_3 = mean(pred_2, na.rm = TRUE),
-      se_pred_3 = sd(pred_2, na.rm = TRUE) / sqrt(n())
+      mean_q_diff = mean(q_val_ql, na.rm = TRUE),
+      mean_q_diff_perc = mean(q_val_percentile, na.rm = TRUE),
+      mean_pred_ql = mean(pred_1_ql, na.rm = TRUE),
+      se_pred_ql = sd(pred_1_ql, na.rm = TRUE) / sqrt(n()),
+      mean_pred_lg = mean(pred_1_lg, na.rm = TRUE),
+      se_pred_lg = sd(pred_1_lg, na.rm = TRUE) / sqrt(n()),
+      mean_pred_bl = mean(pred_1, na.rm = TRUE),
+      se_pred_bl = sd(pred_1, na.rm = TRUE) / sqrt(n())
     ) %>%
     filter(!is.na(q_bin))
 
@@ -1561,7 +1565,7 @@ plot_reward_seeking <- function(sim_data, wrapper,
     "Baseline" = brewer.pal(8, "Set2")[8])
 
   p <- ggplot(smooth_data) +
-    geom_smooth(aes(x = q_val_1_percentile,
+    geom_smooth(aes(x = q_val_percentile,
                     y = action), color = model_colors["Data"],
                 method = "glm", method.args = list(family = "binomial"),
                 se = FALSE, linetype = "dashed") +
@@ -1579,14 +1583,14 @@ plot_reward_seeking <- function(sim_data, wrapper,
 
   for (model in models) {
     if (model == "Baseline") {
-      y_col <- "pred_2"
+      y_col <- "pred_1"
     } else if (model == "Lau & Glimcher") {
-      y_col <- "pred_2_2"
+      y_col <- "pred_1_lg"
     } else if (model == "Q-learning") {
-      y_col <- "pred_2_1"
+      y_col <- "pred_1_ql"
     }
     
-    p <- p + geom_smooth(aes(x = q_val_1_percentile,
+    p <- p + geom_smooth(aes(x = q_val_percentile,
                              y = !!sym(y_col)), 
                          method = "glm",
                          method.args = list(family = "quasibinomial"),
@@ -1596,8 +1600,8 @@ plot_reward_seeking <- function(sim_data, wrapper,
 
     # Get the last point for this model
     last_point <- smooth_data %>%
-      filter(q_val_1_percentile == max(q_val_1_percentile)) %>%
-      summarise(x = max(q_val_1_percentile),
+      filter(q_val_percentile == max(q_val_percentile)) %>%
+      summarise(x = max(q_val_percentile),
                 y = mean(!!sym(y_col), na.rm = TRUE),
                 model = model)
     
@@ -1616,7 +1620,7 @@ plot_reward_seeking <- function(sim_data, wrapper,
                          label = model, color = model),
                      nudge_x = 0.1,
                      direction = "y",
-                     segment.color = "gray50",
+                     segment.color = NA,
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
@@ -1639,16 +1643,16 @@ plot_reward_seeking <- function(sim_data, wrapper,
 
 all_reward_seeking_plots <- map(c(2, 14), function(wrapper) {
   full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
+    paste0("lap_aggr_q_model_", wrapper, ".mat")
   ]] %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
+      paste0("lap_aggr_logit_model_", wrapper, ".mat")
     ]], by = c("Classroom.ID", "week", "action", "reward"),
-    suffix = c("_1", "_2")
+    suffix = c("_ql", "_lg")
     ) %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", 2, "_model_", 5, ".mat")
-    ]], by = c("Classroom.ID", "week", "action"))
+      paste0("lap_aggr_baseline_model_", wrapper, ".mat")
+    ]] %>% select(-reward), by = c("Classroom.ID", "week", "action"))
   plot_reward_seeking(full_data, wrapper)
 })
 
@@ -1721,8 +1725,8 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
                                       upper_bound = 0.95,
                                       y_limits = c(0.35, 0.65),
                                       models = c("Q-learning",
-                                                 "Baseline",
-                                                 "Lau & Glimcher")) {
+                                                 "Lau & Glimcher",
+                                                 "Baseline")) {
   # Calculate delta EV and choice_uncertain
   sim_data <- sim_data %>%
     group_by(Classroom.ID) %>%
@@ -1732,20 +1736,29 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
       lag_ev = c(0, ev[-n()]),
       lag_sd = c(0, replace_na(sd[-n()], 0)),
       delta_ev = if_else(lag_sd > 0, lag_ev, -lag_ev),
-      delta_ev_percentile = percent_rank(delta_ev),
       choice_uncertain = as.numeric(xor(action == 0, lag_sd > 0)),
       # choice_uncertain for each model
-      choice_uncertain_pred_1 = if_else(lag_sd > 0,
-                                        pred_2_1,
-                                        1 - pred_2_1),
-      choice_uncertain_pred_2 = if_else(lag_sd > 0,
-                                        pred_2_2,
-                                        1 - pred_2_2),
-      choice_uncertain_pred_3 = if_else(lag_sd > 0,
-                                        pred_2,
-                                        1 - pred_2)
+      choice_uncertain_pred_ql = if_else(lag_sd > 0,
+                                        pred_1_ql,
+                                        1 - pred_1_ql),
+      choice_uncertain_pred_lg = if_else(lag_sd > 0,
+                                        pred_1_lg,
+                                        1 - pred_1_lg),
+      choice_uncertain_pred_bl = if_else(lag_sd > 0,
+                                        pred_1,
+                                        1 - pred_1)
     ) %>%
-    ungroup()
+    summarize(
+      delta_ev = mean(delta_ev, na.rm = TRUE),
+      choice_uncertain = mean(choice_uncertain, na.rm = TRUE),
+      choice_uncertain_pred_ql = mean(choice_uncertain_pred_ql, na.rm = TRUE),
+      choice_uncertain_pred_lg = mean(choice_uncertain_pred_lg, na.rm = TRUE),
+      choice_uncertain_pred_bl = mean(choice_uncertain_pred_bl, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    mutate(
+      delta_ev_percentile = percent_rank(delta_ev)
+    )
 
   # Filter data for geom_smooth
   smooth_data <- sim_data %>%
@@ -1771,15 +1784,15 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
       se_choice_uncertain = sd(choice_uncertain, na.rm = TRUE) / sqrt(n()),
       mean_delta_ev = mean(delta_ev, na.rm = TRUE),
       mean_delta_ev_perc = mean(delta_ev_percentile, na.rm = TRUE),
-      se_pred_1 = sd(choice_uncertain_pred_1, na.rm = TRUE) / sqrt(n()),
-      choice_uncertain_pred_1 = mean(
-        choice_uncertain_pred_1, na.rm = TRUE),
-      se_pred_2 = sd(choice_uncertain_pred_2, na.rm = TRUE) / sqrt(n()),
-      choice_uncertain_pred_2 = mean(
-        choice_uncertain_pred_2, na.rm = TRUE),
-      se_pred_3 = sd(choice_uncertain_pred_3, na.rm = TRUE) / sqrt(n()),
-      choice_uncertain_pred_3 = mean(
-        choice_uncertain_pred_3, na.rm = TRUE)
+      se_pred_ql = sd(choice_uncertain_pred_ql, na.rm = TRUE) / sqrt(n()),
+      choice_uncertain_pred_ql = mean(
+        choice_uncertain_pred_ql, na.rm = TRUE),
+      se_pred_lg = sd(choice_uncertain_pred_lg, na.rm = TRUE) / sqrt(n()),
+      choice_uncertain_pred_lg = mean(
+        choice_uncertain_pred_lg, na.rm = TRUE),
+      se_pred_bl = sd(choice_uncertain_pred_bl, na.rm = TRUE) / sqrt(n()),
+      choice_uncertain_pred_bl = mean(
+        choice_uncertain_pred_bl, na.rm = TRUE)
     ) %>%
     filter(!is.na(ev_bin))
 
@@ -1797,7 +1810,7 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
     geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
     geom_smooth(aes(x = delta_ev_percentile, y = choice_uncertain),
                 color = model_colors["Data"],
-                method = "glm", method.args = list(family = "binomial"),
+                method = "glm", method.args = list(family = "quasibinomial"),
                 se = FALSE, linetype = "dashed") +
     geom_point(data = plot_data,
                aes(x = mean_delta_ev_perc, y = mean_choice_uncertain),
@@ -1813,11 +1826,11 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
 
   for (model in models) {
     if (model == "Baseline") {
-      y_col <- "choice_uncertain_pred_3"
+      y_col <- "choice_uncertain_pred_bl"
     } else if (model == "Lau & Glimcher") {
-      y_col <- "choice_uncertain_pred_2"
+      y_col <- "choice_uncertain_pred_lg"
     } else if (model == "Q-learning") {
-      y_col <- "choice_uncertain_pred_1"
+      y_col <- "choice_uncertain_pred_ql"
     }
     
     p <- p + geom_smooth(aes(x = delta_ev_percentile, y = !!sym(y_col)), 
@@ -1872,15 +1885,15 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
 
 all_uncertainty_plots <- map(c(2, 14), function(wrapper) {
   full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
+    paste0("lap_aggr_q_model_", wrapper, ".mat")
   ]] %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
+      paste0("lap_aggr_logit_model_", wrapper, ".mat")
     ]], by = c("Classroom.ID", "week", "action", "reward"),
-    suffix = c("_1", "_2")
+    suffix = c("_ql", "_lg")
     ) %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", 2, "_model_", 5, ".mat")
+      paste0("lap_aggr_baseline_model_", wrapper, ".mat")
     ]] %>% select(-reward), by = c("Classroom.ID", "week", "action"))
   plot_uncertainty_aversion(full_data, wrapper)
 })
@@ -1902,8 +1915,8 @@ load_parameters <- function(file_path) {
   if(grepl("_10_", file_path)) student_var = 3
   if(grepl("_14_", file_path)) student_var = 4
   
-  parameters <- mat_data[["cbm"]][[5]][[1]][[1]][[1]]
-  raw_data <- mat_data[["cbm"]][[5]][[11]]
+  parameters <- mat_data[["cbm"]][[5]][[1]]
+  raw_data <- mat_data[["cbm"]][[5]][[5]]
 
   # Create a data frame
   data <- list_rbind(
@@ -1916,7 +1929,8 @@ load_parameters <- function(file_path) {
         alpha = 1 / (1 + exp(-parameters[, 1])),
         gamma = 1 / (1 + exp(-parameters[, 2])),
         tau = exp(parameters[, 3]),
-        cost = exp(parameters[, 4])
+        ev_init = exp(parameters[, 4]),
+        cost = exp(parameters[, 5])
         )
     )
 
@@ -1932,8 +1946,8 @@ load_parameters <- function(file_path) {
 plot_prediction_errors <- function(sim_data, wrapper) {
   # Load parameters
   parameters <- load_parameters(
-    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
-           wrapper, "_model_1.mat")
+    paste0("CBM/zearn_results/aggr_results/lap_aggr_q_model_",
+           wrapper, ".mat")
     )
   
   # Calculate prediction errors and prepare data
@@ -1997,7 +2011,7 @@ plot_prediction_errors <- function(sim_data, wrapper) {
 # Generate plots
 prediction_error_plots <- map(c(2, 14), function(wrapper) {
   full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
+    paste0("lap_aggr_q_model_", wrapper, ".mat")
   ]]
   
   full_data <- full_data %>%
@@ -2025,8 +2039,8 @@ prediction_error_plots
 
 plot_q_value_reward_diff <- function(sim_data, wrapper, window_size = 4) {
   parameters <- load_parameters(
-    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
-           wrapper, "_model_1.mat")
+    paste0("CBM/zearn_results/aggr_results/lap_aggr_q_model_",
+           wrapper, ".mat")
   )
   plot_data <- sim_data %>%
     inner_join(parameters, by = "Classroom.ID") %>%
@@ -2150,7 +2164,7 @@ all_pe_plots <- list()
 # Generate all 4 plots
 for (wrapper in c(2, 14)) {
   full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
+    paste0("lap_aggr_q_model_", wrapper, ".mat")
   ]]
   full_data <- full_data %>%
     # Filter data for teachers with week 9
@@ -2182,8 +2196,8 @@ all_pe_plots
 
 plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
   parameters <- load_parameters(
-    paste0("CBM/zearn_results/hbi_results/hbi_compare_wrapper_",
-           wrapper, "_model_1.mat")
+    paste0("CBM/zearn_results/aggr_results/lap_aggr_q_model_",
+           wrapper, ".mat")
   )
 
   # Calculate action percentages
@@ -2194,9 +2208,9 @@ plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
     mutate(
       biweek = ceiling(adjusted_week / 2),
       actual_action = action,
-      q_action = pred_2_1,  # Q-learning prediction
-      lau_glimcher_action = pred_2_2,  # Lau & Glimcher prediction
-      baseline_action = pred_2  # Baseline model prediction
+      q_action = pred_1_ql,  # Q-learning prediction
+      lau_glimcher_action = pred_1_lg,  # Lau & Glimcher prediction
+      baseline_action = pred_1  # Baseline model prediction
     ) %>%
     ungroup() %>%
     group_by(biweek) %>%
@@ -2328,15 +2342,15 @@ action_percentage_plots <- list()
 # Generate all plots
 for (wrapper in c(2, 14)) {
   full_data <- all_predictions[[
-    paste0("hbi_compare_wrapper_", wrapper, "_model_", 1, ".mat")
+    paste0("lap_aggr_q_model_", wrapper, ".mat")
   ]] %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", wrapper, "_model_", 2, ".mat")
+      paste0("lap_aggr_logit_model_", wrapper, ".mat")
     ]], by = c("Classroom.ID", "week", "action", "reward"),
-    suffix = c("_1", "_2")
+    suffix = c("_ql", "_lg")
     ) %>%
     full_join(all_predictions[[
-      paste0("hbi_compare_wrapper_", 2, "_model_", 5, ".mat")
+      paste0("lap_aggr_baseline_model_", wrapper, ".mat")
     ]] %>% select(-reward), by = c("Classroom.ID", "week", "action"))
   full_data <- full_data %>%
     group_by(Classroom.ID) %>%
@@ -2362,399 +2376,112 @@ action_percentage_plots
 
 @tbl-CBM-second also shows that Q-learning consistently outperforms logistic regression and actor-critic models in BIC scores. As such, we further analyze the fit from the top models from this table to the entire dataset. That is, we compare both Q-learning models and the top actor-critic model with their corresponding logistic regression. The histogram of teacher-specific log-likelihoods in @fig-loglik-histogram reveals that the Q-learning model with "Struggles" as the reward has the lowest BIC scores.
 
-```{r}
-#| eval: false
-#| label: fig-loglik-histogram
-#| fig-cap: "Distribution of teacher-specific Bayesian Information Criteria (BIC). The histogram displays the spread of individual teachers' log-likelihoods, with higher values indicating better fit. The dashed line represents the median log-likelihood across all teachers."
-
-# Load the full model data
-full_model <- list(
-  readMat("CBM/zearn_results/top_results/hbi_compare_3.mat"),
-  readMat("CBM/zearn_results/top_results/hbi_compare_7.mat"),
-  readMat("CBM/zearn_results/top_results/hbi_compare_51.mat")
-)
-BIC_full <- sapply(full_model, FUN = function(x) {
-  apply(x[["cbm"]][[5]][[11]], 2, mean, na.rm = TRUE)
-}) %>% t()
-AUC_full <- sapply(full_model, FUN = function(x) {
-  apply(x[["cbm"]][[5]][[8]], 2, mean, na.rm = TRUE)
-})
-# # Extract log likelihoods
-# model_freq_full <- full_model[["cbm"]][[5]][[5]]
-# responsibility_full <- full_model[["cbm"]][[5]][[2]]
-# model_classifier <- responsibility_full > 1/3
-
-loglik_df <- data.frame(
-  cbind(full_model[[1]][["cbm"]][[5]][[11]],
-        full_model[[2]][["cbm"]][[5]][[11]],
-        full_model[[3]][["cbm"]][[5]][[11]])
-)
-Model = c("Logit", "QL",
-          "Logit", "QL",
-          "Logit", "AC")
-Action = c(rep("Pedagogical Knowledge", 6))
-Reward = c("Struggles", "Struggles",
-           "Activity", "Activity",
-           "Activity", "Activity")
-State = c(NA, NA, NA, NA,
-          "Struggles, No. Students", "Struggles, No. Students")
-names(loglik_df) <- paste0(Model,"_",Reward,"_",State)
-
-loglik_df <- loglik_df %>%
-  pivot_longer(cols = everything(),
-               names_to = "Model_Reward_State",
-               values_to = "BIC") %>%
-  separate(Model_Reward_State, c("Model", "Reward", "State"), "_")
-
-# Create a histogram of log likelihoods
-ggplot(data = loglik_df, aes(x = BIC, fill = interaction(Model, Reward),
-                             color = interaction(Model, Reward))) +
-  geom_histogram(alpha = 0.8) +
-  scale_fill_manual(values = c("Logit.Struggles" = brewer.pal(8, "Set2")[1],
-                               "QL.Struggles" = brewer.pal(8, "Set2")[2],
-                               "Logit.Activity" = brewer.pal(8, "Set2")[3],
-                               "QL.Activity" = brewer.pal(8, "Set2")[4],
-                               "AC.Activity" = brewer.pal(8, "Set2")[5]),
-                    labels = c("AC, Activity",
-                               "Logit, Activity",
-                               "QL, Activity",
-                               "Logit, Struggles",
-                               "QL, Struggles")) +
-  scale_color_manual(values = c("Logit.Struggles" = brewer.pal(8, "Dark2")[1],
-                                "QL.Struggles" = brewer.pal(8, "Dark2")[2],
-                                "Logit.Activity" = brewer.pal(8, "Dark2")[3],
-                                "QL.Activity" = brewer.pal(8, "Dark2")[4],
-                                "AC.Activity" = brewer.pal(8, "Dark2")[5]),
-                    labels = c("AC, Activity",
-                               "Logit, Activity",
-                               "QL, Activity",
-                               "Logit, Struggles",
-                               "QL, Struggles")) +
-  theme_minimal() +
-  labs(x = "Individual BIC",
-       y = "Frequency",
-       fill = "Model, Reward",
-       color = "Model, Reward") +
-  guides(fill = guide_legend(title = "Model, Reward", nrows = 2),
-         color = guide_legend(title = "Model, Reward", nrows = 2))
-
-```
-
 ## Heterogeneity and Optimality
 
 The spread of BIC scores in @fig-loglik-histogram also implies a diversity in model fit, which warrants further investigation into heterogeneity. We analyzed teacher-specific parameters to capture these individual differences. @fig-params-histogram provides a set of visualizations depicting relationships between teacher-specific parameters and various contextual factors. We observed differences in the cost parameter across poverty levels, with high-poverty schools showing lower cost estimates (a). The learning rate parameter (alpha) also varied across poverty levels (b), with high-poverty schools exhibiting lower learning rates. The number of weeks a teacher used the platform showed a small negative correlation with the estimated cost (r = -0.11, p \< .001) (d), while it positively correlated with the inverse temperature parameter (tau) (r = 0.14, p = 1.5e-09) (e). When examining the relationship between the learning rate, inverse temperature, and student outcomes (c, f), we found a positive correlation between inverse temperature and both average badges (r = 0.17, p \< .001) and average tower alerts (r = 0.1, p \< .001). However, the learning rate did not significantly correlate with average badges earned (r = 0.03, p = 0.23) or average tower alerts (r = 0.0, p = .85).
 
-```{r}
-#| eval: false
-#| label: fig-params-histogram
-#| fig-cap: "Histogram of Teacher-Specific Parameters"
-#| fig-subcap:
-#| - "Poverty x Cost"
-#| - "Poverty x Alpha"
-#| - "Student Outcomes x Gamma"
-#| - "No. of Weeks x Cost"
-#| - "No. of Weeks x Tau"
-#| - "Student Outcomes x Tau"
-#| layout-ncol: 3
+```{r reg-helper-functions}
 
-# Load the full model data
-validsubj <- as.logical(
-  unlist(readMat("CBM/data/full_data.mat"))
-  )
-# Extract log likelihoods
-BIC_ind_full <- full_model[[1]][["cbm"]][[5]][[11]]
+ordered_factor <- function(fact_var) {
+  categories <- levels(fact_var)
+  n_cat <- length(categories)
+  cont <- matrix(data = 0, nrow = n_cat, ncol = (n_cat - 1))
+  cont[col(cont) < row(cont)] <- 1
+  rownames(cont) <- categories
+  colnames(cont) <- paste(categories[2:n_cat],
+                          categories[1:(n_cat - 1)],
+                          sep = " vs. ")
+  contrasts(fact_var) <- cont
+  return(fact_var)
+}
 
-# Classify each teacher according to the best-fit model
-model_classifier <- BIC_ind_full[,1] - BIC_ind_full[,2] >
-  median(BIC_ind_full[,1] - BIC_ind_full[,2])
-teacher_classification <- ifelse(model_classifier, 2, 1)
-logit_params <- full_model[[1]][["cbm"]][[5]][[1]][[1]][[1]]
-ql_params <- full_model[[1]][["cbm"]][[5]][[1]][[2]][[1]]
-# Make min(teacher_classification) the baseline
-load("CBM/data/classrooms_full.RData")
-heterogeneity <- classrooms %>%
-  cbind(
-    data.frame(
-      ModelType = factor(teacher_classification - min(teacher_classification),
-                         labels = c("Logit", "Q-learning"))
-      )) %>%
-  cbind(logit_params) %>%
-  cbind(ql_params)
-names(heterogeneity) <- c(
-  "Classroom.ID", "Model",
-  paste0("beta", 1:8),
-  "alpha", "gamma", "tau", "ev_init", "cost"
-  # "alpha_w", "alpha_theta", "gamma", "tau", "theta_init", "w_init", "cost"
+```
+
+```{r, results='asis'}
+#| label: tbl-optimality
+#| tbl-cap: "Impact of Q-learning Model Parameters on Average Weekly Badges Earned per Student. Three linear regression models examine the correlations between a teacher's reinforcement learning (RL) parameters and student engagement, measured by average weekly badges earned per student. Model 1 includes only RL parameters. Model 2 adds controls for AIC, number of weeks, total students, and number of classes. Model 3 further incorporates controls for grade level, poverty level, charter school status, and whether the school has a paid Zearn account. Coefficients and standard errors (in parentheses) are provided for each parameter."
+
+predictors <- c("alpha", "gamma", "tau", "ev_init", "cost")
+model_path <- "CBM/zearn_results/aggr_results/lap_aggr_q_model_2.mat"
+full_model <- readMat(model_path)
+
+# Calculate AIC
+AIC_full <- -2 * full_model[["cbm"]][[5]][[2]] + 2 * ncol(full_model[["cbm"]][[5]][[1]])
+AIC_data <- tibble(
+  Classroom.ID = map_int(full_model[["cbm"]][[5]][[5]], ~.[[1]][[9]][[3]][1,1]),
+  AIC = as.vector(AIC_full)
 )
-heterogeneity <- heterogeneity %>%
-  # mutate(across(c(alpha, gamma), ~ 1/(1+exp(-.)))) %>%
-  # mutate(across(c(alpha_w, alpha_theta, gamma), ~ 1/(1+exp(-.)))) %>%
-  # mutate(across(c(tau, cost), ~ exp(.))) %>%
-  left_join(
-    df %>%
+
+full_data <- load_parameters(model_path) %>%
+  inner_join(
+    df_cleaned %>%
       group_by(Classroom.ID, Teacher.User.ID) %>%
-      summarize(
-        `Charter School` = mean(charter.school, na.rm = TRUE),
-        `Paid Account` = mean(school.account, na.rm = TRUE),
-        `Students...Total` = mean(Students...Total, na.rm = TRUE),
-        Action = mean(Frobenius.NNDSVD_teacher2>0, na.rm = TRUE),
-        Reward = sum(Frobenius.NNDSVD_student1, na.rm = TRUE),
-        State = sum(Frobenius.NNDSVD_student3, na.rm = TRUE),
-        `Active Students` = sum(`Active.Users...Total`, na.rm = TRUE),
-        `Avg. Badges` = sum(`Badges.per.Active.User`, na.rm = TRUE),
-        `Avg. Tower Alerts` = sum(`Tower.Alerts.per.Tower.Completion`, na.rm = TRUE),
-        Income = unique(income),
-        Poverty = unique(poverty),
-        `No. of Weeks` = n(),
-        n_classes_by_teacher = median(teacher_number_classes),
-        grade = first(Grade.Level)
-        ), by = "Classroom.ID"
-    ) %>%
-  mutate(across(c(Income, Poverty), as.ordered)) %>%
-  rename(`Total Students` = `Students...Total`,
-         `No. of Classes` = n_classes_by_teacher)
-
-# Extract BIC and classify teachers based on median split
-full_data <- heterogeneity %>%
-  mutate(
-    BIC = BIC_ind_full[,2]
-  ) %>%
-  filter(!is.na(Teacher.User.ID)) %>%
-  mutate(
-    FitGroup = factor(BIC > median(BIC),
-                      levels = c(FALSE, TRUE),
-                      labels = c("Bad Fit", "Good Fit"))
-  ) %>%
-  mutate(
-    `Paid Account` = factor(`Paid Account`, levels = c(0, 1),
-                            labels = c("No", "Yes"))
+      summarise(Income = first(income),
+                Poverty = first(poverty),
+                `Paid Account` = first(school.account),
+                `No. of Weeks` = n_distinct(week),
+                `Avg. Badges` = mean(Badges.per.Active.User),
+                `Avg. Tower Alerts` = mean(Tower.Alerts.per.Tower.Completion),
+                grade = first(Grade.Level),
+                `Total Students` = mean(Students...Total),
+                `No. of Classes` = mean(teacher_number_classes),
+                `Charter School` = first(charter.school),
+                .groups = "drop"),
+    by = c("Classroom.ID")) %>%
+  inner_join(AIC_data, by = "Classroom.ID") %>%
+  mutate(across(all_of(predictors), scale),
+         Income = factor(Income, ordered = TRUE), 
+         grade = factor(grade, ordered = TRUE,
+                        levels = c("Kindergarten",
+                                   "1st", "2nd", "3rd", "4th", "5th")),
+         Poverty = factor(Poverty, ordered = TRUE)) %>%
+  arrange(Classroom.ID) %>%
+  dplyr::mutate(
+    Income = ordered_factor(Income), 
+    grade = ordered_factor(grade),
+    Poverty = ordered_factor(Poverty)
   )
 
-# Update color palette
-color_palette <- brewer.pal(4, "Set2")
-color_palette_dark <- brewer.pal(4, "Dark2")
+# Run regression models
+model1 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init,
+             data = full_data)
+model2 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
+               AIC + `No. of Weeks` + `Total Students` + `No. of Classes`,
+             data = full_data)
+model3 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
+               AIC + `No. of Weeks` + `Total Students` + `No. of Classes` +
+               grade +  Poverty + `Charter School` + `Paid Account`,
+             data = full_data)
+model4 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init,
+             data = full_data)
+model5 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init  +
+               AIC + `No. of Weeks` + `Total Students` + `No. of Classes`,
+             data = full_data)
+model6 <- lm(`Avg. Tower Alerts` ~ alpha + gamma + tau + cost + ev_init +
+               AIC + `No. of Weeks` + `Total Students` + `No. of Classes` +
+               grade +  Poverty + `Charter School` + `Paid Account`,
+             data = full_data)
 
-# Create a transformation for the inverse logit function
-transform_inv_logit <- new_transform(
-  name = "inv_logit",
-  transform = function(x) 1/(1+exp(-x)),
-  inverse = function(x) log(x/(1-x))
-)
-
-
-# Create a data frame for correlation tests
-cor_tests <- data.frame(
-  Variable = c("Avg. Badges", "Avg. Tower Alerts"),
-  Alpha_cor = c(
-    cor.test(full_data$alpha, full_data$`Avg. Badges`)$estimate,
-    cor.test(full_data$alpha, full_data$`Avg. Tower Alerts`)$estimate
-  ),
-  Alpha_p = c(
-    cor.test(full_data$alpha, full_data$`Avg. Badges`)$p.value,
-    cor.test(full_data$alpha, full_data$`Avg. Tower Alerts`)$p.value
-  ),
-  Tau_cor = c(
-    cor.test(full_data$tau, full_data$`Avg. Badges`)$estimate,
-    cor.test(full_data$tau, full_data$`Avg. Tower Alerts`)$estimate
-  ),
-  Tau_p = c(
-    cor.test(full_data$tau, full_data$`Avg. Badges`)$p.value,
-    cor.test(full_data$tau, full_data$`Avg. Tower Alerts`)$p.value
-  ),
-  Gamma_cor = c(
-    cor.test(full_data$gamma, full_data$`Avg. Badges`)$estimate,
-    cor.test(full_data$gamma, full_data$`Avg. Tower Alerts`)$estimate
-  ),
-  Gamma_p = c(
-    cor.test(full_data$gamma, full_data$`Avg. Badges`)$p.value,
-    cor.test(full_data$gamma, full_data$`Avg. Tower Alerts`)$p.value
-  )
-)
-
-## Grid
-
-## [1,1:2]
-
-ggplot(data = full_data %>%
-         filter(!is.na(Poverty)) %>%
-         mutate(cost = exp(cost)),
-       aes(x = Poverty, y = cost)) +
-  geom_violin(alpha = 0.6, scale = "count", fill = color_palette[3]) +
-  geom_boxplot(width = 0.025, outlier.shape = NA) +
-  theme_minimal() +
-  labs(x = "Poverty", y = "Cost") +
-  stat_compare_means(label = "p.signif",
-                     comparisons = list(
-                       c("0-40% (Low)", "40-75% (Mid-High)"),
-                       c("0-40% (Low)", "75%+ (High)"),
-                       c("40-75% (Mid-High)", "75%+ (High)")))
-
-ggplot(data = full_data %>%
-         filter(!is.na(Poverty)) %>%
-         mutate(alpha = 1/(1+exp(-alpha))),
-       aes(x = Poverty, y = alpha)) +
-  geom_violin(alpha = 0.6, scale = "count", fill = color_palette[4]) +
-  geom_boxplot(width = 0.025, outlier.shape = NA) +
-  # coord_trans(y = "log") +
-  theme_minimal() +
-  labs(x = "Poverty", y = "Alpha") +
-  stat_compare_means(label = "p.signif",
-                     comparisons = list(
-                       c("0-40% (Low)", "40-75% (Mid-High)"),
-                       c("0-40% (Low)", "75%+ (High)"),
-                       c("40-75% (Mid-High)", "75%+ (High)")))
-
-## [1,3]
-
-# ggplot(data = full_data, aes(x = 1/(1+exp(-alpha)))) +
-#   geom_point(aes(y = `Avg. Badges`),
-#              color = color_palette[2], alpha = 0.1) +
-#   geom_smooth(aes(y = `Avg. Badges`), method = "lm",
-#               color = color_palette[2], fill = color_palette[2]) +
-#   geom_point(aes(y = `Avg. Tower Alerts`),
-#              color = color_palette[1], alpha = 0.1) +
-#   geom_smooth(aes(y = `Avg. Tower Alerts`), method = "lm",
-#               color = color_palette[1], fill = color_palette[1]) +
-#   scale_x_continuous(name = "Alpha", transform = "logit") +
-#   scale_y_continuous(name = "Avg. Badges / Tower Alerts") +
-#   theme_minimal() +
-#   labs(color = "Variable") +
-#   geom_text(data = cor_tests[1,],
-#             aes(x = min(1/(1+exp(-full_data$alpha))),
-#                 y = mean(full_data$`Avg. Badges`),
-#                 label = paste0("r = ", round(Alpha_cor, 2),
-#                                ", p = ", signif(Alpha_p, 2))),
-#             color = color_palette[2], vjust = -1.5, hjust = 0) +
-#   geom_text(data = cor_tests[2,],
-#             aes(x = min(1/(1+exp(-full_data$alpha))),
-#                 y = mean(full_data$`Avg. Tower Alerts`),
-#                 label = paste0("r = ", round(Alpha_cor, 2),
-#                                ", p = ", signif(Alpha_p, 2))),
-#             color = color_palette[1], vjust = -1.5, hjust = 0)
-
-ggplot(data = full_data, aes(x = exp(gamma))) +
-  geom_point(aes(y = `Avg. Badges`), size = 0.4,
-             color = color_palette[2], alpha = 0.19,
-             position = position_jitter(width = 0.1, height = 0)) +
-  geom_smooth(aes(y = `Avg. Badges`), method = "lm",
-              color = color_palette[2], fill = color_palette[2]) +
-  geom_point(aes(y = `Avg. Tower Alerts`), size = 0.4,
-             color = color_palette[1], alpha = 0.19,
-             position = position_jitter(width = 0.1, height = 0)) +
-  geom_smooth(aes(y = `Avg. Tower Alerts`), method = "lm",
-              color = color_palette[1], fill = color_palette[1]) +
-  scale_x_continuous(name = "Gamma", transform = "log") +
-  scale_y_continuous(name = "Avg. Badges / Tower Alerts") +
-  theme_minimal() +
-  labs(color = "Variable") +
-  geom_text(data = cor_tests[1,],
-            aes(x = min(exp(full_data$gamma)),
-                y = mean(full_data$`Avg. Badges`),
-                label = paste0("r = ", round(Gamma_cor, 2),
-                               ", p ", ifelse(Gamma_p > 0.001,
-                                                paste0("= ", signif(Gamma_p, 2)),
-                                                " < 0.001"))),
-            color = color_palette_dark[2], vjust = 1.5, hjust = 0) +
-  geom_text(data = cor_tests[2,],
-            aes(x = min(exp(full_data$gamma)),
-                y = mean(full_data$`Avg. Tower Alerts`),
-                label = paste0("r = ", round(Gamma_cor, 2),
-                               ", p ", ifelse(Gamma_p > 0.001,
-                                                paste0("= ", signif(Gamma_p, 2)),
-                                                " < 0.001"))),
-            color = color_palette_dark[1], vjust = 1.5, hjust = 0)
-
-
-# [2,1:2]
-
-ggplot(data = full_data, aes(x = `No. of Weeks`, y = exp(cost))) +
-  geom_point(alpha = 0.2, position = position_jitter(width = 0, height = 0.01)) +
-  geom_smooth(method = "lm", color = color_palette[3], fill = color_palette[3]) +
-  theme_minimal() +
-  labs(x = "No. of Weeks", y = "Cost") +
-  geom_text(aes(x = max(`No. of Weeks`), y = min(exp(cost)),
-                label = paste0("r = ",
-                               round(cor.test(full_data$`No. of Weeks`,
-                                              full_data$cost)$estimate, 2),
-                               ", p ",
-                               ifelse(cor.test(full_data$`No. of Weeks`,
-                                               full_data$cost)$p.value > 0.001,
-                                                paste0("= ", signif(
-                                                  cor.test(full_data$`No. of Weeks`,
-                                                           full_data$cost)$p.value, 2)),
-                                                " < 0.001"))),
-                color = color_palette_dark[3],
-            vjust = -1.5, hjust = 1)
-
-ggplot(data = full_data, aes(x = `No. of Weeks`, y = exp(tau))) +
-  geom_point(alpha = 0.2, position = position_jitter(width = 0, height = 0.1)) +
-  geom_smooth(method = "lm", color = color_palette[4], fill = color_palette[4]) +
-  scale_y_continuous(trans = "log", breaks = c(1, 2, 4, 8, 16, 32)) +
-  theme_minimal() +
-  labs(x = "No. of Weeks", y = "Tau") +
-  geom_text(aes(x = max(`No. of Weeks`), y = min(exp(tau)),
-                label = paste0("r = ", round(cor.test(full_data$`No. of Weeks`,
-                                                      full_data$tau)$estimate, 2),
-                               ", p ",
-                               ifelse(cor.test(full_data$`No. of Weeks`,
-                                               full_data$tau)$p.value > 0.001,
-                                                paste0("= ", signif(
-                                                  cor.test(full_data$`No. of Weeks`,
-                                                           full_data$tau)$p.value, 2)),
-                                                " < 0.001"))),
-                color = color_palette_dark[4],
-            vjust = -1.5, hjust = 1)
-
-# ggplot(data = full_data %>% mutate(gamma = 1/(1+exp(-gamma))),
-#        aes(x = `Paid Account`, y = gamma)) +
-#   geom_violin(alpha = 0.6, scale = "count", fill = color_palette[3]) +
-#   geom_boxplot(width = 0.05, outlier.shape = NA) +
-#   theme_minimal() +
-#   labs(x = "Paid Account", y = "Gamma") +
-#   stat_compare_means(comparisons = list(c("No", "Yes")), label = "p.signif")
-#
-# ggplot(data = full_data %>% mutate(cost = exp(cost)),
-#        aes(x = `Paid Account`, y = cost)) +
-#   geom_violin(alpha = 0.6, scale = "count", fill = color_palette[3]) +
-#   geom_boxplot(width = 0.05, outlier.shape = NA) +
-#   theme_minimal() +
-#   labs(x = "Paid Account", y = "Cost") +
-#   stat_compare_means(comparisons = list(c("No", "Yes")), label = "p.signif")
-
-# [2,3]
-
-ggplot(data = full_data, aes(x = exp(tau))) +
-  geom_point(aes(y = `Avg. Badges`), size = 0.4,
-             color = color_palette[2], alpha = 0.19,
-             position = position_jitter(width = 0.1, height = 0)) +
-  geom_smooth(aes(y = `Avg. Badges`), method = "lm",
-              color = color_palette[2], fill = color_palette[2]) +
-    geom_point(aes(y = `Avg. Tower Alerts`), size = 0.4,
-             color = color_palette[1], alpha = 0.19,
-             position = position_jitter(width = 0.1, height = 0)) +
-  geom_smooth(aes(y = `Avg. Tower Alerts`), method = "lm",
-              color = color_palette[1], fill = color_palette[1]) +
-  scale_x_continuous(name = "Tau", transform = "log",
-                     breaks = c(1, 2, 4, 8, 16, 32)) +
-  scale_y_continuous(name = "Avg. Badges / Tower Alerts") +
-  theme_minimal() +
-  labs(color = "Variable") +
-  geom_text(data = cor_tests[1,],
-            aes(x = min(exp(full_data$tau)),
-                y = mean(full_data$`Avg. Badges`),
-                label = paste0("r = ", round(Tau_cor, 2),
-                               ", p ", ifelse(Tau_p > 0.001,
-                                                paste0("= ", signif(Tau_p, 2)),
-                                                " < 0.001"))),
-            color = color_palette_dark[2], vjust = 0.5, hjust = 0) +
-  geom_text(data = cor_tests[2,],
-            aes(x = min(exp(full_data$tau)),
-                y = mean(full_data$`Avg. Tower Alerts`),
-                label = paste0("r = ", round(Tau_cor, 2),
-                               ", p ", ifelse(Tau_p > 0.001,
-                                                paste0("= ", signif(Tau_p, 2)),
-                                                " < 0.001"))),
-            color = color_palette_dark[1], vjust = 0.5, hjust = 0)
+# Create table with stargazer
+stargazer(model1, model2, model3,
+          type = "latex",
+          header=FALSE,
+          align = TRUE,
+          covariate.labels = c("$\\alpha$", "$\\gamma$",
+                               "$\\tau$", "Cost", "Starting Q-value",
+                               "No. of Weeks", "No. of Students",
+                               "No. of Classes",
+                               "Charter School", "Paid Zearn Account"),
+          omit = c("AIC", "grade", "Poverty"),
+          dep.var.labels = "Badges",
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*", "**", "***"),
+          add.lines = list(c("Control for AIC",
+                             "", "Yes", "Yes", "", "Yes", "Yes"),
+                           c("Control for Grade Level",
+                             "", "", "Yes", "", "", "Yes"),
+                           c("Control for Poverty Level",
+                             "", "", "Yes", "", "", "Yes")))
 
 ```
 
@@ -2763,144 +2490,6 @@ We further investigated the heterogeneity in teacher behavior by comparing class
 To understand what makes a teacher effective in helping students complete their lessons, we examined teachers' performance across the parameters from the previous hierarchical model. We were especially interested in the learning rate ("Alpha") and the inverse temperature ("Tau") because of their potential impact on behavior adaptation and decision consistency. We found that tau, but not alpha, correlated positively to the number of weekly Badges earned by the average student, i.e., average lesson completion, and Tower Alerts, i.e., students struggling with the material. Further, the starting Q-values negatively correlated with Badges, and the discount factor ("Gamma") was positively correlated with Tower Alerts (see @tbl-optimality and @tbl-optimality-2 for the models controlling the number of active students, the number of classes taught by the teacher, the grade level, the number of weeks, the poverty level, the income level, whether the school is a charter school, and whether the school has a paid account).
 
 We then regressed classroom characteristics on the estimated model parameters and found several notable relationships (see @fig-heterogeneity-reg). The cost parameter was negatively associated with income level (b = -0.13, p \< .05) and the number of weeks (b = -0.021, p \< .001), and positively associated with poverty level (b = 0.18, p \< .01). The learning rate (alpha) was positively correlated with income level (b = 0.094, p \< .05) and negatively correlated with poverty level (b = -0.1, p \< .05). The inverse temperature (tau) was negatively related to income level (b = -0.18, p \< .001) and positively related to having a paid account (b = 0.24, p \< .001) and the number of weeks (b = 0.016, p \< .01). The discount factor (gamma) was negatively associated with the number of weeks (b = -0.016, p \< .01). Lastly, the initial Q-value was positively associated with income level (b = 0.17, p \< .001) and negatively associated with having a paid account (b = -0.16, p \< .05).
-
-<!-- ## Posterior Predictive Checks -->
-
-```{r}
-#| eval: false
-#| label: fig-timelines
-#| fig-cap: ""
-
-# Load the data
-hbi_ac_data <- readMat('CBM/zearn_results/top_results/hbi_ac_data.mat')
-model_fit <- readMat('CBM/zearn_results/top_results/hbi_ac.mat')
-teacher_specific_params <- model_fit[["cbm"]][[5]][[1]][[1]][[1]]
-
-simulate_predictions <- function(parameters, subj) {
-  alpha_w <- 1 / (1 + exp(-parameters[1]))  # Learning rate for w (critic)
-  alpha_theta <- 1 / (1 + exp(-parameters[2]))  # Learning rate for theta (actor)
-  gamma <- 1 / (1 + exp(-parameters[3]))  # Discount factor
-  tau <- exp(parameters[4])
-  theta_init <- parameters[5]
-  w_init <- parameters[6]
-  cost <- exp(parameters[7])
-
-  # Unpack data
-  Tsubj <- length(subj[[1]][[2]])
-  choice <- subj[[1]][[2]]
-  outcome <- subj[[1]][[5]]
-  state <- cbind(1, as.matrix(subj[[1]][[7]]))
-  week <- subj[[1]][[9]][[1]]
-
-  # Initialize
-  w <- w_init
-  theta <- theta_init
-  log_probabilities <- rep(0, Tsubj)
-
-  # Loop through trials
-  for (t in 1:Tsubj) {
-    if (week[t] == 0) break  # End loop if week is zero
-    s <- state[t, ]
-    a <- choice[t]
-    o <- outcome[t]
-
-    # Actor: Compute policy (log probability of taking the action)
-    product <- sum(s * theta * tau)
-    # Handle numerical issues for large values of theta
-    if (product < -8) {
-      log_probabilities[t] <- log_probabilities[t] - product * a
-    } else if (product > 8) {
-      log_probabilities[t] <- log_probabilities[t] + (1 - product) * (1 - a)
-    } else {
-      log_probabilities[t] <- log_probabilities[t] - log(1 + exp(-product)) * a - log(1 + exp(product)) * (1 - a)
-    }
-
-    # Critic: Compute TD error (delta)
-    delta <- (o - cost)  # Basic TD error, without considering future states
-
-    # Update weights
-    theta <- theta + alpha_theta * gamma ^ (week[t] - week[1]) * (tau * s) / (1 + exp(product)) * delta
-    w <- w + alpha_w * s * delta
-  }
-
-  # Sum log probabilities to get log-likelihood
-  log_likelihood <- sum(log_probabilities)
-
-  return(list(predictions = choice, log_likelihood = log_likelihood))
-}
-
-# Prepare the data for plotting (replace with actual variables and data)
-long_df <- as.data.frame(hbi_ac_data$Variable) %>%
-  mutate(Week = rep(1:nrow(.), each = ncol(.)),
-         Value = as.vector(t(.)))
-
-# Simulate predictions using group mean parameters
-predictions <- simulate_predictions(group_mean_transformed, long_df)
-
-# Variables to plot
-variables_to_plot <- names(hbi_ac_data$Variable)
-
-# Create individual plots
-plots <- lapply(variables_to_plot, plot_variable, data = long_df)
-
-# Reshape the data to long format
-long_df <- df %>%
-  select(MDR.School.ID, week, Active.Users...Total, Sessions.per.Active.User,
-         Minutes.per.Active.User, Badges.per.Active.User,
-         Boosts.per.Tower.Completion, Tower.Alerts.per.Tower.Completion,
-         FrobeniusNNDSVD1, FrobeniusNNDSVD2, FrobeniusNNDSVD3,
-         poverty, school.account) %>%
-  group_by(MDR.School.ID, week, poverty, school.account) %>%
-  summarize(across(where(is.numeric), ~ mean(., na.rm = TRUE))) %>%
-  gather(key = "Variable", value = "Value",
-         -MDR.School.ID, -week, -poverty, -school.account)
-
-# Function to create a plot for each variable with error ribbons
-plot_variable <- function(variable_name, var) {
-  # Calculate overall average and standard error
-  avg_data <- long_df %>%
-    filter(Variable == variable_name) %>%
-    filter(!is.na({{var}})) %>%
-    group_by({{var}}, week) %>%
-    summarize(
-      Avg = mean(Value, na.rm = TRUE),
-      SE = sd(Value, na.rm = TRUE)/sqrt(n()),
-      CI_low = Avg - SE,
-      CI_high = Avg + SE
-    )
-
-  # Calculate 2 standard deviations from the overall data
-  y_high <- quantile(avg_data$Value[avg_data$Variable == variable_name],
-                     0.85, na.rm = T)
-  y_low <- quantile(avg_data$Value[avg_data$Variable == variable_name],
-                    0.15, na.rm = T)
-
-  ggplot(avg_data, aes(x = week, y = Avg, group = {{var}})) +
-    geom_line(aes(color = {{var}})) +
-    geom_ribbon(data = avg_data,
-                aes(x = week, y = Avg, group = {{var}}, alpha = 0.2,
-                    fill = {{var}}, ymin = CI_low, ymax = CI_high)) +
-    theme_minimal() +
-    labs(title = variable_name, x = "Time", y = "Value") +
-    theme(legend.position = "none") +
-    coord_cartesian(ylim = c(y_low, y_high))  # Adjust y-axis range
-}
-
-# Variables to plot
-variables_to_plot <- c(
-  "Active.Users...Total", "Sessions.per.Active.User",
-  "Minutes.per.Active.User", "Badges.per.Active.User",
-  "Boosts.per.Tower.Completion", "Tower.Alerts.per.Tower.Completion",
-  "FrobeniusNNDSVD1", "FrobeniusNNDSVD2", "FrobeniusNNDSVD3"
-  )
-
-# Create individual plots
-plots <- lapply(variables_to_plot, plot_variable, var = school.account)
-
-# Combine the plots into a panel
-do.call(grid.arrange, c(plots, ncol = 3))
-
-```
 
 # Discussion
 
@@ -3082,14 +2671,7 @@ With this approach, we can estimate the log-likelihood for each subject's data, 
     -   Discount Rate: $\text{Logit}(\gamma)=\log(\frac{\gamma}{1-\gamma})$
     -   Inverse Temperature: $\log(\tau)$
     -   Cost: $\log(\text{cost})$
-2.  Actor-Critic:
-    -   Weights $w$ and $\theta$: $\log(w)$, $\log(\theta)$
-    -   Learning rates ($\alpha_w$, $\alpha_\theta$): $\text{Logit}(\alpha_w)=\log(\frac{\alpha_w}{1-\alpha_w})$, $\text{Logit}(\alpha_\theta)=\log(\frac{\alpha_\theta}{1-\alpha_\theta})$
-    -   Discount Factor: $\text{Logit}(\gamma)=\log(\frac{\gamma}{1-\gamma})$
-    -   Inverse Temperature: $\log(\tau)$
-    -   Initial Values: $\theta_{\text{init}}$, $w_{\text{init}}$
-    -   Costs: $\log(\text{cost})$
-3.  Logistic Regression Model:
+2.  Logistic Regression Model:
     -   Parameters: $\beta$
 
 ### Top Model Selection
@@ -3389,6 +2971,96 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 {{< pagebreak >}}
 
 
+
+```{r}
+#| label: tbl-heterogeneity-reg
+#| tbl-cap: "Relationship between Q-learning Model Parameters and Classroom Characteristics. The table presents the results of five regression models examining how reinforcement learning (RL) parameters predict income and poverty levels, number of students, number of classes per teacher, and whether the school had a paid Zearn subscription. Coefficients and standard errors (in parentheses) are provided for each parameter. Income and Poverty are treated as ordinal variables, while Total Students and Number of Classes are count variables. Paid Account is a binary variable. All RL parameters are standardized (z-scored) before analysis."
+
+predictors <- c("alpha", "gamma", "tau", "ev_init", "cost")
+responses <- c("Income", "Poverty",
+               "`Total Students`", "`No. of Classes`",
+               "`Paid Account`")
+model_path <- "CBM/zearn_results/aggr_results/lap_aggr_q_model_2.mat"
+full_model <- readMat(model_path)
+
+# Calculate AIC
+AIC_full <- -2 * full_model[["cbm"]][[5]][[2]] + 2 * ncol(full_model[["cbm"]][[5]][[1]])
+AIC_data <- tibble(
+  Classroom.ID = map_int(full_model[["cbm"]][[5]][[5]], ~.[[1]][[9]][[3]][1,1]),
+  AIC = as.vector(AIC_full)
+)
+
+full_data <- load_parameters(model_path) %>%
+  inner_join(
+    df_cleaned %>%
+      group_by(Classroom.ID, Teacher.User.ID) %>%
+      summarise(Income = first(income),
+                Poverty = first(poverty),
+                `Total Students` = mean(Students...Total),
+                `No. of Classes` = mean(teacher_number_classes),
+                `Paid Account` = first(school.account),
+                .groups = "drop"),
+    by = c("Classroom.ID")) %>%
+  inner_join(AIC_data, by = "Classroom.ID") %>%
+  mutate(across(all_of(predictors), scale),
+         Income = factor(Income, ordered = TRUE),
+         Poverty = factor(Poverty, ordered = TRUE)) %>%
+  arrange(Classroom.ID)
+
+# Run models
+models <- list()
+for(response in responses) {
+  formula <- as.formula(paste(response, "~", paste(predictors, collapse = " + ")))
+  if (response %in% c("Income", "Poverty")) {
+    models[[response]] <- polr(formula, data = full_data, Hess = TRUE)
+  } else if (response %in% c("`Total Students`", "`No. of Classes`")) {
+    models[[response]] <- glm(formula, data = full_data, family = poisson(link = "log"))
+  } else {
+    models[[response]] <- glm(formula, data = full_data, family = binomial(link = "logit"))
+  }
+}
+
+stargazer(models,
+          type = "latex",
+          title = "Relationship between RL Parameters and Classroom Characteristics",
+          align = TRUE,
+          dep.var.labels = c("Income", "Poverty", "Total Students",
+                             "No. of Classes", "Paid Account"),
+          covariate.labels = c("Learning Rate ($\\alpha$)", "Discount Factor ($\\gamma$)",
+                               "Inverse Temperature ($\\tau$)", "Initial Q-value", "Cost"),
+          model.names = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          notes.append = FALSE)
+
+```
+
+```{r, results='asis'}
+#| label: tbl-optimality-2
+#| tbl-cap: "Impact of Q-learning Model Parameters on Average Weekly Tower Alerts per Tower Completion. Three linear regression models examine the correlations between a teacher's reinforcement learning (RL) parameters and student struggle, measured by average weekly Tower Alerts. Model 1 includes only RL parameters. Model 2 adds controls for AIC, number of weeks, total students, and number of classes. Model 3 further incorporates controls for grade level, poverty level, charter school status, and whether the school has a paid Zearn account. Coefficients and standard errors (in parentheses) are provided for each parameter. "
+
+# Create table with stargazer
+stargazer(model4, model5, model6,
+          type = "latex",
+          header=FALSE,
+          align = TRUE,
+          covariate.labels = c("$\\alpha$", "$\\gamma$",
+                               "$\\tau$", "Cost", "Starting Q-value",
+                               "No. of Weeks", "No. of Students",
+                               "No. of Classes",
+                               "Charter School", "Paid Zearn Account"),
+          omit = c("AIC", "grade", "Poverty"),
+          dep.var.labels = "Tower Alerts",
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*", "**", "***"),
+          add.lines = list(c("Control for AIC",
+                             "", "Yes", "Yes", "", "Yes", "Yes"),
+                           c("Control for Grade Level",
+                             "", "", "Yes", "", "", "Yes"),
+                           c("Control for Poverty Level",
+                             "", "", "Yes", "", "", "Yes")))
+
+```
+
 ## Supplemental Figures {#sec-supp-fig}
 
 ![Zearn Student Portal](images/student-feed.PNG){#fig-st-portal fig-align="center"}
@@ -3431,4 +3103,58 @@ map_LA
 #| fig-cap: "Total number of student logins over the 2019-2020 school year. The chart depicts the connection between academic schedules and platform engagement. Each bar represents a week, with peaks corresponding to active school weeks and troughs aligning with major holiday periods (e.g., Thanksgiving and Winter Break)."
 
 logins_week
+```
+
+```{r}
+#| label: fig-loglik-histogram
+#| fig-cap: "Distribution of teacher-specific Bayesian Information Criteria (BIC). The histogram displays the spread of individual teachers' log-likelihoods, with higher values indicating better fit. The dashed line represents the median log-likelihood across all teachers."
+
+# Load the full model data
+full_model <- list(
+  readMat("CBM/zearn_results/aggr_results/lap_aggr_baseline_model_2.mat"),
+  readMat("CBM/zearn_results/aggr_results/lap_aggr_logit_model_2.mat"),
+  readMat("CBM/zearn_results/aggr_results/lap_aggr_q_model_2.mat")
+)
+# # Extract log likelihoods
+# model_freq_full <- full_model[["cbm"]][[5]][[5]]
+# responsibility_full <- full_model[["cbm"]][[5]][[2]]
+# model_classifier <- responsibility_full > 1/3
+
+AIC_full <- sapply(full_model, FUN = function(x) {
+  -2 * (x[["cbm"]][[5]][[2]])* 2 + 2 * ncol(x[["cbm"]][[5]][[1]])
+}) %>% as.data.frame()
+Model = c("Baseline", "Logit", "QL")
+Action = c(rep("Pedagogical Knowledge", 3))
+Reward = c(rep("Badges", 3))
+names(AIC_full) <- paste0(Model,"_",Reward)
+
+AIC_full <- AIC_full %>%
+  pivot_longer(cols = everything(),
+               names_to = "Model_Reward",
+               values_to = "AIC") %>%
+  separate(Model_Reward, c("Model", "Reward"), "_")
+
+# Create a histogram of log likelihoods
+ggplot(data = AIC_full, aes(x = AIC, color = Model)) +
+  stat_ecdf() +
+  scale_color_manual(values = c("Baseline" = brewer.pal(8, "Set2")[3],
+                                "Logit" = brewer.pal(8, "Set2")[1],
+                                "QL" = brewer.pal(8, "Set2")[2]),
+                     labels = c("Baseline",
+                                "Logit",
+                                "QL")) +
+  theme_minimal() +
+  labs(
+    x = "Individual Akaike Information Criterion (AIC)",
+    y = "Cumulative Proportion",
+    color = "Model"
+  ) +
+  theme(
+    legend.position = "right",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.line = element_line(color = "black")
+  )
+
+
 ```
