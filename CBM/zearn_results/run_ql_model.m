@@ -254,24 +254,33 @@ for model_num = 1:length(models)
         
         % Calculate log-likelihood for each subject
         subject_logliks = zeros(1, length(data));
-        for subj = 1:length(data)      
-            [subject_logliks(subj), ~, choice] = posterior_wrapper(agg_params(subj,:), data{subj});
+        prob = cell(length(data), 1);
+        choice = cell(length(data), 1);
+        q_values = cell(length(data), 1);
+        for subj = 1:length(data)
+            if model_num == 1 || model_num == 4
+                [subject_logliks(subj), ...
+                    prob{subj}, ...
+                    choice{subj}, ...
+                    q_values{subj}] = posterior_wrapper(agg_params(subj,:), data{subj});
+            else
+                [subject_logliks(subj), ...
+                    prob{subj}, ...
+                    choice{subj}] = posterior_wrapper(agg_params(subj,:), data{subj});
+            end
         end
 
         % Calculate total log-likelihood and BIC
         total_loglik = sum(subject_logliks);
-        n_params = size(agg_params, 2);
-        n_observations = sum(cellfun(@(x) length(x.simmed.week), ...
-            data));
-        bic = -2 * subject_logliks' + ...
-            n_params * log(cellfun(@(x) length(x.simmed.week), data));
-        aic = -2 * subject_logliks' + n_params * 2;
-        
         agg_loglik(model_num, wrapper_num) = total_loglik;
-        agg_bic(model_num, wrapper_num) = mean(bic);
 
         % Extract and sum log-likelihoods
         agg_results.cbm.output.loglik = subject_logliks;
+        agg_results.cbm.output.prob = prob;
+        agg_results.cbm.output.choice = data;
+        if model_num == 1 || model_num == 4
+            agg_results.cbm.output.q_values = q_values;
+        end
         cbm = agg_results.cbm;
         save(agg_fname, 'cbm');
     end

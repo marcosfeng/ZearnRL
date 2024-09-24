@@ -265,7 +265,7 @@ Further, the flexibility of RL makes it an ideal tool to model how teachers addr
 
 ## Selecting a model specification
 
-To analyze Zearn data spanning an entire academic year, we first establish a framework for actions, rewards, and, optionally, state variables for state-based RL models. In this framework, teacher activities drive the educational process, student achievements result from these efforts, and the constantly changing educational environment represents the states. Instead of relying solely on one analytical approach, our strategy involves a large set of candidate models, progressively escalating in complexity, as shown in @tbl-methods. Our overarching goal was to strengthen the reliability of our findings and offer a detailed understanding of the underlying behavioral patterns.
+To analyze Zearn data spanning an entire academic year, we first establish a framework for actions and rewards. In this framework, teacher activities drive the educational process, student achievements result from these efforts, and the constantly changing educational environment represents the states. Instead of relying solely on one analytical approach, our strategy involves a large set of candidate models, progressively escalating in complexity, as shown in @tbl-methods. Our overarching goal was to strengthen the reliability of our findings and offer a detailed understanding of the underlying behavioral patterns.
 
 ```{r data prep}
 
@@ -1184,7 +1184,7 @@ df <- df %>%
 
 ```
 
-In order to pre-select the most appropriate action, reward, and state variables, we used a panel logistic regression model inspired by dynamic analysis [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We applied four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
+In order to pre-select the most appropriate action and reward variables, we ... [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We applied four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
 
 Herein, the interaction between lagged rewards and actions aimed to capture the reinforcement aspect (a), where prior rewards enhance the likelihood of repeating specific actions. Including current state variables addressed (b) and examining how present educational contexts inform action choices. The interaction between current states and lagged actions encapsulated (c) that actions are deliberately chosen to navigate towards or sustain preferable educational states. Lastly, considering lagged rewards alone, we sought to elucidate (d) the phenomenon where past successes influence future endeavors, indicative of a learning trajectory.
 
@@ -1192,14 +1192,13 @@ We first explore reinforcement learning (RL)-like characteristics within the tea
 
 In order to capture the temporal dynamics of actions influenced by lagged rewards and states, we employed panel logistic regression models across different combinations of variables and lags. We incorporate lagged variables (ranging from one to six weeks) into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. We applied reward and state structures extracted from classroom data via non-negative matrix factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) and actions derived similarly from teacher data. We evaluate these models using the Bayesian Information Criterion (BIC) for model complexity and fit and the Area Under the Receiver Operating Characteristic curve (AUC) for predictive accuracy.
 
-More specifically, we select one teacher component as the action and one student component as the reward. When constructing state-based models, we incorporate an additional student component as the state variable. This choice yields 16 state-free models (4 possible actions and 4 possible rewards) and 48 state-based models (4 possible actions, 4 possible rewards, and 3 possible state variables).
+More specifically, we select one teacher component as the action and one student component as the reward. When constructing state-based models, we incorporate an additional student component as the state variable. This choice yields 16 models (4 possible actions and 4 possible rewards).
 
 ## Model Performance and Behavioral Signatures
 
 <!-- Load prediction data and prepare for analysis -->
-<!-- This section loads the prediction data from various models and prepares it for further analysis -->
 
-```{r}
+```{r ppc-helper-functions}
 
 remove_holiday_weeks <- function(data) {
   # Define holiday weeks (Thanksgiving and two weeks of Christmas)
@@ -1289,17 +1288,17 @@ cumsd <- function(x) {
 
 ```
 
-```{r}
+```{r load-Matlab-predictions}
 
 load_predictions <- function(file_path) {
   mat_data <- readMat(file_path)
-  if(grepl("_2_", file_path)) student_var = 1
-  if(grepl("_6_", file_path)) student_var = 2
-  if(grepl("_10_", file_path)) student_var = 3
-  if(grepl("_14_", file_path)) student_var = 4
-  raw_data <- mat_data[["cbm"]][[5]][[11]]
-  predictions <- mat_data[["cbm"]][[5]][[10]]
-  if(grepl("_1.mat", file_path)) q_values <- mat_data[["cbm"]][[5]][[12]]
+  if(grepl("_2", file_path)) student_var = 1
+  if(grepl("_6", file_path)) student_var = 2
+  if(grepl("_10", file_path)) student_var = 3
+  if(grepl("_14", file_path)) student_var = 4
+  raw_data <- mat_data[["cbm"]][[5]][[5]]
+  predictions <- mat_data[["cbm"]][[5]][[4]]
+  if(grepl("q_model", file_path)) q_values <- mat_data[["cbm"]][[5]][[12]]
 
   # Create a data frame
   data <- list_rbind(
@@ -1332,9 +1331,9 @@ load_predictions <- function(file_path) {
 
 # Load predictions for all wrappers and models
 load_all_predictions <- function() {
-  model_folder_path <- "CBM/zearn_results/hbi_results/"
+  model_folder_path <- "CBM/zearn_results/aggr_results"
   prediction_files <- list.files(path = model_folder_path,
-                                 pattern = "hbi_compare_wrapper_[0-9]+_model_[0-9]+\\.mat$",
+                                 pattern = "lap_aggr_[[:print:]]+\\.mat$",
                                  full.names = TRUE)
 
   predictions <- map(prediction_files, load_predictions)
@@ -1355,7 +1354,6 @@ Drawing on the resulting metrics, we strategically narrowed our focus to the act
 The next step is to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the Bayesian Information Criterion (BIC). Our computational analysis identified a distinct group of models that excelled in their low BIC scores. @tbl-top-CBM provides a breakdown of scores for different combinations of rewards and states under this action, offering insight into the comparative performance of various model setups. Notably, all top-performing models featured "Pedagogical Knowledge" as their primary action. Models with "Badges" and "Activity" as their rewards outperform others, as do state-free models, likely due to their higher simplicity.
 
 <!-- Load and process model comparison data -->
-<!-- This section prepares data for comparing different models' performance -->
 
 ```{r}
 #| label: tbl-top-CBM
@@ -1363,11 +1361,10 @@ The next step is to identify and evaluate reinforcement learning (RL) models tha
 
 # Define paths and models
 model_folder_path <- "CBM/zearn_results/aggr_results"
-models <- c("q_model", "logit_model", "cockburn_model",
-            "q_model_simple", "baseline_model")
-model_names <- c("Q-learning", "Lau & Glimcher",
-                 "Cockburn et al.",
-                 "Q-learning (cost-free)", "Baseline")
+models <- c("q_model", "q_model_simple",
+              "logit_model", "baseline_model")
+model_names <- c("Q-learning","Q-learning (cost-free)",
+                   "Lau & Glimcher", "Baseline")
 
 # Create a mapping for action and reward
 action_reward_mapping <- list(
@@ -1419,7 +1416,7 @@ for (wrapper in 1:16) {
 }
 
 # Rename columns
-colnames(model_comparison_df)[3:7] <- model_names
+colnames(model_comparison_df)[3:(2+length(models))] <- model_names
 
 # Display the table
 model_comparison_df %>%
@@ -1441,9 +1438,9 @@ To further refine our selection, we employ Hierarchical Bayesian Inference (HBI)
 #| tbl-cap: "Summary of model fits for Pedagogical Knowledge as actions and Badges as rewards. Each of the models (N~par~ = number of parameters) was fitted to participants data using Matlab’s cbm toolbox. Using individual model-fitting, we computed the mean AIC (lower values indicate better model fit)."
 
 # Define models and parameters
-models <- c("q_model", "logit_model", "cockburn_model", "q_model_simple", "baseline_model")
-model_names <- c("Q-learning", "Lau & Glimcher", "Cockburn et al.", "Q-learning (cost-free)", "Baseline")
-n_par <- c(5, 5, 6, 3, 1)
+models <- c("q_model", "q_model_simple", "logit_model", "baseline_model")
+model_names <- c("Q-learning", "Q-learning (cost-free)", "Lau & Glimcher", "Baseline")
+n_par <- c(5, 3, 5, 1)
 
 # Create a data frame for model summary
 model_summary <- data.frame(
@@ -1454,13 +1451,19 @@ model_summary <- data.frame(
 
 # Calculate AIC for each model (focusing on Badges reward, wrapper 2)
 model_folder_path <- "CBM/zearn_results/aggr_results"
+# model_folder_path <- "CBM/zearn_results/hbi_results"
 wrapper <- 2  # Corresponds to Pedagogical Knowledge and Badges
 
 for (i in seq_along(models)) {
-  file_path <- file.path(model_folder_path, sprintf("lap_aggr_%s_%d.mat", models[i], wrapper))
+  file_path <- file.path(model_folder_path,
+                         sprintf("lap_aggr_%s_%d.mat", models[i], wrapper))
+  # file_path <- file.path(model_folder_path,
+  #                        sprintf("hbi_compare_wrapper_%d_model_%d.mat",
+  #                                wrapper, i))
   if (file.exists(file_path)) {
     mat_data <- readMat(file_path)
     log_lik <- mat_data[["cbm"]][[5]][[2]]
+    # log_lik <- mat_data[["cbm"]][[5]][[8]]
     aic <- mean(-2 * log_lik + 2 * n_par[i])
     model_summary$AIC[i] <- aic
   }
@@ -1504,8 +1507,8 @@ plot_reward_seeking <- function(sim_data, wrapper,
                                 lower_bound = 0.05, upper_bound = 0.95,
                                 y_limits = c(0.29,0.41),
                                 models = c("Q-learning",
-                                           "Baseline",
-                                           "Lau & Glimcher")) {
+                                           "Lau & Glimcher",
+                                           "Baseline")) {
   # Calculate EV and Uncertainty
   sim_data <- sim_data %>%
     group_by(Classroom.ID) %>%
@@ -3310,145 +3313,6 @@ bic_plot_se_st
 auc_plot_se_st
 
 ```
-
-
-
-<!-- ### Predictors of Choice -->
-
-<!-- ```{r} -->
-<!-- ## Cockburn et al. (2022) logit model: -->
-
-<!-- # Function to run model and extract results -->
-<!-- run_model <- function(data, i, j) { -->
-<!--   action_col <- paste0("Frobenius.NNDSVD_teacher", i) -->
-<!--   ev_col <- paste0("ev_", i, j) -->
-<!--   uncertain_col <- paste0("sd_", i, j) -->
-
-<!--   # Create unit-scaled trial number t and lagged predictors -->
-<!--   data <- data %>% -->
-<!--     group_by(Teacher.User.ID) %>% -->
-<!--     mutate(t = (week - min(week)) / (max(week) - min(week))) %>% -->
-<!--     group_by(Classroom.ID) %>% -->
-<!--     mutate(lag_ev = lag(!!sym(ev_col)), -->
-<!--            lag_sd = lag(!!sym(uncertain_col))) %>% -->
-<!--     mutate( -->
-<!--       complete_obs = sum(!is.na(lag_ev) & !is.na(lag_sd) & !is.na(t)) -->
-<!--       ) %>% -->
-<!--   filter(complete_obs >= 6) %>% -->
-<!--     ungroup() -->
-
-<!--   formula <- as.formula(paste0(action_col, " > 0 ~ ", -->
-<!--                                "1 + (lag_ev + lag_sd) * t + ", -->
-<!--                                "(1 + (lag_ev + lag_sd) * t | Classroom.ID)")) -->
-
-<!--   model <- glmmTMB(formula, data = data, family = binomial) -->
-
-<!--   # Extract fixed effects with standard errors -->
-<!--   fixed_effects_se <- tidy(model, effects = "fixed", conf.int = TRUE) -->
-
-<!--   # Extract random effects -->
-<!--   random_effects <- tidy(model, effects = "ran_vals") -->
-
-<!--   list(model = model, fixed = fixed_effects_se, random = random_effects) -->
-<!-- } -->
-
-<!-- # Determine the number of cores to use -->
-<!-- num_cores <- detectCores() - 1  # Use all but one core -->
-
-<!-- # Set up the parallel backend -->
-<!-- cl <- makeCluster(num_cores) -->
-<!-- registerDoParallel(cl) -->
-
-<!-- # Run all 16 models in parallel -->
-<!-- all_models <- foreach(i = 1:4, .combine = c, -->
-<!--                       .packages = c("glmmTMB", "broom.mixed", "dplyr")) %:% -->
-<!--   foreach(j = 1:4, .combine = c, -->
-<!--           .packages = c("glmmTMB", "broom.mixed", "dplyr")) %dopar% { -->
-<!--     result <- run_model(df_ev_uncertainty, i, j) -->
-<!--     setNames(list(result), paste0(i, "_", j)) -->
-<!--   } -->
-
-<!-- # Stop the parallel backend -->
-<!-- stopCluster(cl) -->
-
-<!-- # Combine all results with model identifiers -->
-<!-- fixed_effects <- map2_dfr(all_models, -->
-<!--                           names(all_models), -->
-<!--                           ~mutate(.x$fixed, model = .y)) -->
-<!-- random_effects <- map2_dfr(all_models, -->
-<!--                            names(all_models), -->
-<!--                            ~mutate(.x$random, model = .y)) -->
-
-<!-- ``` -->
-
-<!-- ```{r} -->
-
-<!-- # Prepare data for plotting -->
-<!-- plot_data <- fixed_effects %>% -->
-<!--   mutate(factor = case_when( -->
-<!--     term == "lag_ev" ~ "EV", -->
-<!--     term == "lag_sd" ~ "U", -->
-<!--     term == "lag_ev:t" ~ "EV x t", -->
-<!--     term == "lag_sd:t" ~ "U x t", -->
-<!--     TRUE ~ NA_character_ -->
-<!--   )) %>% -->
-<!--   filter(!is.na(factor)) %>% -->
-<!--   mutate(significance = case_when( -->
-<!--     p.value < 0.001 ~ "***", -->
-<!--     p.value < 0.01 ~ "**", -->
-<!--     p.value < 0.05 ~ "*", -->
-<!--     TRUE ~ "" -->
-<!--   )) -->
-
-<!-- random_data <- random_effects %>% -->
-<!--   mutate(factor = case_when( -->
-<!--     term == "lag_ev" ~ "EV", -->
-<!--     term == "lag_sd" ~ "U", -->
-<!--     term == "lag_ev:t" ~ "EV x t", -->
-<!--     term == "lag_sd:t" ~ "U x t", -->
-<!--     TRUE ~ NA_character_ -->
-<!--   )) %>% -->
-<!--   filter(!is.na(factor)) -->
-
-<!-- # Create a separate plot for each model -->
-<!-- plot_list <- map(unique(plot_data$model), -->
-<!--                  function(model_name) { -->
-<!--   model_random_data <- filter(random_data, model == model_name) -->
-<!--   model_plot_data <- filter(plot_data, model == model_name) -->
-
-<!--   y_max <- max(c(model_plot_data$estimate + model_plot_data$estimate, -->
-<!--                  quantile(model_random_data$estimate, 1, na.rm = TRUE)), -->
-<!--                na.rm = TRUE) -->
-<!--   y_min <- min(c(model_plot_data$estimate - model_plot_data$conf.low, -->
-<!--                  quantile(model_random_data$estimate, 0, na.rm = TRUE)), -->
-<!--                na.rm = TRUE) -->
-
-<!--   ggplot() + -->
-<!--     geom_violin(data = model_random_data, aes(x = factor, y = estimate), -->
-<!--                 alpha = 0.3, bounds = c(y_min,y_max), -->
-<!--                 scale = "width") + -->
-<!--     geom_hline(yintercept = 0, linetype = "dashed") + -->
-<!--     geom_pointrange(data = model_plot_data, -->
-<!--                     aes(x = factor, y = estimate, -->
-<!--                         ymin = conf.low, ymax = conf.high), -->
-<!--                     color = "red", size = 0.2) + -->
-<!--     geom_text(data = model_plot_data, -->
-<!--               aes(x = factor, y = y_max + 0.05 * (y_max - y_min), -->
-<!--                   label = significance), -->
-<!--               vjust = 0) + -->
-<!--     theme_minimal() + -->
-<!--     theme(axis.text.x = element_text(angle = 45, hjust = 1), -->
-<!--           panel.grid = element_blank(), -->
-<!--           axis.line = element_line(color = "black"), -->
-<!--           axis.ticks = element_line(color = "black")) + -->
-<!--    labs(x = "Factor", y = "Estimate", -->
-<!--          title = paste("Predictors of Choice -", model_name)) + -->
-<!--     scale_x_discrete(limits = c("EV", "EV x t", "U", "U x t")) -->
-<!-- }) -->
-
-
-<!-- ``` -->
-
 
 ### Regression Models Coefficient Analyses
 
