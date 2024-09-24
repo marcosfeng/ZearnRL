@@ -147,9 +147,7 @@ In the Zearn context, we define the decision process as follows:
 
 3.  The reward is a function of the average student performance or activity within a classroom.
 
-4.  The state is a function of other classroom variables not used in the reward function.
-
-Note that we use $S$ in only one of our models. Further, we only consider model-free RL algorithms, which are so called because they do not require the agent to learn $P$ (i.e., state transition probabilities) to approximate expected rewards [@watkins1992]. In the following sections, we describe the two models we use to capture teacher behavior in the Zearn platform: Q-learning and Actor-Critic.
+Note that the models presented here do not use a set of states $S$. Further, we only consider model-free RL algorithms, which are so called because they do not require the agent to learn $P$ (i.e., state transition probabilities) to approximate expected rewards [@watkins1992]. In the following sections, we describe the Q-learning model we use to capture teacher behavior in the Zearn platform.
 
 ## Q-Learning Model
 
@@ -265,7 +263,7 @@ Further, the flexibility of RL makes it an ideal tool to model how teachers addr
 
 ## Selecting a model specification
 
-To analyze Zearn data spanning an entire academic year, we first establish a framework for actions and rewards. In this framework, teacher activities drive the educational process, student achievements result from these efforts, and the constantly changing educational environment represents the states. Instead of relying solely on one analytical approach, our strategy involves a large set of candidate models, progressively escalating in complexity, as shown in @tbl-methods. Our overarching goal was to strengthen the reliability of our findings and offer a detailed understanding of the underlying behavioral patterns.
+To analyze Zearn data spanning an entire academic year, we first establish a framework for actions and rewards. In this framework, teacher activities drive the educational process, student achievements result from these efforts. Instead of relying solely on one analytical approach, our strategy involves a large set of candidate models, progressively escalating in complexity, as shown in @tbl-methods. Our overarching goal was to strengthen the reliability of our findings and offer a detailed understanding of the underlying behavioral patterns.
 
 ```{r data prep}
 
@@ -684,7 +682,7 @@ We first conducted a dimensionality reduction with Non-negative Matrix Factoriza
 
 [^3]: Richard Bellman coined this phrase to describe the challenge of optimizing a control process by searching over a discrete multidimensional grid, where the number of grid points increases exponentially with the number of dimensions. He wrote: “In view of all that we have said in the foregoing sections, the many obstacles we appear to have surmounted, what casts the pall over our victory celebration? It is the curse of dimensionality, a malediction that has plagued the scientist from the earliest days” [@bellman2015adaptive].
 
-By reducing the data to a manageable number of components, we can more readily identify underlying patterns of behavior and interaction. To achieve this, we applied Nonnegative Matrix Factorization (NMF) and used the results to define action, reward, and state variables rather than using individual metrics. One desirable feature of NMF is that it produces sparse components, providing a distilled representation of the data, where each one reflects a combination of behaviors or activities with a potential thematic linkage. Given that our chosen RL models require discreet action variables, we choose to split teacher actions into binary variables, following a median split. In our case, a median split is equivalent to giving a value of 1 to any positive value.
+By reducing the data to a manageable number of components, we can more readily identify underlying patterns of behavior and interaction. To achieve this, we applied Nonnegative Matrix Factorization (NMF) and used the results to define action and reward variables rather than using individual metrics. One desirable feature of NMF is that it produces sparse components, providing a distilled representation of the data, where each one reflects a combination of behaviors or activities with a potential thematic linkage. Given that our chosen RL models require discreet action variables, we choose to split teacher actions into binary variables, following a median split. In our case, a median split is equivalent to giving a value of 1 to any positive value.
 
 ```{r pca nmf data-prep}
 #| include: false
@@ -1184,15 +1182,15 @@ df <- df %>%
 
 ```
 
-In order to pre-select the most appropriate action and reward variables, we ... [@lau2005]. This approach acted as a filter to capture the action-reward (or action-reward-state) configurations displaying characteristics reminiscent of reinforcement learning (RL). We applied four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
+In order to pre-select the most appropriate action and reward variables, we ... [@lau2005]. This approach acted as a filter to capture the action-reward configurations displaying characteristics reminiscent of reinforcement learning (RL). We applied four criteria: a) the influence of consistent rewards on the propensity of actions being repeated, b) the immediate impact of states on action selection, c) the strategic role of actions in navigating towards desirable states, and d) the identification of action auto-correlation as an indicator of incremental learning processes.
 
 Herein, the interaction between lagged rewards and actions aimed to capture the reinforcement aspect (a), where prior rewards enhance the likelihood of repeating specific actions. Including current state variables addressed (b) and examining how present educational contexts inform action choices. The interaction between current states and lagged actions encapsulated (c) that actions are deliberately chosen to navigate towards or sustain preferable educational states. Lastly, considering lagged rewards alone, we sought to elucidate (d) the phenomenon where past successes influence future endeavors, indicative of a learning trajectory.
 
-We first explore reinforcement learning (RL)-like characteristics within the teacher and classroom usage data. We aimed to uncover patterns indicative of RL, where actors (teachers) select actions (teaching strategies) that historically yield higher rewards (improved student outcomes) and use states (classroom contexts) as signals for action selection. Further, we sought to understand how actions contribute to achieving or maintaining desired states and the extent to which actions exhibit auto-correlation due to incremental learning processes.
+We first explore reinforcement learning (RL)-like characteristics within the teacher and classroom usage data. We aimed to uncover patterns indicative of RL, where actors (teachers) select actions (teaching strategies) that historically yield higher rewards (improved student outcomes).
 
-In order to capture the temporal dynamics of actions influenced by lagged rewards and states, we employed panel logistic regression models across different combinations of variables and lags. We incorporate lagged variables (ranging from one to six weeks) into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. We applied reward and state structures extracted from classroom data via non-negative matrix factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) and actions derived similarly from teacher data. We evaluate these models using the Bayesian Information Criterion (BIC) for model complexity and fit and the Area Under the Receiver Operating Characteristic curve (AUC) for predictive accuracy.
+In order to capture the temporal dynamics of actions influenced by lagged rewards, we employed panel logistic regression models across different combinations of variables and lags. We incorporate lagged variables (ranging from one to six weeks) into the models using the Dynamic Analysis approach proposed to account for temporal autocorrelation and potential delayed effects. We applied reward structures extracted from classroom data via non-negative matrix factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD) and actions derived similarly from teacher data. We evaluate these models using the Bayesian Information Criterion (BIC) for model complexity and fit and the Area Under the Receiver Operating Characteristic curve (AUC) for predictive accuracy.
 
-More specifically, we select one teacher component as the action and one student component as the reward. When constructing state-based models, we incorporate an additional student component as the state variable. This choice yields 16 models (4 possible actions and 4 possible rewards).
+More specifically, we select one teacher component as the action and one student component as the reward. This choice yields 16 models (4 possible actions and 4 possible rewards).
 
 ## Model Performance and Behavioral Signatures
 
@@ -1349,11 +1347,11 @@ all_predictions <- load_all_predictions() %>%
 
 ```
 
-Drawing on the resulting metrics, we strategically narrowed our focus to the action-reward-state configurations that most closely align with Reinforcement Learning (RL) principles. @fig-RL-exploration delineates the top models based on their high fixed-effects Area Under the Curve (AUC) and mean teacher-specific AUC, as well as their Fixed Effects Bayesian Information Criterion (BIC) and higher mean teacher-specific log-likelihood. Panels A and B of the figure show the state-free and state-dependent models, respectively. Each point on the plot represents a different model, identified by its BIC and average teacher-specific AUC. The actions "Pedagogical Knowledge" and "Group Instruction" stand out for both models. However, the choice of associated rewards and states is unclear, suggesting the need to fit RL models using all configurations featuring these two actions.
+Drawing on the resulting metrics, we strategically narrowed our focus to the action-reward configurations that most closely align with Reinforcement Learning (RL) principles. @fig-RL-exploration delineates the top models based on their high fixed-effects Area Under the Curve (AUC) and mean teacher-specific AUC, as well as their Fixed Effects Bayesian Information Criterion (BIC) and higher mean teacher-specific log-likelihood. Each point on the plot represents a different model, identified by its BIC and average teacher-specific AUC. The actions "Pedagogical Knowledge" and "Group Instruction" stand out for both models. However, the choice of associated rewards is unclear, suggesting the need to fit RL models using all configurations featuring these two actions.
 
 ### Estimating RL Models
 
-The next step is to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the Bayesian Information Criterion (BIC). Our computational analysis identified a distinct group of models that excelled in their low BIC scores. @tbl-top-CBM provides a breakdown of scores for different combinations of rewards and states under this action, offering insight into the comparative performance of various model setups. Notably, all top-performing models featured "Pedagogical Knowledge" as their primary action. Models with "Badges" and "Activity" as their rewards outperform others, as do state-free models, likely due to their higher simplicity.
+The next step is to identify and evaluate reinforcement learning (RL) models that best represent the teaching strategies derived from our data. The performance of each model is quantified by computing the Bayesian Information Criterion (BIC). Our computational analysis identified a distinct group of models that excelled in their low BIC scores. @tbl-top-CBM provides a breakdown of scores for different rewards under this action, offering insight into the comparative performance of various model setups. Notably, all top-performing models featured "Pedagogical Knowledge" as their primary action. Models with "Badges" and "Activity" as their rewards outperform others.
 
 <!-- Load and process model comparison data -->
 
@@ -2586,38 +2584,19 @@ Teacher actions encompass a broad spectrum, from platform log-ins to resource do
 
 ### Rewards (Student Actions)
 
-In reinforcement learning (RL) models, reward and state variables capture the dynamics of the environment in which learning and decision-making occur. The Zearn platform provides a rich set of student activity and performance data that can be used to define these variables, offering a quantifiable snapshot of classroom engagement and learning challenges.
+In reinforcement learning (RL) models, reward variables capture the dynamics of the environment in which learning and decision-making occur. The Zearn platform provides a rich set of student activity and performance data that can be used to define these variables, offering a quantifiable snapshot of classroom engagement and learning challenges. Reward variables quantify the desirability of the outcomes resulting from the agent's actions, serving as feedback signals that guide the learning process.
 
-State variables represent the current condition or situation of the learning environment, providing the context for the agent's decision-making. Reward variables, on the other hand, quantify the desirability of the outcomes resulting from the agent's actions, serving as feedback signals that guide the learning process.
+In this study, we take an agnostic approach, allowing the following student variables to be treated as reward variables depending on our RL model specification:
 
-In this study, we take an agnostic approach, allowing the following student variables to be treated as either reward or state variables depending on our RL model specification:
+1.  "Active Students": This variable represents the number of students actively logging in to complete digital lessons within a given week [@zearn2022]. A high number of active students could be considered a positive outcome, indicating successful student engagement.
 
-1.  "Active Students": This variable represents the number of students actively logging in to complete digital lessons within a given week [@zearn2022].
+2.  "Student Logins": This variable tallies the frequency of students entering the platform, potentially serving as an engagement metric [@zearn2024]. A high frequency of student logins could be viewed as a positive outcome, reflecting consistent student engagement.
 
--   As a state variable, "Active Students" provides information about the current level of student participation, which can influence a teacher's decision.
--   As a reward variable, a high number of active students could be considered a positive outcome, indicating successful student engagement.
+3.  "Badges (on grade)" and "Badges": These metrics reflect the number of new lessons completed weekly at students' grade level and in general [@zearn2024a]. Accumulating badges can serve as a positive signal, indicating students' mastery of the curriculum.
 
-2.  "Student Logins": This variable tallies the frequency of students entering the platform, potentially serving as an engagement metric [@zearn2024].
+4.  "Minutes per active student": This variable measures students' time on the platform, potentially correlating with their focus and learning progress [@zearn2022]. Achieving or exceeding the expected minutes can be considered a positive outcome, while falling short may be viewed as a negative outcome.
 
--   As a state variable, "Student Logins" offers insights into the consistency of student participation, another aspect of the learning environment state.
--   As a reward variable, a high frequency of student logins could be viewed as a positive outcome, reflecting consistent student engagement.
-
-3.  "Badges (on grade)" and "Badges": These metrics reflect the number of new lessons completed weekly at students' grade level and in general [@zearn2024a].
-
--   As state variables, these metrics provide information about the current level of student progress through the curriculum.
--   As reward variables, accumulating badges can serve as a positive signal, indicating students' mastery of the curriculum.
-
-4.  "Minutes per active student": This variable measures students' time on the platform, potentially correlating with their focus and learning progress [@zearn2022].
-
--   As a state variable, "Minutes per active student" offers insights into the current level of student engagement and time spent on learning activities.
--   As a reward variable, achieving or exceeding the expected minutes can be considered a positive outcome, while falling short may be viewed as a negative outcome.
-
-5.  "Tower Alerts": These alerts signal instances when students repeatedly encounter difficulties within the same lesson [@zearn2024b].
-
--   As state variables, "Tower Alerts" provide information about the current level of student struggle and areas where additional support may be needed.
--   As reward variables, "Tower Alerts" could be viewed as a negative signal, indicating that the current teaching strategies may not be effective in addressing student difficulties.
-
-By allowing models that use these variables as either reward or state variables, we can investigate which configuration of action, reward, and states best capture teacher decision-making on Zearn.
+5.  "Tower Alerts": These alerts signal instances when students repeatedly encounter difficulties within the same lesson [@zearn2024b]. Tower Alerts could be viewed as a negative signal, indicating that the current teaching strategies may not be effective in addressing student difficulties.
 
 ### Dimensionality Reduction
 
@@ -2642,7 +2621,7 @@ These matrices can reveal underlying patterns of behaviors (from the basis matri
 
 ### Feature Selection
 
-The general model formulation for state-free and state-based scenarios is as follows:
+The general model formulation is as follows:
 
 #### State-Free Model
 
@@ -2898,7 +2877,7 @@ auc_plot_se_st
 
 ### Regression Models Coefficient Analyses
 
-Prior to fitting the reinforcement learning (RL) models, we analyzed the regression coefficients in our best-fitting logit models to identify patterns that align with RL principles. Our primary focus was on the relationship between rewards and actions. Their interaction should positively influence future actions for desired outcomes (e.g., lesson completion) and negatively for undesired outcomes (e.g., struggles). Additionally, we examined the effect of current states on strategic action selection and the interaction between states and lagged actions to indicate how actions attain and maintain desired states.
+Prior to fitting the reinforcement learning (RL) models, we analyzed the regression coefficients in our best-fitting logit models to identify patterns that align with RL principles. Our primary focus was on the relationship between rewards and actions. Their interaction should positively influence future actions for desired outcomes (e.g., lesson completion) and negatively for undesired outcomes (e.g., struggles).
 
 We re-estimated the models with scaled independent variables, allowing for a direct coefficient comparison. In this context, a unit increase in these variables equates to a one standard deviation increase. @tbl-re-estimation-statefree and @tbl-re-estimation summarize these results, presenting a coherent overview of the standardized coefficients and highlighting the significance of interactions between rewards, states, and lagged actions.
 
