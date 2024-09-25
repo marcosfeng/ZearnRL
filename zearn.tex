@@ -227,392 +227,7 @@ Education Platforms, Instructional Adaptation, Q-learning, Actor-Critic
 \end{frontmatter}
     
 
-\section{Introduction}\label{introduction}
-
-Predicting repeated behavior has been a long-standing goal of the
-behavioral sciences, including economics, psychology, and neuroscience
-\citep{verplanken2022, venkatesh2023, hagger2023}. Reinforcement
-learning (RL) algorithms have emerged as a prominent way of quantifying
-these relationships, assigning a mathematical relationship between
-contextual cues (states), behavior (actions), and reward
-\citep{sutton2018, kaelbling1996}. These algorithms have found wide
-application in neuroscience and cognitive psychology, where they are
-used in data sets to model agents in specific environments
-\citep{zhang2020}.
-
-\citep{niv2022}, for example, proposed a perspective on cognitive
-behavioral therapy (CBT) by framing it within reinforcement learning
-(RL) theory. Highlighting the similarities between these two domains
-offers a promising avenue for advancing our understanding of CBT and
-refining its clinical applications. Specifically, the researchers
-propose that CBT's cognitive aspect may correspond to the model-based
-learning system, while its behavioral component relates to the
-model-free system. There are two examples of RL applications. First,
-prolonged exposure therapy (i.e., vividly recounting a traumatic
-experience in a safe environment) is akin to updating the value of a
-traumatic state. One novel insight from RL is that moderate prediction
-errors (i.e., gradual extinction) are more effective than high
-prediction errors, which can lead to new values being assigned to an
-entirely different state. Second, RL theory can explain how CBT
-treatments for obsessive-compulsive disorder work. Patients are asked to
-imagine and write down the worst-case outcomes of not performing their
-obsessions. In RL terms, this activity forces patients to create a model
-of the world with low transition probabilities for worst-case scenarios,
-effectively reducing the perceived probability of feared outcomes. While
-this theoretical framework is compelling, future research must
-substantiate these novel insights with concrete empirical evidence.
-
-\citep{collins2020}, however, discussed the complexities of
-reinforcement learning, moving beyond the traditional model-based (MB)
-and model-free (MF) dichotomies. These dichotomies, while beneficial in
-understanding certain aspects of human learning and decision-making,
-also impose limitations by oversimplifying the diverse mechanisms at
-play in RL. Such dichotomies have advanced understanding of neural and
-social factors influencing behavior; however, Collins and Cockburn
-pointed out the challenge of uniquely and reliably classifying behaviors
-under any one controller due to the diversity and complexity of learning
-mechanisms. Instead, MB and MF learning should be seen as high-level
-processes emerging from coordinating various sub-computations; however,
-it is important to consider independent underlying computations in MB
-and MF algorithms and the potential to recombine these subcomponents
-meaningfully, thereby questioning the strict separation between MB and
-MF RL. From this theoretical discussion, further research is needed to
-explore the complexities of reinforcement learning by refocusing on the
-diverse computational components that constitute learning and
-decision-making, particularly in empirical studies. The nuanced
-understanding of learning processes can inform the development of more
-sophisticated models to capture the diverse decision-making strategies
-of teachers. This approach aligns with our goal of transcending simple
-binary models to embrace the multifaceted nature of individual teacher
-behavior in digital learning environments.
-
-More pragmatically, \citep{park2019} explored the benefits of using a
-personalized social robot learning companion using a model-free
-Q-learning approach to improve engagement and learning outcomes among
-young English language learners. Their approach employed affective
-reinforcement learning to train a customized storytelling approach for
-each child, optimized for their skill progression. The experiment
-included 67 children between the ages of 4-6 divided into one of three
-groups: personalized robot, non-personalization robot, and a no-robot
-baseline. Throughout 6-8 sessions, the children participated in
-storytelling activities with the robots; the personalized robot used a
-model-free Q-learning approach to predict the complexity levels of the
-activities to maximize a child's future engagement and learning gains.
-As such, a) the reward was a combination of engagement and learning
-progress (assessed through the child's use of new words and syntax
-structures), b) states were the users' engagement (measured by verbal
-and nonverbal cues) and affective arousal levels (measured by facial
-expressions), and c) actions were the complexity level of the
-activities. Results indicated that the personalized robot effectively
-adapted to each child's needs, leading to better engagement and learning
-outcomes than non-personalized and no-robot conditions. The positive
-results suggest that a Q-learning strategy can offer tailored and
-improved teaching methods. However, Park et al.~chose the model and
-multiple parameters arbitrarily; therefore, future models could enhance
-the robot's outcomes by, for example, defining other state spaces or
-learning rates. Additionally, the generalizability of these findings to
-other educational settings and populations is needed. The affective
-reinforcement learning approach effectively operationalizes states,
-actions, and rewards in an educational space, resulting in adaptive,
-engaging learning experiences for students.
-
-Researchers have also attempted to bridge computational neuroscience and
-clinical applications. \citep{brown2021} investigated whether depression
-symptoms are related to features of reinforcement learning, fitting a
-state-free q-learning algorithm to participants' behavior in a reward
-and loss learning task (i.e., learning a stimulus's expected monetary
-gains or losses, respectively). The researchers then regressed
-depression symptoms on the model-derived parameters and found that
-depression symptoms may selectively disrupt specific components of the
-reinforcement learning process. Notably, the Brown et al.~study bridges
-computational neuroscience and clinical applications, offering a novel
-way of characterizing depression, typifying patients, and opening new
-avenues for personalized treatment. The study resonates with using
-estimated parameters as markers of individual differences, hinting at
-the potential for personalized interventions based on these models.
-Likewise, our study examines the variation in estimated learning rate
-parameters and their association with overall student outcomes.
-
-In another investigation of reinforcement learning in neuroscience,
-\citep{eckstein2021} reviewed the interpretability and generalizability
-of reinforcement learning (RL) models in neuroscience and cognitive
-science, highlighting the widely adopted assumption that estimated RL
-parameters explain specific (neuro)cognitive functions and that these
-explanations translate across contexts. Methodological differences among
-RL studies yield a considerable variation in interpretation; for
-instance, learning rates have been linked to incremental updating,
-reward sensitivity, and approximate inference. Consequently,
-generalizing findings across tasks, populations, and model
-parameterizations is not often appropriate. Eckstein et al.~emphasized
-that future research should contextualize findings within specific
-experimental setups and consider alternative models that better capture
-the complexities of human cognition. We take this advice to address the
-degrees of freedom in our research design while contextualizing our
-results accordingly.
-
-The focus primarily on neuroscience and cognitive psychology
-applications, however, presents a novel opportunity to use methods from
-one set of disciplines on data traditionally used in another. In this
-paper, we aim to further this integration by applying RL algorithms to
-model the decision-making process of teachers in the math-teaching
-platform Zearn. RL provides a system of rewards and punishments where
-the agent (in this case, the teacher) learns to make optimal decisions
-by maximizing the rewards and minimizing the punishments
-\citep{sutton2018, kaelbling1996}. By assuming every teacher has an
-objective function to balance with their potential rewards, we model the
-sequential behavior of a teacher throughout a school year. For instance,
-the teacher chooses which pedagogical actions to employ, such as
-assigning homework, checking student progress, or reviewing content, in
-anticipation of enhancing student achievement. Applying RL algorithms
-allows for flexibility in learning the best strategy given certain
-contextual information. We provide a model of how teachers adapt their
-strategies in response to student performance and other contextual
-factors. This approach offers a flexible model for our available data
-and opens new avenues for understanding and enhancing human behavior in
-complex, real-world settings.
-
-\subsection{The Zearn Platform}\label{the-zearn-platform}
-
-Zearn is a digital platform for mathematics education designed to
-facilitate the teaching and learning of mathematics. About 25\% of
-elementary school students and over 1 million middle school students
-across the United States use Zearn \citep{zearn2024v}. Its unique blend
-of hands-on teaching and immersive digital learning, paired with its
-widespread adoption, provides the perfect setting for understanding how
-teachers adapt their strategies to optimize student achievement.
-
-Zearn's pedagogical approach includes interactive digital lessons using
-visual aids (see Figure~\ref{fig-zearn-poster}) and real-time student
-feedback. The platform's approach to mathematical concepts, such as
-fractions, is particularly noteworthy. Students go through a series of
-representations --- concrete, pictorial, and abstract --- each designed
-to scaffold their understanding (i.e., ``breaking down'' problems, see
-\citep{jumaat2014, reiser2014}) and prepare them for subsequent levels.
-
-\begin{figure}
-
-\centering{
-
-\includegraphics{images/zearn-poster.jpg}
-
-}
-
-\caption{\label{fig-zearn-poster}Screenshot of student lesson on Zearn.
-The image is an example of teaching with visual models on the platform.}
-
-\end{figure}%
-
-The platform's structure provides students with a personalized learning
-experience (see Appendix for a screenshot of the student portal) and
-teachers with resources to track student progress and make informed
-decisions (see Figure~\ref{fig-class-report} for a sample class report).
-Zearn follows a rotation model of learning --- that is, a blend of
-traditional face-to-face learning (i.e., small group instruction) with
-online learning (i.e., self-paced online lessons). With this approach,
-students can learn new grade-level content in two distinct ways:
-independently, by engaging in digital lessons, and in small groups with
-their teacher and peers.
-
-\begin{figure}
-
-\centering{
-
-\includegraphics{images/class-report.png}
-
-}
-
-\caption{\label{fig-class-report}Screenshot of sample classroom report.
-The image displays a summary dashboard where teachers can follow their
-students' progress as indicated by the number of lessons completed.}
-
-\end{figure}%
-
-A key feature of Zearn is its badge system, which tracks student
-progress and motivates continued learning (see
-Figure~\ref{fig-badges-screen}). Students earn badges upon mastery of
-specific skills, providing a tangible representation of their
-achievement. This system motivates students and provides teachers with
-valuable data on student performance, informing their decision-making
-process \citep{knudsen2020}. Zearn also incorporates notifications,
-known as Tower Alerts, sent to teachers when a student struggles with a
-specific concept. This feature allows teachers to provide timely support
-and address learning gaps, enhancing the platform's capacity for
-personalized learning.
-
-\begin{figure}
-
-\centering{
-
-\includegraphics{images/badges.PNG}
-
-}
-
-\caption{\label{fig-badges-screen}Screenshot of student badges page. The
-image displays a summary dashboard where students can see their total
-badges earned (i.e., lessons completed) for a given mission (i.e.,
-course module). Faded badges on the image signify open lessons to be
-completed, unfaded badges represent earned badges, and the locked icons
-correspond to future digital lessons that will open once all activities
-in the current lesson are completed.}
-
-\end{figure}%
-
-\citep{morrison2019}, for example, evaluated the effectiveness of Zearn
-Math, a digital math curriculum, in a large urban school district for
-improving student outcomes. The study employed a mixed-methods approach,
-combining quantitative and qualitative data from various sources,
-including student achievement data, student and teacher usage data
-(i.e., time spent on the platform), student and teacher surveys,
-classroom observations, teacher focus groups, and administrator
-interviews. The study revealed mixed results. Administrators, students,
-and teachers generally viewed Zearn Math positively, citing increased
-student engagement and improved instruction differentiation. However,
-challenges included initial discomfort with the shift from whole class
-to half-class instruction and uneven teacher preparedness, primarily due
-to limited professional development opportunities. While Zearn Math
-seemed to improve student engagement and higher order thinking skills,
-its impact on student achievement was unclear. Achievement gains on
-standardized tests were not significantly different overall, though
-there were positive correlations between Zearn Math usage and
-achievement gains. The program's success may be attributed to its
-engaging, gamified components and alignment with the Common Core State
-Standards. Additionally, it is important to provide adequate
-professional development and support for teachers to effectively
-implement the program. The findings of Morrison et al.~highlight the
-potential and challenges of integrating digital platforms like Zearn
-Math into the curriculum, which is relevant for understanding how such
-tools can support teacher strategies and student engagement in
-mathematics.
-
-Another noteworthy feature is the platform's comprehensive professional
-development component, which is accessible to schools with a paid
-account (see Figure~\ref{fig-prof-dev} for a sample training schedule).
-In this program, teachers within a school collaborate to explore each
-unit or mission through word problems, fluencies, and small group
-lessons. They also analyze student work and problem-solving strategies.
-This professional development prioritizes (1) each mission's primary
-mathematical concept, (2) visual representations to scaffold learning,
-and (3) strategies to address unfinished learning from prior grades
-while preparing for future learning \citep{morrison2019}.
-
-Researchers have also examined the Zearn approach for teaching teachers
-professional development knowledge. \citep{knudsen2020a} focused on the
-effectiveness of the Curriculum Study Professional Development (CS PD)
-program developed by Zearn to enhance elementary school teachers'
-Pedagogical Content Knowledge (PCK) in teaching mathematics. The
-researchers used a case study approach, examining eight teachers across
-various schools and districts who had undergone the CS PD program. Data
-collection methods included think-aloud interviews, classroom and CS PD
-session observations, and interviews with teachers and administrators;
-the researchers found that 75\% of the teachers experienced growth in
-their PCK. Key strengths of the CS PD program included its relevance to
-practice, encouragement of collaboration among teachers, and its
-effectiveness in developing big ideas. However, challenges in responding
-to students' in-the-moment problem-solving and varied teacher engagement
-were noted. The findings underscore the importance of enhancing
-teachers' pedagogical content knowledge, especially in mathematics. One
-of the measures we developed in our study specifically captures
-pedagogical content knowledge. These insights can inform the development
-of similar professional development programs in the current project,
-ensuring they are effectively tailored to teachers' instructional needs
-and students' diverse backgrounds. Further, we are able to model teacher
-behavior at the individual level.
-
-Zearn's integrated framework provides a rich repository of data for our
-analysis. The variables delineated for investigation by Zearn encompass:
-(1) teacher engagement, quantified through a diverse set of actions; (2)
-student achievement, denoted by variables such as lesson completion
-(i.e., ``badges'' earned after each lesson is finished with full
-proficiency); and (3) student struggles, monitored through variables
-such as ``tower alerts'' (see Table~\ref{tbl-teacher-variables} for a
-full glossary of available variables).
-
-\subsection{Research Questions}\label{research-questions}
-
-We propose the following research questions:
-
-1. Characterizing Teacher Behavior: How can we best explain teachers'
-action choices? How does the explanatory power of reinforcement learning
-compare to simpler baseline models? Which specific reinforcement
-learning model best captures the empirical data on teacher behavior?
-
-2. Impact of Estimated RL Parameters: How do individual differences in
-teachers' decision-making patterns, as inferred from the parameters of
-the best-fitting reinforcement learning model, relate to heterogeneity
-in student achievement gains? Can we identify specific teacher
-behavioral profiles that predict better student learning outcomes?
-
-3. Influence of Teacher and School Background: To what extent do school
-contextual factors (e.g., socioeconomic status) account for variation in
-teachers' instructional choices, as quantified by the parameters of the
-reinforcement learning model?
-
 \section{Theory}\label{theory}
-
-\subsection{Reinforcement Learning to Capture Patterns in Repeated
-Behavior}\label{reinforcement-learning-to-capture-patterns-in-repeated-behavior}
-
-In RL, an agent learns to make decisions over time. Formally, an RL task
-is a tuple \(\langle S,A,R,P,\gamma \rangle\), where \(S\) is a set of
-states, \(A\) is a set of actions,
-\(R = \mathbb{E}[R_{t+1}|S_t = s, A_t = a]\) is a reward function,
-\(P= \Pr[S_{t+1} = s′ |S_t = s,A_t = a]\) is a state transition
-probability, and \(\gamma \in [0,1]\) is a discount factor. We define
-the agent's decisions as a probability distribution over actions,
-namely, the policy \(\pi(a|s) = \Pr[A_t = a|S_t = s]\)
-\citep{sutton2018}.
-
-RL models have been used in the psychology of habit to explain learning
-and reward association \citep{thorndike1931, Rescorla1972ATO}. One
-common approach in human studies is to apply the ``multi-armed bandit''
-task \citep{daw2006, dennison2022}. In this type of experiment,
-participants are presented with multiple actions, each with an unknown
-payoff. The subject's goal is to learn the best outcome through trial
-and error. In the beginning, the reward-action relationships are
-unknown, so the participant must explore or sample each action
-\citep{sutton2018} (p.~3). This exploration-exploitation trade-off is a
-central theme in RL and has the potential to provide valuable insights
-into how individuals learn and make decisions over time.
-
-In the context of education and teaching, RL has been present as early
-as 1960, with Ronald Howard applying this mathematical framework to
-instruction theory \citep{howard1960}. Later, in 1972, Richard Atkinson
-proposed a theory of instruction that encapsulates the key components of
-a Markov decision process, including states, actions, transition
-probabilities, reward functions, and a time horizon
-\citep{atkinson1972}. In Atkinson's framework, actions are instructional
-activities (e.g., assigning problem sets) that can change a given state
-(e.g., student learning level). These changes in states can yield
-rewards minus the associated cost of the action. For example, a teacher
-may be rewarded with an increase in the knowledge or skill of a student,
-but such reward must be balanced with its associated effort (e.g., labor
-cost). Atkinson and colleagues continued to test many parametrizations
-of this idea, contributing significantly to the development of RL theory
-in the context of education (see \citep{doroudi2019} for a full review).
-
-In the Zearn context, we define the decision process as follows:
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\item
-  Agents are the teachers.
-\item
-  Actions include the teachers' choices of specific pedagogical
-  strategies.
-\item
-  The reward is a function of the average student performance or
-  activity within a classroom.
-\item
-  The state is a function of other classroom variables not used in the
-  reward function.
-\end{enumerate}
-
-Note that we use \(S\) in only one of our models. Further, we only
-consider model-free RL algorithms, which are so called because they do
-not require the agent to learn \(P\) (i.e., state transition
-probabilities) to approximate expected rewards \citep{watkins1992}. In
-the following sections, we describe the two models we use to capture
-teacher behavior in the Zearn platform: Q-learning and Actor-Critic.
 
 \subsection{Q-Learning Model}\label{q-learning-model}
 
@@ -647,13 +262,13 @@ As the teacher learns from experience, the Q-value estimates gradually
 converge toward the true values for each action.
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.0469}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1562}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1719}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.0625}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.0625}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.2422}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.2578}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}@{}}
 \caption{Example of a Q-learning algorithm for a teacher on the Zearn
 platform. Each week (\(t\)), the teacher decides between action 1 and
 action 2 based on the difference in Q-values (\(Q_t\)) for each action.
@@ -865,38 +480,6 @@ where:
   the difference in Q-values for the two actions.
 \end{itemize}
 
-\subsection{Why Reinforcement
-Learning?}\label{why-reinforcement-learning}
-
-Reinforcement Learning (RL) presents a few advantages over models that
-employ a static approach to link teacher efforts with student outcomes.
-It embodies the flexibility to adapt and evolve strategies over time.
-This dynamic framework reflects the continuous learning process seen in
-biological systems and naturally aligns with the evolving nature of
-teacher-student interactions in the classroom. Beyond our immediate
-study goals, RL models hold the potential for automating instructional
-decisions based on identified patterns, potentially alleviating the
-workload on teachers and optimizing the educational process.
-
-In this study, we position teachers as agents who navigate their
-environment (i.e., the classroom) by taking actions based on their
-observations and the feedback they receive. RL algorithms can
-characterize individual profiles for teachers, providing insights into
-how they adapt and respond to various states and rewards within the
-educational setting. By estimating individual teacher parameters, RL
-provides insights into valuable aspects for policymakers to design
-targeted interventions aimed at enhancing educational outcomes.
-
-Further, the flexibility of RL makes it an ideal tool to model how
-teachers address changing classroom needs. By incorporating a wide range
-of variables (i.e., states, actions, and rewards), RL models are
-customizable to diverse educational contexts and objectives. Given this
-flexibility in mathematically mapping the agent-environment interaction
-(i.e., many models potentially satisfy our initial assumptions), our
-first step is a competition of models, selecting a set of models
-applicable to our setting, fitting them to the data, and comparing their
-performances.
-
 \section{Results}\label{results}
 
 \subsection{Selecting a model
@@ -904,64 +487,26 @@ specification}\label{selecting-a-model-specification}
 
 To analyze Zearn data spanning an entire academic year, we first
 establish a framework for actions and rewards. In this framework,
-teacher activities drive the educational process, student achievements
-result from these efforts, and the constantly changing educational
-environment represents the states. Instead of relying solely on one
+teacher activities drive the educational process, and student
+achievements result from these efforts. Instead of relying solely on one
 analytical approach, our strategy involves a large set of candidate
-models, progressively escalating in complexity, as shown in
-Table~\ref{tbl-methods}. Our overarching goal was to strengthen the
-reliability of our findings and offer a detailed understanding of the
-underlying behavioral patterns.
+models, as shown in Table~\ref{tbl-methods}. Our overarching goal was to
+strengthen the reliability of our findings and offer a detailed
+understanding of the underlying behavioral patterns.
 
 \subsection{Dimensionality Reduction}\label{dimensionality-reduction}
 
 We first conducted a dimensionality reduction with Non-negative Matrix
 Factorization (NMF) and four components (see
-\textbf{?@fig-nmf-pca-comparison} for a comparison of different methods
-by balancing reconstruction accuracy, i.e., R-squared, with clustering
-clarity, i.e., Silhouette Scores). While our dataset offers many
-potential action and reward variables, the direct use of these variables
-presents significant challenges:
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\tightlist
-\item
-  \textbf{Complexity}: The sheer number of available variables
-  complicates the identification of meaningful patterns and
-  relationships.
-\item
-  \textbf{Dimensionality}: The high-dimensional nature of the data risks
-  diluting important signals due to the ``curse of
-  dimensionality.''\footnote{Richard Bellman coined this phrase to
-    describe the challenge of optimizing a control process by searching
-    over a discrete multidimensional grid, where the number of grid
-    points increases exponentially with the number of dimensions. He
-    wrote: ``In view of all that we have said in the foregoing sections,
-    the many obstacles we appear to have surmounted, what casts the pall
-    over our victory celebration? It is the curse of dimensionality, a
-    malediction that has plagued the scientist from the earliest days''
-    \citep{bellman2015adaptive}.}
-\item
-  \textbf{Interpretability}: Directly interpreting the impact of
-  specific actions or behaviors on outcomes can be obscured by the
-  intertwined nature of the data.
-\end{enumerate}
-
-By reducing the data to a manageable number of components, we can more
-readily identify underlying patterns of behavior and interaction. To
-achieve this, we applied Nonnegative Matrix Factorization (NMF) and used
-the results to define action, reward, and state variables rather than
-using individual metrics. One desirable feature of NMF is that it
-produces sparse components, providing a distilled representation of the
-data, where each one reflects a combination of behaviors or activities
-with a potential thematic linkage. Given that our chosen RL models
-require discreet action variables, we choose to split teacher actions
-into binary variables, following a median split. In our case, a median
-split is equivalent to giving a value of 1 to any positive value.
+Figure~\ref{fig-nmf-pca-comparison} for a comparison of different
+methods by balancing reconstruction accuracy, i.e., R-squared, with
+clustering clarity, i.e., Silhouette Scores). Given that our chosen RL
+models require discrete action variables, we choose to split teacher
+actions into binary variables, following a median split. In our case, a
+median split is equivalent to giving a value of 1 to any positive value.
 
 \begin{verbatim}
-702
+743
 \end{verbatim}
 
 \paragraph{Interpreting Components}\label{interpreting-components}
@@ -1070,85 +615,57 @@ of low, moderate, and high proportion values.}
 \subsubsection{Feature Selection}\label{feature-selection}
 
 In order to pre-select the most appropriate action and reward variables,
-we \ldots{} \citep{lau2005}. This approach acted as a filter to capture
-the action-reward (or action-reward-state) configurations displaying
-characteristics reminiscent of reinforcement learning (RL). We applied
-four criteria: a) the influence of consistent rewards on the propensity
-of actions being repeated, b) the immediate impact of states on action
-selection, c) the strategic role of actions in navigating towards
-desirable states, and d) the identification of action auto-correlation
-as an indicator of incremental learning processes.
+we estimated the Q-learning models alongside a) a baseline model
+(constant-only regression), b) a logistic regression model inspired by
+dynamic analysis \citep{lau2005}, and c) a Q-learning model, and d) a
+simplified Q-learning model with no cost parameter and a starting
+Q-value of 0. This approach acted as a filter to capture the
+action-reward configurations displaying the best fit. More specifically,
+we applied reward structures extracted from classroom data via
+non-negative matrix factorization (NMF) with the Frobenius Non-negative
+Double Singular Value Decomposition (NNDSVD) and actions derived
+similarly from teacher data. Then, we selected one teacher component as
+the action and one student component as the reward, yielding 16
+configurations (4 possible actions and 4 possible rewards).
 
-Herein, the interaction between lagged rewards and actions aimed to
-capture the reinforcement aspect (a), where prior rewards enhance the
-likelihood of repeating specific actions. Including current state
-variables addressed (b) and examining how present educational contexts
-inform action choices. The interaction between current states and lagged
-actions encapsulated (c) that actions are deliberately chosen to
-navigate towards or sustain preferable educational states. Lastly,
-considering lagged rewards alone, we sought to elucidate (d) the
-phenomenon where past successes influence future endeavors, indicative
-of a learning trajectory.
+To account for temporal dynamics of actions influenced by lagged
+rewards, the logistic regression models incorporated lagged variables.
+We tested lags ranging from one to six weeks, accounting for temporal
+autocorrelation and potential delayed effects. The results suggest a
+preference for a lag of two periods as optimal (based on the ``elbow''
+in the Area Under the Receiver Operating Characteristic curve (AUC) and
+the minima in the Bayesian Information Criterion (BIC) curves, see
+Figure~\ref{fig-panel-bic}).
 
-We first explore reinforcement learning (RL)-like characteristics within
-the teacher and classroom usage data. We aimed to uncover patterns
-indicative of RL, where actors (teachers) select actions (teaching
-strategies) that historically yield higher rewards (improved student
-outcomes) and use states (classroom contexts) as signals for action
-selection. Further, we sought to understand how actions contribute to
-achieving or maintaining desired states and the extent to which actions
-exhibit auto-correlation due to incremental learning processes.
-
-In order to capture the temporal dynamics of actions influenced by
-lagged rewards and states, we employed panel logistic regression models
-across different combinations of variables and lags. We incorporate
-lagged variables (ranging from one to six weeks) into the models using
-the Dynamic Analysis approach proposed to account for temporal
-autocorrelation and potential delayed effects. We applied reward and
-state structures extracted from classroom data via non-negative matrix
-factorization (NMF) with the Frobenius Non-negative Double Singular
-Value Decomposition (NNDSVD) and actions derived similarly from teacher
-data. We evaluate these models using the Bayesian Information Criterion
-(BIC) for model complexity and fit and the Area Under the Receiver
-Operating Characteristic curve (AUC) for predictive accuracy.
-
-More specifically, we select one teacher component as the action and one
-student component as the reward. When constructing state-based models,
-we incorporate an additional student component as the state variable.
-This choice yields 16 models (4 possible actions and 4 possible
-rewards).
+We evaluated the performance of each model configuration using
+log-likelihood values. Table~\ref{tbl-top-CBM} provides the
+log-likelihood scores for the four models across all 16 action-reward
+configurations. Our analysis revealed that, across all model types, the
+``Pedagogical Knowledge'' action consistently showed the best fit, as
+evidenced by the highest (least negative) log-likelihood values.
+Further, the full Q-learning model consistently outperformed the others.
+Within Q-learning, models incorporating ``Badges'' and ``Activity'' as
+rewards generally outperformed others, although differences were small.
 
 \subsection{Model Performance and Behavioral
 Signatures}\label{model-performance-and-behavioral-signatures}
 
-Drawing on the resulting metrics, we strategically narrowed our focus to
-the action-reward-state configurations that most closely align with
-Reinforcement Learning (RL) principles. \textbf{?@fig-RL-exploration}
-delineates the top models based on their high fixed-effects Area Under
-the Curve (AUC) and mean teacher-specific AUC, as well as their Fixed
-Effects Bayesian Information Criterion (BIC) and higher mean
-teacher-specific log-likelihood. Panels A and B of the figure show the
-state-free and state-dependent models, respectively. Each point on the
-plot represents a different model, identified by its BIC and average
-teacher-specific AUC. The actions ``Pedagogical Knowledge'' and ``Group
-Instruction'' stand out for both models. However, the choice of
-associated rewards and states is unclear, suggesting the need to fit RL
-models using all configurations featuring these two actions.
-
-\subsubsection{Estimating RL Models}\label{estimating-rl-models}
-
-The next step is to identify and evaluate reinforcement learning (RL)
-models that best represent the teaching strategies derived from our
-data. The performance of each model is quantified by computing the
-Bayesian Information Criterion (BIC). Our computational analysis
-identified a distinct group of models that excelled in their low BIC
-scores. Table~\ref{tbl-top-CBM} provides a breakdown of scores for
-different combinations of rewards and states under this action, offering
-insight into the comparative performance of various model setups.
-Notably, all top-performing models featured ``Pedagogical Knowledge'' as
-their primary action. Models with ``Badges'' and ``Activity'' as their
-rewards outperform others, as do state-free models, likely due to their
-higher simplicity.
+Given these findings, we focus our subsequent analyses on the models
+featuring ``Pedagogical Knowledge'' as the action and ``Badges'' as
+reward (see Appendix for similar analyses with ``Activity'' as reward).
+In the next stage of our analyses, we used the Akaike Information
+Criterion (AIC) to further compare the performance of our models, while
+adjusting for model complexity. Table~\ref{tbl-model-summary} presents
+the number of parameters and mean AIC values for each model. The scores
+were computed using individual model-fitting with Matlab's cbm toolbox,
+with lower AIC values indicating better model fit. The baseline model,
+with its advantage in parsimony, achieved the lowest AIC, followed by
+the full Q-learning model. Note, however, that the baseline model does
+not provide insights into the decision-making process of teachers, which
+is a key goal of this study. As such, we proceed with a more detailed
+examination of the behavioral signatures in our data and investigate
+which models best capture them, excluding the simplified Q-learning
+model, which underperformed in both measures of model fit.
 
 \begin{longtable}{l|lrrrr}
 
@@ -1193,22 +710,6 @@ Curriculum Planning & Badges & $-24,661.42$ & $-28,315.00$ & $-24,900.79$ & $-26
 
 \end{longtable}
 
-\subsubsection{Hierarchical Bayesian Inference (HBI) Results and Model
-Comparison}\label{hierarchical-bayesian-inference-hbi-results-and-model-comparison}
-
-To further refine our selection, we employ Hierarchical Bayesian
-Inference (HBI) to perform a more detailed comparison of the selected
-models. This statistical approach allows us to compare models not just
-by their individual fits but also by their ability to explain data
-across different subjects. In interpreting the results from HBI, we
-observed the differential performances of Q-learning (QL) and
-Actor-Critic (AC) models. \textbf{?@tbl-CBM-HBI} provides quantifiable
-insights into each model's fit (BIC) and predictive power (AUC, the area
-under the receiver operating characteristic curve) across teachers.
-Generally, Q-learning models fit the data better than Actor-Critic
-models (i.e., lower BIC scores), and AC models outperform in terms of
-predictive power (higher AUC scores).
-
 \begin{longtable}{ccc}
 
 \caption{\label{tbl-model-summary}Summary of model fits for Pedagogical
@@ -1230,8 +731,7 @@ Baseline & 1 & $27.8$ \\
 
 \end{longtable}
 
-\subsection{Posterior Predictive
-Checks}\label{posterior-predictive-checks}
+\subsubsection{Reward Seeking}\label{reward-seeking}
 
 \begin{verbatim}
 [[1]]
@@ -1283,6 +783,20 @@ Colored lines and shaded areas show model predictions with 95\%
 confidence intervals.}
 
 \end{figure}%
+
+We first examine whether teachers display a preference for choices with
+higher relative expected values, as measured by the estimated Q-value
+difference. \textbf{?@fig-reward-seeking} demonstrates this
+reward-seeking behavior in the data (\(b = 1.02\), 95\% CI
+\([0.947, 1.09]\)). It also shows that the Q-learning model most closely
+fits the observed data (\(b = 1.34\), 95\% CI \([1.29, 1.39]\)). The
+logit model underestimates the probability of choices with higher
+expected values and overestimates choices with lower ones
+(\(b = 0.371\), 95\% CI \([0.333,0.409]\)). The baseline model, as
+expected, does not capture the reward-seeking behavior and estimates a
+fixed choice probability (\(b = 0.005\), 95\% CI \([0.002,0.007]\)).
+
+\subsubsection{Uncertainty Aversion}\label{uncertainty-aversion}
 
 \begin{verbatim}
 [[1]]
@@ -1340,6 +854,22 @@ with 95\% confidence intervals. The horizontal dashed line at 50\%
 represents indifference between certain and uncertain options.}
 
 \end{figure}%
+
+Next, we examine whether teachers are averse to choices with a more
+uncertain reward relationship. \textbf{?@fig-uncertainty-aversion}
+provides insights into this behavioral signature. The x-axis represents
+the difference in expected value (EV) between uncertain and certain
+options, while the y-axis shows the proportion of times teachers chose
+the uncertain option. The key measure in this plot is the location at
+which the teacher is indifferent between uncertain and certain choices.
+The data show uncertainty happens at the \(50.6\) percentile (95\% CI
+\([40.7,60.6]\)), and the models estimate similar indifference points
+(Q-learning: \(56.5\), 95\% CI \([44.9, 68.2]\); logit: \(50.2\), 95\%
+CI \([39.1, 61.3]\); baseline: \(53.2\), 95\% CI \([40.0, 66.5]\)).
+Thus, this analysis cannot differentiate the three models in their
+ability to capture this signature.
+
+\subsubsection{Evidence for Learning}\label{evidence-for-learning}
 
 \begin{verbatim}
 [[1]]
@@ -1429,50 +959,24 @@ of the mean.}
 
 \end{figure}%
 
-\begin{verbatim}
-$`2`
-\end{verbatim}
+Given the Q-learning model best captures reward-seeking behavior, we
+also examine its performance in capturing learning processes in
+teachers' decision-making. \textbf{?@fig-prediction-errors} illustrates
+the prediction error over the course of the academic year, averaged
+across classrooms. This measure is an indicator of how well teachers are
+able to anticipate the outcomes of their actions. We observe a
+consistent decrease in prediction errors, suggesting that teachers are
+progressively improving their ability to predict the rewards associated
+with their choices.
 
-\begin{verbatim}
-
-$`14`
-\end{verbatim}
-
-\begin{figure}
-
-\centering{
-
-\includegraphics{zearn_files/figure-pdf/fig-action-percentages-1.pdf}
-
-}
-
-\caption{\label{fig-action-percentages-1}Observed teacher behavior and
-model predictions over the academic year. The graph shows the percentage
-of times teachers chose to engage in Pedagogical Content activities. The
-x-axis represents biweekly periods throughout the school year. The black
-dashed line represents observed teacher behavior, while colored lines
-represent predictions from different models. Shaded areas represent the
-95\% confidence intervals for each model's predictions.}
-
-\end{figure}%
-
-\begin{figure}
-
-\centering{
-
-\includegraphics{zearn_files/figure-pdf/fig-action-percentages-2.pdf}
-
-}
-
-\caption{\label{fig-action-percentages-2}Observed teacher behavior and
-model predictions over the academic year. The graph shows the percentage
-of times teachers chose to engage in Pedagogical Content activities. The
-x-axis represents biweekly periods throughout the school year. The black
-dashed line represents observed teacher behavior, while colored lines
-represent predictions from different models. Shaded areas represent the
-95\% confidence intervals for each model's predictions.}
-
-\end{figure}%
+Furthermore, \textbf{?@fig-q-value-reward} provides additional insight
+into the learning process by showing the evolution of Q-values and
+reward differences over the academic year, averaged across classrooms.
+The graph demonstrates a gradual convergence between the Q-value
+difference and the empirical difference in mean rewards (from the
+previous four weeks). This convergence indicates that the model's value
+estimates (Q-values) are becoming increasingly accurate predictors of
+actual rewards.
 
 \subsubsection{Top Model Selection}\label{top-model-selection}
 
@@ -1487,27 +991,6 @@ Figure~\ref{fig-loglik-histogram} reveals that the Q-learning model with
 
 \subsection{Heterogeneity and
 Optimality}\label{heterogeneity-and-optimality}
-
-The spread of BIC scores in Figure~\ref{fig-loglik-histogram} also
-implies a diversity in model fit, which warrants further investigation
-into heterogeneity. We analyzed teacher-specific parameters to capture
-these individual differences. \textbf{?@fig-params-histogram} provides a
-set of visualizations depicting relationships between teacher-specific
-parameters and various contextual factors. We observed differences in
-the cost parameter across poverty levels, with high-poverty schools
-showing lower cost estimates (a). The learning rate parameter (alpha)
-also varied across poverty levels (b), with high-poverty schools
-exhibiting lower learning rates. The number of weeks a teacher used the
-platform showed a small negative correlation with the estimated cost (r
-= -0.11, p \textless{} .001) (d), while it positively correlated with
-the inverse temperature parameter (tau) (r = 0.14, p = 1.5e-09) (e).
-When examining the relationship between the learning rate, inverse
-temperature, and student outcomes (c, f), we found a positive
-correlation between inverse temperature and both average badges (r =
-0.17, p \textless{} .001) and average tower alerts (r = 0.1, p
-\textless{} .001). However, the learning rate did not significantly
-correlate with average badges earned (r = 0.03, p = 0.23) or average
-tower alerts (r = 0.0, p = .85).
 
 \begin{table}
 
@@ -1586,204 +1069,41 @@ F Statistic & \multicolumn{1}{c}{29.810$^{***}$ (df = 5; 1776)} & \multicolumn{1
 
 \end{table}%
 
-We further investigated the heterogeneity in teacher behavior by
-comparing classrooms based on the relative fit of the logit and
-Q-learning models. Classrooms were classified into two groups using a
-median split of the distribution of the differences in Bayesian
-Information Criterion (BIC) scores between the two models, i.e.,
-BIC(logit) - BIC(Q-learning). Q-learning demonstrated a greater
-advantage over the logistic regression model in classrooms with a higher
-number of weeks and average weekly student activity (see
-\textbf{?@tbl-CBM-teachers}). Additionally, classrooms were divided into
-`Good Fit' and `Bad Fit' groups based on a median split of their
-Q-learning BIC scores. Classrooms in the `Good Fit' group exhibited
-higher student activity and overall weekly usage by teachers (see
-\textbf{?@tbl-CBM-teachers-full}).
+We analyzed teacher-specific parameters to capture the individual
+differences in learning and the relationship between model parameters,
+classroom characteristics, and student performance metrics.
 
-To understand what makes a teacher effective in helping students
-complete their lessons, we examined teachers' performance across the
-parameters from the previous hierarchical model. We were especially
-interested in the learning rate (``Alpha'') and the inverse temperature
-(``Tau'') because of their potential impact on behavior adaptation and
-decision consistency. We found that tau, but not alpha, correlated
-positively to the number of weekly Badges earned by the average student,
-i.e., average lesson completion, and Tower Alerts, i.e., students
-struggling with the material. Further, the starting Q-values negatively
-correlated with Badges, and the discount factor (``Gamma'') was
-positively correlated with Tower Alerts (see Table~\ref{tbl-optimality}
-and Table~\ref{tbl-optimality-2} for the models controlling the number
-of active students, the number of classes taught by the teacher, the
-grade level, the number of weeks, the poverty level, the income level,
-whether the school is a charter school, and whether the school has a
-paid account).
+We found that the cost parameter showed significant negative association
+with income level (\(b = -0.260\), \(p < .001\)) and positive
+association with poverty level (\(b = 0.218\), \(p < .001\)). The
+learning rate (\(\alpha\)) also showed a negative association with
+income level (\(b = -0.119\), \(p = .0156\)), whereas the initial
+Q-value difference showed a positive association (\(b = 0.232\),
+\(p < .001\)). Inverse temperature (\(\tau\)) and the discount factor
+(\(\gamma\)) did not show significant association with classroom or
+school characteristics (see
+Table\textasciitilde{}\ref{tbl-heterogeneity-reg}).
 
-We then regressed classroom characteristics on the estimated model
-parameters and found several notable relationships (see
-\textbf{?@fig-heterogeneity-reg}). The cost parameter was negatively
-associated with income level (b = -0.13, p \textless{} .05) and the
-number of weeks (b = -0.021, p \textless{} .001), and positively
-associated with poverty level (b = 0.18, p \textless{} .01). The
-learning rate (alpha) was positively correlated with income level (b =
-0.094, p \textless{} .05) and negatively correlated with poverty level
-(b = -0.1, p \textless{} .05). The inverse temperature (tau) was
-negatively related to income level (b = -0.18, p \textless{} .001) and
-positively related to having a paid account (b = 0.24, p \textless{}
-.001) and the number of weeks (b = 0.016, p \textless{} .01). The
-discount factor (gamma) was negatively associated with the number of
-weeks (b = -0.016, p \textless{} .01). Lastly, the initial Q-value was
-positively associated with income level (b = 0.17, p \textless{} .001)
-and negatively associated with having a paid account (b = -0.16, p
-\textless{} .05).
-
-\section{Discussion}\label{discussion}
-
-Our study aimed to unravel the complex and adaptive nature of teacher
-behavior within the Zearn Math online platform. By leveraging the power
-of reinforcement learning (RL) models, particularly the hierarchical
-Q-learning approach, we uncover compelling evidence that teachers are
-not merely adhering to a fixed set of pedagogical strategies but are
-actively learning and adapting based on feedback from student
-performance.
-
-\subsection{Characterizing Teacher
-Behavior}\label{characterizing-teacher-behavior}
-
-The superior fit of the hierarchical Q-learning model underscores the
-importance of accounting for individual teacher differences in learning
-rates and decision-making processes. The model's parameters serve as a
-window into the diverse ways teachers navigate the digital learning
-environment, offering a more nuanced understanding than traditional,
-static educational practice models.
-
-\subsection{Impact of Estimated RL
-Parameters}\label{impact-of-estimated-rl-parameters}
-
-Crucially, we find that teachers with higher inverse temperature values
-had students with superior outcomes, indicating more consistent
-decision-making. This trade-off suggests a teacher's ability to balance
-using new teaching strategies (exploration) and sticking with known
-effective strategies (exploitation). \citep{morrison2019} noted that
-teachers exhibited varied levels of preparedness for implementing the
-Zearn Math curriculum, with just under half of the teachers reporting
-feeling adequately prepared for implementation. This lack of preparation
-could influence how effectively teachers navigate the
-exploration-exploitation trade-off, impacting student outcomes. In
-contrast, the starting Q-value is negatively associated with Badges
-earned, implying that teachers who initially overestimate the value of
-certain actions may struggle to adapt their strategies to optimize
-student outcomes.
-
-Interestingly, while the discount factor shows a significant negative
-association with Badges, this effect disappears when controlling for
-additional variables. This result highlights the importance of
-considering the broader context in which teachers operate, such as
-school characteristics and student demographics. When examining the
-impact of RL parameters on student struggles, as measured by average
-weekly Tower Alerts per student, we find that the discount factor is
-consistently negatively associated with Tower Alerts. This association
-suggests that teachers who place greater value on future rewards are
-more effective in preventing student struggles.
-
-These findings align with qualitative evidence from \citep{knudsen2020},
-where teachers expressed the value of Zearn Math's multifaceted
-instructional approaches. A 3rd-grade Zearn teacher stated, ``I like
-that Zearn provides several strategies to get to the answer\ldots you
-see the problems; you see what you need to hit on and stress the first
-time around.'' The ability to adapt teaching strategies based on
-feedback, akin to higher tau values in our RL models, is a valuable
-attribute in promoting student achievement. However, the relationship
-between teacher characteristics and student outcomes is complex, with
-veteran teachers relying more heavily on traditional methods while
-novice teachers blend innovative and traditional practices
-\citep{knudsen2020}.
-
-\subsection{Influence of Teacher and School
-Background}\label{influence-of-teacher-and-school-background}
-
-Our investigation also reveals the profound influence of socioeconomic
-factors on teachers' interactions with Zearn Math. Teachers in
-lower-income and high-poverty schools may perceive higher costs
-associated with implementing new teaching strategies, possibly due to
-resource constraints or lack of adequate training, underscoring the
-challenges in adopting new educational technologies in disadvantaged
-contexts.
-
-In contrast, teachers in more affluent regions exhibit greater
-adaptability (learning rate) in adjusting their pedagogical approaches
-based on student feedback. This finding suggests that access to
-resources and support plays a crucial role in teachers' ability to
-effectively use online learning platforms and adapt their teaching
-methods to meet students' needs.
-
-We also observe that teachers with paid Zearn Math accounts demonstrate
-more consistent decision-making patterns (higher inverse temperatures).
-This may be attributed to the structured support and training provided
-by the platform, which helps teachers navigate the challenges of
-implementing new technologies and pedagogies.
-
-These findings underscore the complex interplay between socioeconomic
-factors, school characteristics, and teachers' decision-making processes
-in the context of online learning platforms. They highlight the need for
-targeted interventions and support to ensure that all teachers,
-regardless of their school's socioeconomic status, have the resources
-and training necessary to effectively adapt their teaching strategies
-and promote student success.
-
-\subsection{Implications for Teachers and
-Schools}\label{implications-for-teachers-and-schools}
-
-Our Reinforcement Learning model highlights the dynamic, adaptive nature
-of teaching and the need for ongoing professional development and
-supportive learning environments. The heterogeneity in optimal teaching
-strategies across educators underscores the importance of personalized
-training that builds on individual strengths. Policymakers and
-educational leaders should prioritize allocating resources and providing
-professional development opportunities to teachers, especially in
-disadvantaged communities.
-
-Moreover, our results shed light on the systemic educational disparities
-across different school contexts and emphasize the importance of
-developing targeted policies and interventions to bridge these gaps. By
-modeling the factors that influence teachers' decision-making and
-adaptability, RL can inform the design of interventions to enhance
-student achievement. For instance, interventions could help teachers
-improve their learning rates or better balance exploration and
-exploitation in their teaching strategies.
-
-\subsection{Future Directions}\label{future-directions}
-
-While our findings contribute significantly to educational technology
-and teacher behavior analysis, they are not without limitations. While
-the focus on Zearn Math provides a rich dataset for analysis, it limits
-the generalizability of our conclusions. Future research should explore
-the applicability of our findings across different populations,
-educational platforms, and learning environments. Additionally, our
-study opens new avenues for integrating RL models with other analytical
-approaches, such as machine learning and large language models, to
-further enhance our understanding of effective teaching strategies in
-digital contexts.
-
-Future research holds immense potential to explore the applicability of
-advanced RL models across diverse educational contexts and populations.
-They should also integrate a broader spectrum of variables, including
-teacher background and training, to enrich the understanding of teaching
-and learning's multifaceted nature. Additionally, exploring novel RL
-models and methodologies promises to uncover more profound insights into
-the dynamics of educational technologies, guiding the development of
-more effective and equitable learning environments.
-
-In sum, our study marks a significant stride in applying RL to elucidate
-the complex, dynamic behaviors of teachers in online learning
-environments. The insights gleaned from this work pave the way for more
-personalized, equitable, and evidence-based approaches to digital
-education, ultimately fostering better outcomes for all students.
+To understand how these parameter differences relate to student
+outcomes, we examined their relationship with average weekly badges
+earned (indicating lesson completion).
+Table\textasciitilde{}\ref{tbl-optimality} shows that the learning rate
+(\(\alpha\)) is positively associated with badges (\(b = 0.0609\),
+\(p < .001\)), along with the inverse temperate (\(\tau\))
+(\(b = 0.0459\), \(p = .003\)) and the cost parameter (\(b = 0.0466\),
+\(p = .029\)). On the other hand, we found negative associations between
+badges and the discount factor (\(\gamma\)) (\(b = -0.0829\),
+\(p < .001\)) and the starting Q-value difference (\(b = -0.0568\),
+\(p = .002\)). We also found that the learning rate (\(\alpha\)) and the
+cost parameter were positively associated with average tower alerts (see
+Table~\ref{tbl-optimality-2}).
 
 \section{Materials and Methods}\label{materials-and-methods}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.1538}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4556}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3905}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2222}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4167}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3611}}@{}}
 \caption{Analytical steps employed in the
 study.}\label{tbl-methods}\tabularnewline
 \toprule\noalign{}
@@ -1813,13 +1133,9 @@ Data Preprocessing & Cleaning, normalization & R
 Dimensionality Reduction & Principal Component Analysis (PCA),
 Non-negative Matrix Factorization (NMF) & Python (\texttt{scikit-learn})
 \citep{pedregosa2011} \\
-Feature Selection & Regression analysis & R (\texttt{fixest} package)
-\citep{berge2018} \\
-Analytical Methods & Q-learning, Actor-Critic Model Estimation & R,
-Matlab (\texttt{CBM} package for Laplace approximation)
+Feature Selection, Analytical Methods & Q-learning, Actor-Critic Model
+Estimation & R, Matlab (\texttt{CBM} package for Laplace approximation)
 \citep{piray2019} \\
-Statistical Analysis & Hierarchical Bayesian Inference & Matlab
-(\texttt{CBM} package for expectation-maximization algorithm) \\
 Model Evaluation & Heterogeneity analyses of model performance across
 teachers & R \\
 \end{longtable}
@@ -1938,133 +1254,50 @@ available in the data.
 
 \subsubsection{Rewards (Student Actions)}\label{rewards-student-actions}
 
-In reinforcement learning (RL) models, reward and state variables
-capture the dynamics of the environment in which learning and
-decision-making occur. The Zearn platform provides a rich set of student
-activity and performance data that can be used to define these
-variables, offering a quantifiable snapshot of classroom engagement and
-learning challenges.
-
-State variables represent the current condition or situation of the
-learning environment, providing the context for the agent's
-decision-making. Reward variables, on the other hand, quantify the
-desirability of the outcomes resulting from the agent's actions, serving
-as feedback signals that guide the learning process.
+In reinforcement learning (RL) models, reward variables capture the
+dynamics of the environment in which learning and decision-making occur.
+The Zearn platform provides a rich set of student activity and
+performance data that can be used to define these variables, offering a
+quantifiable snapshot of classroom engagement and learning challenges.
+Reward variables quantify the desirability of the outcomes resulting
+from the agent's actions, serving as feedback signals that guide the
+learning process.
 
 In this study, we take an agnostic approach, allowing the following
-student variables to be treated as either reward or state variables
-depending on our RL model specification:
+student variables to be treated as reward variables depending on our RL
+model specification:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
-\tightlist
 \item
   ``Active Students'': This variable represents the number of students
   actively logging in to complete digital lessons within a given week
-  \citep{zearn2022}.
-\end{enumerate}
-
-\begin{itemize}
-\tightlist
-\item
-  As a state variable, ``Active Students'' provides information about
-  the current level of student participation, which can influence a
-  teacher's decision.
-\item
-  As a reward variable, a high number of active students could be
+  \citep{zearn2022}. A high number of active students could be
   considered a positive outcome, indicating successful student
   engagement.
-\end{itemize}
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\setcounter{enumi}{1}
-\tightlist
 \item
   ``Student Logins'': This variable tallies the frequency of students
   entering the platform, potentially serving as an engagement metric
-  \citep{zearn2024}.
-\end{enumerate}
-
-\begin{itemize}
-\tightlist
-\item
-  As a state variable, ``Student Logins'' offers insights into the
-  consistency of student participation, another aspect of the learning
-  environment state.
-\item
-  As a reward variable, a high frequency of student logins could be
-  viewed as a positive outcome, reflecting consistent student
-  engagement.
-\end{itemize}
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\setcounter{enumi}{2}
-\tightlist
+  \citep{zearn2024}. A high frequency of student logins could be viewed
+  as a positive outcome, reflecting consistent student engagement.
 \item
   ``Badges (on grade)'' and ``Badges'': These metrics reflect the number
   of new lessons completed weekly at students' grade level and in
-  general \citep{zearn2024a}.
-\end{enumerate}
-
-\begin{itemize}
-\tightlist
-\item
-  As state variables, these metrics provide information about the
-  current level of student progress through the curriculum.
-\item
-  As reward variables, accumulating badges can serve as a positive
-  signal, indicating students' mastery of the curriculum.
-\end{itemize}
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\setcounter{enumi}{3}
-\tightlist
+  general \citep{zearn2024a}. Accumulating badges can serve as a
+  positive signal, indicating students' mastery of the curriculum.
 \item
   ``Minutes per active student'': This variable measures students' time
   on the platform, potentially correlating with their focus and learning
-  progress \citep{zearn2022}.
-\end{enumerate}
-
-\begin{itemize}
-\tightlist
-\item
-  As a state variable, ``Minutes per active student'' offers insights
-  into the current level of student engagement and time spent on
-  learning activities.
-\item
-  As a reward variable, achieving or exceeding the expected minutes can
-  be considered a positive outcome, while falling short may be viewed as
-  a negative outcome.
-\end{itemize}
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\setcounter{enumi}{4}
-\tightlist
+  progress \citep{zearn2022}. Achieving or exceeding the expected
+  minutes can be considered a positive outcome, while falling short may
+  be viewed as a negative outcome.
 \item
   ``Tower Alerts'': These alerts signal instances when students
   repeatedly encounter difficulties within the same lesson
-  \citep{zearn2024b}.
+  \citep{zearn2024b}. Tower Alerts could be viewed as a negative signal,
+  indicating that the current teaching strategies may not be effective
+  in addressing student difficulties.
 \end{enumerate}
-
-\begin{itemize}
-\tightlist
-\item
-  As state variables, ``Tower Alerts'' provide information about the
-  current level of student struggle and areas where additional support
-  may be needed.
-\item
-  As reward variables, ``Tower Alerts'' could be viewed as a negative
-  signal, indicating that the current teaching strategies may not be
-  effective in addressing student difficulties.
-\end{itemize}
-
-By allowing models that use these variables as either reward or state
-variables, we can investigate which configuration of action, reward, and
-states best capture teacher decision-making on Zearn.
 
 \subsubsection{Dimensionality
 Reduction}\label{dimensionality-reduction-1}
@@ -2127,25 +1360,61 @@ teachers (from the mixture matrix). It allows us to assess the method's
 performance under varying configurations, with the sum of squared
 residuals and silhouette scores for comparison.
 
-\subsubsection{Feature Selection}\label{feature-selection-1}
+\subsection{Model Performance and Feature
+Selection}\label{model-performance-and-feature-selection}
 
-The general model formulation for state-free and state-based scenarios
-is as follows:
+To identify the most appropriate action and reward variables, we
+employed a multiple model types:
 
-\paragraph{State-Free Model}\label{state-free-model}
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Baseline Model:
+\end{enumerate}
 
-\begin{align*}
-\text{Action}_t =& \ \sum_{i=1}^{L} \left( \beta_{i} R_{t-i} + \gamma_i \text{Action}_{t-i} + \sum_{j=i}^{L} \delta_{ij} (R_{t-i} \times \text{Action}_{t-j}) \right) \\
-& + \mu_{\text{Teacher}} + \lambda_{\text{Week}} + \epsilon_t
-\end{align*}
+\[
+\text{Action}_t = \beta_0 + \epsilon_t
+\]
 
-\subsection{Reinforcement Learning Model
-Estimation}\label{reinforcement-learning-model-estimation}
+where \(\beta_0\) is the intercept and \(\epsilon_t\) is the error term.
 
-For the initial model selection, we fit the data from approximately 10
-percent (190) classrooms due to computational constraints. After
-selecting the optimal model, we scale up the analysis to include all
-classrooms.
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
+\item
+  Logistic Regression Model: Inspired by dynamic analysis
+  \citep{lau2005}, incorporating lagged variables to capture temporal
+  dynamics:
+\end{enumerate}
+
+\[
+\text{logit}(P(\text{Action}_t = 1)) = \beta_0 + \sum_{i=1}^{L} (\beta_i R_{t-i} + \gamma_i \text{Action}_{t-i} + \delta_i (R_{t-i} \times \text{Action}_{t-i}))
+\]
+
+where \(L\) is the number of lags, \(R_t\) is the reward at time \(t\),
+and \(\beta_i\), \(\gamma_i\), and \(\delta_i\) are coefficients.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{2}
+\item
+  Q-learning Model: A reinforcement learning model capturing adaptive
+  decision-making processes, as explained in the theory section.
+\item
+  Simplified Q-learning Model: A version of the Q-learning model with no
+  cost parameter and a starting Q-value of 0.
+\end{enumerate}
+
+We applied reward structures extracted from classroom data via
+Non-negative Matrix Factorization (NMF) with the Frobenius Non-negative
+Double Singular Value Decomposition (NNDSVD). Actions were derived
+similarly from teacher data. We selected one teacher component as the
+action and one student component as the reward, resulting in 16 possible
+configurations (4 possible actions and 4 possible rewards).
+
+\subsubsection{Model Estimation}\label{model-estimation}
 
 We adopt the Hierarchical Bayesian Inference (HBI) framework, as
 described by \citep{piray2019a}, to assess the fitness of our RL models
@@ -2207,9 +1476,11 @@ Consequently, HBI estimates the following unconstrained parameters:
     Inverse Temperature: \(\log(\tau)\)
   \item
     Cost: \(\log(\text{cost})\)
+  \item
+    Initial Q-value: \(\Delta Q_{t=0}\)
   \end{itemize}
 \item
-  Logistic Regression Model:
+  Logistic and Baseline Regression Models:
 
   \begin{itemize}
   \tightlist
@@ -2221,52 +1492,146 @@ Consequently, HBI estimates the following unconstrained parameters:
 \subsubsection{Top Model Selection}\label{top-model-selection-1}
 
 We determined the best-fit model from our set of candidates by
-considering each model's Bayesian Information Criterion (BIC). To do so,
+considering each model's Akaike Information Criterion (AIC). To do so,
 we first computed the log-likelihood of the data given the estimated
 model parameters obtained from the Hierarchical Bayesian Inference (HBI)
-procedure. We then computed the average of the BICs across subjects for
+procedure. We then computed the average of the AICs across subjects for
 each model using the formula:
 
 \[
-\overline{\text{BIC}} = \frac{1}{N} \sum_{i=1}^{N} \left( -2 \cdot \text{log-likelihood}_i + p \cdot \log(T_i) \right)
+\overline{\text{AIC}} = \frac{1}{N} \sum_{i=1}^{N} \left( 2p - 2\ln(\hat{L_i}) \right)
 \]
 
 where \(N\) is the number of subjects, \(p\) is the number of model
-parameters, \(T_i\) is the number of data points (trials) for subject
-\(i\), and \(\text{log-likelihood}_i\) is the log-likelihood of the data
-for subject \(i\) given the estimated model parameters.
+parameters, and \(\hat{L_i}\) is the maximum likelihood estimate for
+subject \(i\) given the estimated model parameters.
 
-\subsubsection{Heterogeneity Analysis}\label{heterogeneity-analysis}
+\subsubsection{Behavioral Signatures}\label{behavioral-signatures}
 
-After selecting the top-performing model, we re-estimated the parameters
-using the entire dataset of 3029 classrooms. We explore the
-heterogeneity across schools and teachers by analyzing individual and
-group-level parameters as follows:
+We examined three key behavioral signatures:
 
-\begin{itemize}
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
 \item
-  Classification of Individual Responses: Using the hierarchical
-  Bayesian framework, we assign each teacher to the model that best
-  captures their behavior, recognizing the individual differences that
-  emerge from our population-level analysis.
+  Reward Seeking: We calculated the probability of choosing an action as
+  a function of its Q-value difference (percentile rank of Q-values).
+  For each model (Q-learning, Lau \& Glimcher, and Baseline), we fitted
+  a generalized linear model (GLM) with a quasibinomial family. The
+  model took the form:
+\end{enumerate}
+
+\[
+\text{logit}(P(\text{Action})) = \beta_0 + \beta_1 Q_\text{percentile}
+\]
+
+where \(Q_\text{percentile}\) is the percentile rank of Q-values. We
+extracted the slope (\(\beta_1\)) and its 95\% confidence interval using
+clustered standard errors at the classroom level to account for
+within-classroom correlations.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{1}
+\tightlist
 \item
-  Parameter Estimation Across Models: We estimate individual-specific
-  parameters for each teacher and use them as a behavioral profile.
+  Uncertainty Aversion: We examined the probability of choosing the
+  uncertain option as a function of the difference in expected value
+  (EV) between uncertain and certain options. Uncertainty was defined
+  based on the cumulative standard deviation of rewards associated with
+  each action. We fitted a GLM with a quasibinomial family:
+\end{enumerate}
+
+\[
+\text{logit}(P(\text{Uncertain Choice})) = \beta_0 + \beta_1 \Delta EV_\text{percentile}
+\]
+
+where \(\Delta EV_\text{percentile}\) is the percentile rank of the
+difference in expected value between uncertain and certain options. We
+calculated the indifference point (where
+\(P(\text{Uncertain Choice}) = 0.5\)) and its 95\% confidence interval
+for each model.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\setcounter{enumi}{2}
+\tightlist
 \item
-  Analysis of Group-Level Trends: By aggregating the teacher data at the
-  school level, we identify patterns and trends beyond individual
-  variation. This aggregation allows us to investigate the influence of
-  collective attributes (e.g., school income levels and classroom size)
-  on educational outcomes and teacher performance.
+  Learning Dynamics: We evaluated learning over time by examining two
+  aspects. First, we computed mean prediction errors across teachers as:
+\end{enumerate}
+
+\[
+PE_t = \gamma R_t - Q_{t-1}(a)
+\] where \(\gamma\) is the discount factor, \(R_t\) is the reward at
+time \(t\), and \(Q_{t-1}(a)\) is the Q-value of the chosen action at
+the previous time step. We then evaluated the evolution of Q-value
+differences and the difference in mean rewards between action and
+inaction over time. The reward difference was calculated using a rolling
+mean with a window size of 4 weeks.
+
+All statistical analyses were performed using the \texttt{lmtest}
+package (Zeileis \& Hothorn, 2002) for clustered standard errors and the
+sandwich package (Zeileis, 2004) for robust covariance matrix
+estimation.
+
+\subsection{Heterogeneity Analysis}\label{heterogeneity-analysis}
+
+After selecting the top-performing model (Q-learning), we explored
+heterogeneity through:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
 \item
-  Investigation of Influential Variables: We are particularly interested
-  in how socioeconomic factors, such as zipcode median income, may
-  impact the models' ability to describe teacher behavior. These
-  variables provide insights into the heterogeneity in teacher
-  classification and parameter estimates, offering a deeper
-  understanding of the complex interplay between educational resources
-  and pedagogical success.
-\end{itemize}
+  Parameter-Classroom Characteristic Associations: For each Q-learning
+  parameter (learning rate \(\alpha\), discount factor \(\gamma\),
+  inverse temperature \(\tau\), initial Q-value, and cost), we fitted
+  separate models with the following specifications:
+
+  \begin{enumerate}
+  \def\labelenumii{\alph{enumii})}
+  \tightlist
+  \item
+    For ordinal outcomes (income and poverty levels), we used ordered
+    logistic regression: \[
+    \text{logit}(P(Y \leq j)) = \theta_j - (\beta_1X_1 + ... + \beta_pX_p)
+    \]
+  \item
+    For count outcomes (total students and number of classes), we
+    employed Poisson regression: \[
+    \log(E(Y)) = \beta_0 + \beta_1X_1 + ... + \beta_pX_p
+    \]
+  \item
+    For binary outcomes (paid account status), we used logistic
+    regression: \[
+    \text{logit}(P(Y=1)) = \beta_0 + \beta_1X_1 + ... + \beta_pX_p
+    \] where \(X_1, ..., X_p\) represent the standardized Q-learning
+    parameters.
+  \end{enumerate}
+\item
+  Parameter-Student Outcome Associations: We examined how model
+  parameters relate to student outcomes using multiple linear regression
+  models. Two key outcomes were analyzed:
+
+  \begin{enumerate}
+  \def\labelenumii{\alph{enumii})}
+  \tightlist
+  \item
+    Average weekly badges earned per student (indicating lesson
+    completion)
+  \item
+    Average weekly tower alerts per tower completion (indicating student
+    struggles)
+  \end{enumerate}
+
+  The regression model took the form: \[
+  Y = \beta_0 + \beta_1\alpha + \beta_2\gamma + \beta_3\tau + \beta_4Q_0 + \beta_5\text{cost} + C_i\Gamma + \epsilon
+  \] where \(Y\) is the outcome variable, \(\alpha\), \(\gamma\),
+  \(\tau\), \(Q_0\), and cost are the Q-learning parameters, and \(C_i\)
+  is a matrix of control variables including AIC, number of weeks, total
+  students, number of classes, grade level, poverty level, charter
+  school status, and paid account status.
+\end{enumerate}
 
 \section{References}\label{references}
 
@@ -2377,9 +1742,6 @@ patterns that align with RL principles. Our primary focus was on the
 relationship between rewards and actions. Their interaction should
 positively influence future actions for desired outcomes (e.g., lesson
 completion) and negatively for undesired outcomes (e.g., struggles).
-Additionally, we examined the effect of current states on strategic
-action selection and the interaction between states and lagged actions
-to indicate how actions attain and maintain desired states.
 
 We re-estimated the models with scaled independent variables, allowing
 for a direct coefficient comparison. In this context, a unit increase in
@@ -2444,8 +1806,8 @@ after stardardization}
 \subsubsection{Teacher Variables}\label{teacher-variables}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.2347}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.7653}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.7500}}@{}}
 \caption{Catalog of Teacher Activities. This table presents teachers'
 actions, including curriculum engagement, downloads of pedagogical
 materials, and completion of various interactive components within the
@@ -2565,7 +1927,7 @@ standardized (z-scored) before analysis.}
 \begin{verbatim}
 
 % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-% Date and time: Tue, Sep 24, 2024 - 10:52:30
+% Date and time: Wed, Sep 25, 2024 - 15:23:50
 % Requires LaTeX packages: dcolumn 
 \begin{table}[!htbp] \centering 
   \caption{Relationship between RL Parameters and Classroom Characteristics} 
@@ -2785,6 +2147,55 @@ major holiday periods (e.g., Thanksgiving and Winter Break).}
 
 \end{figure}%
 
+\newpage{}
+
+\begin{figure}
+
+\begin{minipage}{\linewidth}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-nmf-pca-comparison-1.pdf}
+
+}
+
+\subcaption{\label{fig-nmf-pca-comparison-1}Teacher Data}
+
+\end{minipage}%
+\newline
+\begin{minipage}{\linewidth}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-nmf-pca-comparison-2.pdf}
+
+}
+
+\subcaption{\label{fig-nmf-pca-comparison-2}Student Data}
+
+\end{minipage}%
+
+\caption{\label{fig-nmf-pca-comparison}Comparison of dimensionality
+reduction techniques for teacher and student data. The figures compare
+the performance of Principal Component Analysis (PCA) against
+Nonnegative Matrix Factorization (NMF) in reducing the dimensionality of
+teacher and student data. The NMF variants include the Frobenius norm
+with two different initialization strategies: Nonnegative Double
+Singular Value Decomposition (Frobenius NNDSVD) and NNDSVD with the
+average of the input matrix X filled in place of zeros (Frobenius
+NNDSVDA). The third NMF variant uses the Kullback-Leibler divergence as
+the loss function. The left column assesses reconstruction quality using
+R-squared, where values closer to 1 indicate that the components can
+better recover the original data. The right column evaluates the
+interpretability of the low-dimensional representation using silhouette
+scores. Higher silhouette scores relate to better-defined clusters,
+values near 0 indicate overlapping clusters, and negative values
+generally suggest that a sample has been assigned to the wrong cluster.}
+
+\end{figure}%
+
+\newpage{}
+
 \begin{figure}
 
 \centering{
@@ -2794,10 +2205,55 @@ major holiday periods (e.g., Thanksgiving and Winter Break).}
 }
 
 \caption{\label{fig-loglik-histogram}Distribution of teacher-specific
-Bayesian Information Criteria (BIC). The histogram displays the spread
-of individual teachers' log-likelihoods, with higher values indicating
+Akaike Information Criteria (AIC). The histogram displays the spread of
+individual teachers' log-likelihoods, with higher values indicating
 better fit. The dashed line represents the median log-likelihood across
 all teachers.}
+
+\end{figure}%
+
+\begin{verbatim}
+$`2`
+\end{verbatim}
+
+\begin{verbatim}
+
+$`14`
+\end{verbatim}
+
+\begin{figure}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-action-percentages-1.pdf}
+
+}
+
+\caption{\label{fig-action-percentages-1}Observed teacher behavior and
+model predictions over the academic year. The graph shows the percentage
+of times teachers chose to engage in Pedagogical Content activities. The
+x-axis represents biweekly periods throughout the school year. The black
+dashed line represents observed teacher behavior, while colored lines
+represent predictions from different models. Shaded areas represent the
+95\% confidence intervals for each model's predictions.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-action-percentages-2.pdf}
+
+}
+
+\caption{\label{fig-action-percentages-2}Observed teacher behavior and
+model predictions over the academic year. The graph shows the percentage
+of times teachers chose to engage in Pedagogical Content activities. The
+x-axis represents biweekly periods throughout the school year. The black
+dashed line represents observed teacher behavior, while colored lines
+represent predictions from different models. Shaded areas represent the
+95\% confidence intervals for each model's predictions.}
 
 \end{figure}%
 
