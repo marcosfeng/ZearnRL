@@ -553,12 +553,13 @@ students invest in and the frequency of their interactions with Zearn.
 
 }
 
-\subcaption{\label{fig-nmf-heatmap-1}Teacher Data. Component 1
-(Assessments) focuses on using supplemental materials for student
-evaluation; Component 2 (Pedagogical Knowledge) emphasizes developing
-subject-specific teaching strategies; Component 3 (Group Instruction)
-centers on collaborative and whole-class teaching methods; Component 4
-(Curriculum Planning) highlights planning and lesson preparation.}
+\subcaption{\label{fig-nmf-heatmap-1}Teacher Data. Total reconstruction
+R-squared: 0.387. Component 1 (Assessments) focuses on using
+supplemental materials for student evaluation; Component 2 (Pedagogical
+Knowledge) emphasizes developing subject-specific teaching strategies;
+Component 3 (Group Instruction) centers on collaborative and whole-class
+teaching methods; Component 4 (Curriculum Planning) highlights planning
+and lesson preparation.}
 
 \end{minipage}%
 \newline
@@ -570,12 +571,12 @@ centers on collaborative and whole-class teaching methods; Component 4
 
 }
 
-\subcaption{\label{fig-nmf-heatmap-2}Student Data. Component 1 (Badges)
-measures curriculum engagement and progression; Component 2 (Struggles)
-indicates the need for additional academic support; Component 3 (Number
-of Students) tracks student participation within the platform; Component
-4 (Activity) reflects the overall time spent and frequency of platform
-usage.}
+\subcaption{\label{fig-nmf-heatmap-2}Student Data. Total reconstruction
+R-squared: 0.952. Component 1 (Badges) measures curriculum engagement
+and progression; Component 2 (Struggles) indicates the need for
+additional academic support; Component 3 (Number of Students) tracks
+student participation within the platform; Component 4 (Activity)
+reflects the overall time spent and frequency of platform usage.}
 
 \end{minipage}%
 
@@ -587,7 +588,10 @@ variable within a component based on the proportion of the component's
 total weight attributed to that variable. These proportions were
 calculated by normalizing each variable weight within a component so
 that they all sum to 1. To provide context, the heatmaps label examples
-of low, moderate, and high proportion values.}
+of low, moderate, and high proportion values. The percentages in
+parentheses below each component label represent that component's
+contribution to the overall reconstruction of the data, indicating its
+relative importance in the NMF.}
 
 \end{figure}%
 
@@ -930,7 +934,7 @@ F Statistic & \multicolumn{1}{c}{29.810$^{***}$ (df = 5; 1776)} & \multicolumn{1
 
 \end{table}%
 
-We analyzed teacher-specific parameters to capture the individual
+We analyzed teacher-specific parameters to capture individual
 differences in learning and the relationship between model parameters,
 classroom characteristics, and student performance metrics.
 
@@ -941,7 +945,7 @@ learning rate (\(\alpha\)) also showed a negative association with
 income level (\(b = -0.119\), \(p = .0156\)), whereas the initial
 Q-value difference showed a positive association (\(b = 0.232\),
 \(p < .001\)). Inverse temperature (\(\tau\)) and the discount factor
-(\(\gamma\)) did not show significant association with classroom or
+(\(\gamma\)) did not show significant associations with classroom or
 school characteristics (see
 Table\textasciitilde{}\ref{tbl-heterogeneity-reg}).
 
@@ -950,7 +954,7 @@ outcomes, we examined their relationship with average weekly badges
 earned (indicating lesson completion).
 Table\textasciitilde{}\ref{tbl-optimality} shows that the learning rate
 (\(\alpha\)) is positively associated with badges (\(b = 0.0609\),
-\(p < .001\)), along with the inverse temperate (\(\tau\))
+\(p < .001\)), along with the inverse temperature (\(\tau\))
 (\(b = 0.0459\), \(p = .003\)) and the cost parameter (\(b = 0.0466\),
 \(p = .029\)). On the other hand, we found negative associations between
 badges and the discount factor (\(\gamma\)) (\(b = -0.0829\),
@@ -1753,7 +1757,7 @@ standardized (z-scored) before analysis.}
 \begin{verbatim}
 
 % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-% Date and time: Mon, Sep 30, 2024 - 19:43:47
+% Date and time: Tue, Oct 01, 2024 - 18:20:06
 % Requires LaTeX packages: dcolumn 
 \begin{table}[!htbp] \centering 
   \caption{Relationship between RL Parameters and Classroom Characteristics} 
@@ -2036,6 +2040,8 @@ different models. Lower AIC values indicate better model fit.}
 
 \end{figure}%
 
+\newpage{}
+
 \begin{verbatim}
 $`2`
 \end{verbatim}
@@ -2078,6 +2084,30 @@ x-axis represents biweekly periods throughout the school year. The black
 dashed line represents observed teacher behavior, while colored lines
 represent predictions from different models. Shaded areas represent the
 95\% confidence intervals for each model's predictions.}
+
+\end{figure}%
+
+\newpage{}
+
+\begin{figure}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-corr-rl-params-1.pdf}
+
+}
+
+\caption{\label{fig-corr-rl-params}Correlation matrix and distributions
+of reinforcement learning parameters and model fit. The figure
+illustrates the pairwise Spearman correlations between key reinforcement
+learning parameters and model fit (AIC) derived from Q-learning model.
+The diagonal shows the distribution of each parameter, with histograms
+for discrete variables and density plots for continuous variables. The
+lower triangle displays scatterplots of pairwise relationships, with
+locally weighted scatterplot smoothing (LOWESS) lines in blue. The upper
+triangle presents correlation coefficients, with asterisks indicating
+statistical significance (\emph{p \textless{} 0.05, \textbf{p
+\textless{} 0.01, }}p \textless{} 0.001).}
 
 \end{figure}%
 

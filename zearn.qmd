@@ -698,14 +698,26 @@ def nmf_method(n, method, initial, X_scaled, data_label, solv = 'mu', nomin = Fa
     solver=solv,
     max_iter=4_000
   )
-  X_nmf, nmf_comp = nmf.fit_transform(X_scaled), nmf.components_
+  X_nmf = nmf.fit_transform(X_scaled)
+  nmf_comp = nmf.components_
   X_hat = nmf.inverse_transform(X_nmf)
   labels = np.argmax(nmf_comp, axis=0)
 
   results.setdefault(f"{method_name}_{data_label}", {})[n] = X_nmf
   components.setdefault(f"{method_name}_{data_label}", {})[n] = nmf_comp
-  residuals.setdefault(f"{method_name}_{data_label}", {})[n] = ((X_scaled - X_hat)**2).sum().sum()
+  residuals.setdefault(f"{method_name}_{data_label}", {})[n] = np.sum((X_scaled.values - X_hat)**2)
   silhouette.setdefault(f"{method_name}_{data_label}", {})[n] = silhouette_score(nmf_comp.transpose(), labels)
+  
+  # Reconstruction Contribution
+  if n == 4:
+    reconstruction_contribution = []
+    for i in range(n):
+        contribution = np.sum(X_nmf[:, i][:, np.newaxis] * nmf_comp[i, :])
+        reconstruction_contribution.append(contribution)
+    reconstruction_contribution = np.array(reconstruction_contribution) / np.sum(reconstruction_contribution)
+      
+    # Store the results
+    results.setdefault(f"{method_name}_{data_label}_reconstruction_contribution", {})[n] = reconstruction_contribution.tolist()
 
 def perform_pca_nmf(X_scaled, data_label, n_comp):
   for n in range(2, n_comp):
@@ -717,7 +729,7 @@ def perform_pca_nmf(X_scaled, data_label, n_comp):
     labels = np.argmax(pca_comp, axis=0)
     results.setdefault(f"PCA_{data_label}", {})[n] = X_pca
     components.setdefault(f"PCA_{data_label}", {})[n] = pca_comp
-    residuals.setdefault(f"PCA_{data_label}", {})[n] = ((X_scaled - X_hat)**2).sum().sum()
+    residuals.setdefault(f"PCA_{data_label}", {})[n] = np.sum((X_scaled.values - X_hat)**2)
     silhouette.setdefault(f"PCA_{data_label}", {})[n] = silhouette_score(pca_comp.transpose(), labels)
 
     ## Non-negative Matrix Factorization
@@ -916,10 +928,10 @@ After analyzing the NMF data, we identified four significant components for teac
 ```{r}
 #| cache: true
 #| label: fig-nmf-heatmap
-#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for teacher and student data. The rows represent the original variables, and the columns correspond to the components. The color gradient indicates the relative importance of each variable within a component based on the proportion of the component's total weight attributed to that variable. These proportions were calculated by normalizing each variable weight within a component so that they all sum to 1. To provide context, the heatmaps label examples of low, moderate, and high proportion values."
+#| fig-cap: "Heatmap of Non-negative Matrix Factorization (NMF) components for teacher and student data. The rows represent the original variables, and the columns correspond to the components. The color gradient indicates the relative importance of each variable within a component based on the proportion of the component's total weight attributed to that variable. These proportions were calculated by normalizing each variable weight within a component so that they all sum to 1. To provide context, the heatmaps label examples of low, moderate, and high proportion values. The percentages in parentheses below each component label represent that component's contribution to the overall reconstruction of the data, indicating its relative importance in the NMF."
 #| fig-subcap:
-#| - "Teacher Data. Component 1 (Assessments) focuses on using supplemental materials for student evaluation; Component 2 (Pedagogical Knowledge) emphasizes developing subject-specific teaching strategies; Component 3 (Group Instruction) centers on collaborative and whole-class teaching methods; Component 4 (Curriculum Planning) highlights planning and lesson preparation."
-#| - "Student Data. Component 1 (Badges) measures curriculum engagement and progression; Component 2 (Struggles) indicates the need for additional academic support; Component 3 (Number of Students) tracks student participation within the platform; Component 4 (Activity) reflects the overall time spent and frequency of platform usage."
+#| - "Teacher Data. Total reconstruction R-squared: 0.387. Component 1 (Assessments) focuses on using supplemental materials for student evaluation; Component 2 (Pedagogical Knowledge) emphasizes developing subject-specific teaching strategies; Component 3 (Group Instruction) centers on collaborative and whole-class teaching methods; Component 4 (Curriculum Planning) highlights planning and lesson preparation."
+#| - "Student Data. Total reconstruction R-squared: 0.952. Component 1 (Badges) measures curriculum engagement and progression; Component 2 (Struggles) indicates the need for additional academic support; Component 3 (Number of Students) tracks student participation within the platform; Component 4 (Activity) reflects the overall time spent and frequency of platform usage."
 #| layout-ncol: 1
 
 components_list <- py$components
@@ -970,12 +982,22 @@ variable_names <- c(
 row.names(df_heatmap_teachers) <- variable_names[teacher_variables]
 row.names(df_heatmap_students) <- variable_names[student_variables]
 
+# names(df_heatmap_teachers) <- paste0("Comp ", 1:4)
+# names(df_heatmap_students) <- paste0("Comp ", 1:4)
+reconstruction_teachers <- py$results[["Frobenius NNDSVD_nomin_teachers_reconstruction_contribution"]][["4"]]
+reconstruction_students <- py$results[["Frobenius NNDSVD_nomin_students_reconstruction_contribution"]][["4"]]
+
+# Arrange the rows by the magnitude of each component
 names(df_heatmap_teachers) <- paste0("Comp ", 1:4)
 names(df_heatmap_students) <- paste0("Comp ", 1:4)
 df_heatmap_teachers <- df_heatmap_teachers %>%
   arrange(-`Comp 1`, -`Comp 2`, -`Comp 3`, -`Comp 4`)
 df_heatmap_students <- df_heatmap_students %>%
   arrange(-`Comp 1`, -`Comp 2`, -`Comp 3`, -`Comp 4`)
+
+# Add the reconstruction contribution to the column names
+names(df_heatmap_teachers) <- paste0("Comp ", 1:4, "\n(", round(reconstruction_teachers*100, 1), "%)")
+names(df_heatmap_students) <- paste0("Comp ", 1:4, "\n(", round(reconstruction_students*100, 1), "%)")
 
 # Normalize by column sums to show proportion of contribution from each variable
 df_heatmap_teachers <- df_heatmap_teachers %>%
@@ -2041,6 +2063,15 @@ plot_prediction_errors <- function(sim_data, wrapper) {
 
   # Define color scheme
   colors <- c("Prediction Error" = brewer.pal(8, "Set2")[1])
+  
+  # Prepare label data
+  last_points <- plot_data %>%
+    ungroup() %>%
+    filter(biweek == max(biweek)) %>%
+    summarise(
+      x = max(biweek),
+      y = mean(mean_q_pe)
+    )
 
   # Create the plot
   ggplot(plot_data, aes(x = biweek)) +
@@ -2049,6 +2080,17 @@ plot_prediction_errors <- function(sim_data, wrapper) {
     geom_ribbon(aes(ymin = mean_q_pe - se_q_pe, 
                     ymax = mean_q_pe + se_q_pe, 
                     fill = "Prediction Error"), alpha = 0.2) +
+    geom_label_repel(data = last_points,
+                     aes(x = x, y = y, 
+                         label = "Prediction Error",
+                         color = "Prediction Error"),
+                     nudge_x = 0.1,
+                     direction = "y",
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 3) +
     labs(x = "Biweekly Period", 
          y = "Value",
          title = paste("Learning Curves -", 
@@ -2060,7 +2102,7 @@ plot_prediction_errors <- function(sim_data, wrapper) {
     theme(
       plot.title = element_text(size = 12, face = "bold"),
       axis.text.x = element_text(angle = 45, hjust = 1),
-      legend.position = "bottom"
+      legend.position = "none"
     ) +
     scale_x_continuous(breaks = month_breaks$biweek,
                        labels = month_breaks$month_label)
@@ -2355,11 +2397,11 @@ stargazer(model1, model2, model3,
 
 ```
 
-We analyzed teacher-specific parameters to capture the individual differences in learning and the relationship between model parameters, classroom characteristics, and student performance metrics.
+We analyzed teacher-specific parameters to capture individual differences in learning and the relationship between model parameters, classroom characteristics, and student performance metrics.
 
-We found that the cost parameter showed significant negative association with income level ($b = -0.260$, $p < .001$) and positive association with poverty level ($b = 0.218$, $p < .001$). The learning rate ($\alpha$) also showed a negative association with income level ($b = -0.119$, $p = .0156$), whereas the initial Q-value difference showed a positive association ($b = 0.232$, $p < .001$). Inverse temperature ($\tau$) and the discount factor ($\gamma$) did not show significant association with classroom or school characteristics (see Table\~\ref{tbl-heterogeneity-reg}).
+We found that the cost parameter showed significant negative association with income level ($b = -0.260$, $p < .001$) and positive association with poverty level ($b = 0.218$, $p < .001$). The learning rate ($\alpha$) also showed a negative association with income level ($b = -0.119$, $p = .0156$), whereas the initial Q-value difference showed a positive association ($b = 0.232$, $p < .001$). Inverse temperature ($\tau$) and the discount factor ($\gamma$) did not show significant associations with classroom or school characteristics (see Table\~\ref{tbl-heterogeneity-reg}).
 
-To understand how these parameter differences relate to student outcomes, we examined their relationship with average weekly badges earned (indicating lesson completion). Table\~\ref{tbl-optimality} shows that the learning rate ($\alpha$) is positively associated with badges ($b = 0.0609$, $p < .001$), along with the inverse temperate ($\tau$) ($b = 0.0459$, $p = .003$) and the cost parameter ($b = 0.0466$, $p = .029$). On the other hand, we found negative associations between badges and the discount factor ($\gamma$) ($b = -0.0829$, $p < .001$) and the starting Q-value difference ($b = -0.0568$, $p = .002$). We also found that the learning rate ($\alpha$) and the cost parameter were positively associated with average tower alerts (see @tbl-optimality-2).
+To understand how these parameter differences relate to student outcomes, we examined their relationship with average weekly badges earned (indicating lesson completion). Table\~\ref{tbl-optimality} shows that the learning rate ($\alpha$) is positively associated with badges ($b = 0.0609$, $p < .001$), along with the inverse temperature ($\tau$) ($b = 0.0459$, $p = .003$) and the cost parameter ($b = 0.0466$, $p = .029$). On the other hand, we found negative associations between badges and the discount factor ($\gamma$) ($b = -0.0829$, $p < .001$) and the starting Q-value difference ($b = -0.0568$, $p = .002$). We also found that the learning rate ($\alpha$) and the cost parameter were positively associated with average tower alerts (see @tbl-optimality-2).
 
 # Materials and Methods
 
@@ -2911,35 +2953,6 @@ stargazer(model4, model5, model6,
 
 ```
 
-```{r}
-#| cache: true
-#| label: fig-corr-rl-params
-#| fig-cap: "Correlation coefficients between estimated RL parameters and outcome variables"
-#| fig-format: png
-
-# Select the RL parameters and outcome variables
-df_corr_rl <- full_data %>%
-  select(alpha, gamma, tau, cost, ev_init, AIC) %>%
-  mutate(across(c(alpha, gamma), function(x) 1/(1 + exp(-x))),
-         tau = exp(tau),
-         cost = exp(cost)) %>%
-  # Remove tau and cost outliers
-  filter(tau < quantile(full_data$tau, probs = .95),
-         cost < quantile(full_data$cost, probs = .95)) %>%
-  rename("Learning Rate" = alpha,
-         "Discount Factor" = gamma,
-         "Inverse Temperature" = tau,
-         "Cost" = cost,
-         "Initial Q-value" = ev_init,
-         "AIC" = AIC)
-
-# Generate the correlation chart
-chart.Correlation(df_corr_rl,
-                  histogram = TRUE,
-                  method = "spearman",
-                  pch="+")
-```
-
 ## Supplemental Figures {#sec-supp-fig}
 
 ![Zearn Student Portal](images/student-feed.PNG){#fig-st-portal fig-align="center"}
@@ -3055,11 +3068,9 @@ ggplot(data = AIC_full, aes(x = AIC, color = Model)) +
 
 ```
 
+{{< pagebreak >}}
+
 <!-- # Plot action percentages -->
-
-<!-- # This function visualizes how the percentage of chosen actions changes over time -->
-
-<!-- # It compares actual behavior with model predictions -->
 
 ```{r}
 #| label: fig-action-percentages
@@ -3240,4 +3251,37 @@ for (wrapper in c(2, 14)) {
 
 action_percentage_plots
 
+```
+
+{{< pagebreak >}}
+
+```{r}
+#| cache: true
+#| label: fig-corr-rl-params
+#| fig-cap: "Correlation matrix and distributions of reinforcement learning parameters and model fit. The figure illustrates the pairwise Spearman correlations between key reinforcement learning parameters and model fit (AIC) derived from Q-learning model. The diagonal shows the distribution of each parameter, with histograms for discrete variables and density plots for continuous variables. The lower triangle displays scatterplots of pairwise relationships, with locally weighted scatterplot smoothing (LOWESS) lines in blue. The upper triangle presents correlation coefficients, with asterisks indicating statistical significance (*p < 0.05, **p < 0.01, ***p < 0.001)."
+
+# Select the RL parameters and outcome variables
+model_path <- "CBM/zearn_results/aggr_results/lap_aggr_q_model_2.mat"
+df_corr_rl <- load_parameters(model_path)
+df_corr_rl <- df_corr_rl %>%
+  inner_join(AIC_data, by = "Classroom.ID") %>%
+  select(alpha, gamma, tau, cost, ev_init, AIC) %>%
+  # Remove tau and cost outliers
+  filter(tau < quantile(df_corr_rl$tau, probs = .75),
+         cost < quantile(df_corr_rl$cost, probs = .95)) %>%
+  mutate(across(c(alpha, gamma), function(x) 1/(1 + exp(-x))),
+         tau = exp(tau),
+         cost = exp(cost)) %>%
+  rename("Learning Rate" = alpha,
+         "Discount Factor" = gamma,
+         "Inverse Temperature" = tau,
+         "Cost" = cost,
+         "Initial Q-value" = ev_init,
+         "AIC" = AIC)
+
+# Generate the correlation chart
+chart.Correlation(df_corr_rl,
+                  histogram = TRUE,
+                  method = "spearman",
+                  pch=".")
 ```
