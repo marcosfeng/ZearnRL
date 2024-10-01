@@ -689,7 +689,7 @@ Curriculum Planning & Badges & $-24,661.42$ & $-28,315.00$ & $-24,900.79$ & $-26
 
 \end{longtable}
 
-\begin{longtable}{ccc}
+\begin{longtable}{ccccc}
 
 \caption{\label{tbl-model-summary}Summary of model fits for Pedagogical
 Knowledge as actions and Badges as rewards. Each of the models
@@ -700,12 +700,12 @@ computed the mean AIC (lower values indicate better model fit).}
 \tabularnewline
 
 \toprule
-Model & N\textasciitilde{}par\textasciitilde{} & AIC \\ 
+Model & N\textasciitilde{}par\textasciitilde{} & No. of Weeks (SD) & AIC (SD) & p-value \\ 
 \midrule\addlinespace[2.5pt]
-Q-learning & 5 & $32.8$ \\ 
-Q-learning (cost-free) & 3 & $33.6$ \\ 
-Lau \& Glimcher & 5 & $33.1$ \\ 
-Baseline & 1 & $27.8$ \\ 
+Baseline & $1$ & 25.7 (5.9) & 27.8 (10.4) & NA \\ 
+Q-learning & $5$ & 25.7 (5.9) & 32.8 (10.6) & $7.38 \times 10^{-47}$ \\ 
+Q-learning (cost-free) & $3$ & 25.7 (5.9) & 33.6 (9.4) & $2.32 \times 10^{-68}$ \\ 
+Lau \& Glimcher & $5$ & 25.7 (5.9) & 33.1 (9.6) & $3.04 \times 10^{-57}$ \\ 
 \bottomrule
 
 \end{longtable}
@@ -962,9 +962,9 @@ Table~\ref{tbl-optimality-2}).
 \section{Materials and Methods}\label{materials-and-methods}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2222}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4167}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3611}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4028}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3472}}@{}}
 \caption{Analytical steps employed in the
 study.}\label{tbl-methods}\tabularnewline
 \toprule\noalign{}
@@ -989,16 +989,20 @@ study.}\label{tbl-methods}\tabularnewline
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Data Preprocessing & Cleaning, normalization & R
-\citep{rcoreteam2024} \\
+Data Processing & Cleaning, normalization & R \citep{rcoreteam2024}
+(\texttt{tidyverse}, \texttt{data.table}). \\
 Dimensionality Reduction & Principal Component Analysis (PCA),
-Non-negative Matrix Factorization (NMF) & Python (\texttt{scikit-learn})
-\citep{pedregosa2011} \\
-Feature Selection, Analytical Methods & Q-learning, Actor-Critic Model
-Estimation & R, Matlab (\texttt{CBM} package for Laplace approximation)
-\citep{piray2019} \\
-Model Evaluation & Heterogeneity analyses of model performance across
-teachers & R \\
+Non-negative Matrix Factorization (NMF) & Python (\texttt{scikit-learn}
+\citep{pedregosa2011}), R (\texttt{reticulate}) \\
+Feature Selection, Analytical Methods & Q-learning Model Estimation & R
+(\texttt{R.matlab}), Matlab (\texttt{CBM} package for Laplace
+approximation) \citep{piray2019} \\
+Model Evaluation & Behavioral Signatures & R (\texttt{lmtest},
+\texttt{sandwich}) \\
+& Heterogeneity analyses of model performance across teachers & R
+(\texttt{sandwich}) \\
+Visualization & Graphs and Tables & R (\texttt{ggplot2}, \texttt{gt},
+\texttt{stargazer}) \\
 \end{longtable}
 
 \subsection{Data}\label{data}
@@ -1251,7 +1255,7 @@ where \(\beta_0\) is the intercept and \(\epsilon_t\) is the error term.
 \end{enumerate}
 
 \[
-\text{logit}(P(\text{Action}_t = 1)) = \beta_0 + \sum_{i=1}^{L} (\beta_i R_{t-i} + \gamma_i \text{Action}_{t-i} + \delta_i (R_{t-i} \times \text{Action}_{t-i}))
+\text{logit}(P(\text{Action}_t = 1)) = \beta_0 + \sum_{i=1}^{L} (\beta_i R_{t-i} + \gamma_i \text{Action}_{t-i})
 \]
 
 where \(L\) is the number of lags, \(R_t\) is the reward at time \(t\),
@@ -1431,10 +1435,8 @@ differences and the difference in mean rewards between action and
 inaction over time. The reward difference was calculated using a rolling
 mean with a window size of 4 weeks.
 
-All statistical analyses were performed using the \texttt{lmtest}
-package (Zeileis \& Hothorn, 2002) for clustered standard errors and the
-sandwich package (Zeileis, 2004) for robust covariance matrix
-estimation.
+All statistical analyses were performed with clustered standard errors
+at the classroom level.
 
 \subsection{Heterogeneity Analysis}\label{heterogeneity-analysis}
 
@@ -1630,8 +1632,8 @@ after stardardization}
 \subsubsection{Teacher Variables}\label{teacher-variables}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.2500}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.7500}}@{}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.2778}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.7222}}@{}}
 \caption{Catalog of Teacher Activities. This table presents teachers'
 actions, including curriculum engagement, downloads of pedagogical
 materials, and completion of various interactive components within the
@@ -1751,7 +1753,7 @@ standardized (z-scored) before analysis.}
 \begin{verbatim}
 
 % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-% Date and time: Wed, Sep 25, 2024 - 21:51:11
+% Date and time: Mon, Sep 30, 2024 - 19:43:47
 % Requires LaTeX packages: dcolumn 
 \begin{table}[!htbp] \centering 
   \caption{Relationship between RL Parameters and Classroom Characteristics} 
@@ -2024,15 +2026,13 @@ generally suggest that a sample has been assigned to the wrong cluster.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-loglik-histogram-1.pdf}
+\includegraphics{zearn_files/figure-pdf/fig-aic-ecdf-1.pdf}
 
 }
 
-\caption{\label{fig-loglik-histogram}Distribution of teacher-specific
-Akaike Information Criteria (AIC). The histogram displays the spread of
-individual teachers' log-likelihoods, with higher values indicating
-better fit. The dashed line represents the median log-likelihood across
-all teachers.}
+\caption{\label{fig-aic-ecdf}Empirical Cumulative Distribution Function
+(ECDF) of teacher-specific Akaike Information Criteria (AIC) for
+different models. Lower AIC values indicate better model fit.}
 
 \end{figure}%
 

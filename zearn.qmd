@@ -1341,21 +1341,24 @@ model_comparison_df %>%
 #| tbl-cap: "Summary of model fits for Pedagogical Knowledge as actions and Badges as rewards. Each of the models (N~par~ = number of parameters) was fitted to participants data using Matlab’s cbm toolbox. Using individual model-fitting, we computed the mean AIC (lower values indicate better model fit)."
 
 # Define models and parameters
-models <- c("q_model", "q_model_simple", "logit_model", "baseline_model")
-model_names <- c("Q-learning", "Q-learning (cost-free)", "Lau & Glimcher", "Baseline")
-n_par <- c(5, 3, 5, 1)
+models <- c("baseline_model", "q_model", "q_model_simple", "logit_model")
+model_names <- c("Baseline", "Q-learning", "Q-learning (cost-free)", "Lau & Glimcher")
+n_par <- c(1, 5, 3, 5)
 
 # Create a data frame for model summary
 model_summary <- data.frame(
   Model = model_names,
   N_par = n_par,
-  AIC = NA_real_
+  N_weeks = NA_real_,
+  AIC = NA_real_,
+  p_value = NA_real_
 )
 
 # Calculate AIC for each model (focusing on Badges reward, wrapper 2)
 model_folder_path <- "CBM/zearn_results/aggr_results"
 # model_folder_path <- "CBM/zearn_results/hbi_results"
 wrapper <- 2  # Corresponds to Pedagogical Knowledge and Badges
+baseline_aic <- NULL
 
 for (i in seq_along(models)) {
   file_path <- file.path(model_folder_path,
@@ -1366,22 +1369,41 @@ for (i in seq_along(models)) {
   if (file.exists(file_path)) {
     mat_data <- readMat(file_path)
     log_lik <- mat_data[["cbm"]][[5]][[2]]
+    weeks <- mat_data[["cbm"]][[5]][[5]]
+    n_weeks <- sapply(weeks, function(w) length(w[[1]][[9]][[1]]))
     # log_lik <- mat_data[["cbm"]][[5]][[8]]
-    aic <- mean(-2 * log_lik + 2 * n_par[i])
-    model_summary$AIC[i] <- aic
+    aic <- -2 * log_lik + 2 * n_par[i]
+    model_summary$AIC[i] <- mean(aic)
+    model_summary$SD_AIC[i] <- sd(aic)
+    model_summary$N_weeks[i] <- mean(n_weeks)
+    model_summary$SD_weeks[i] <- sd(n_weeks)
+    if (models[i] == "baseline_model") {
+      baseline_aic <- aic
+    } else {
+      # Perform t-test
+      t_test_result <- t.test(aic, baseline_aic)
+      model_summary$p_value[i] <- t_test_result$p.value
+    }
   }
 }
 
 # Create the table
 model_summary_table <- model_summary %>%
+  # Join means with SD
+  mutate(N_weeks = paste0(round(N_weeks, 1), " (", round(SD_weeks, 1), ")"),
+         AIC = paste0(round(AIC, 1), " (", round(SD_AIC, 1), ")") ) %>%
+  select(-SD_weeks, -SD_AIC) %>%
   gt() %>%
   cols_align(align = "center") %>%
   cols_label(
     N_par = "N~par~",
-    AIC = "AIC"
+    N_weeks = "No. of Weeks (SD)",
+    AIC = "AIC (SD)",
+    p_value = "p-value"
   ) %>%
   fmt_markdown() %>%
-  fmt_number(columns = AIC, decimals = 1) %>%
+  fmt_scientific(columns = p_value, decimals = 2) %>%
+  fmt_number(columns = N_par, decimals = 0) %>%
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_column_labels()
@@ -2342,11 +2364,13 @@ To understand how these parameter differences relate to student outcomes, we exa
 # Materials and Methods
 
 | **Step** | **Method** | **Software/Tools** |
-|----------------|------------------------------|--------------------------|
-| Data Preprocessing | Cleaning, normalization | R [@rcoreteam2024] |
-| Dimensionality Reduction | Principal Component Analysis (PCA), Non-negative Matrix Factorization (NMF) | Python (`scikit-learn`) [@pedregosa2011] |
-| Feature Selection, Analytical Methods | Q-learning, Actor-Critic Model Estimation | R, Matlab (`CBM` package for Laplace approximation) [@piray2019] |
-| Model Evaluation | Heterogeneity analyses of model performance across teachers | R |
+|------------------|-----------------------------|-------------------------|
+| Data Processing | Cleaning, normalization | R [@rcoreteam2024] (`tidyverse`, `data.table`). |
+| Dimensionality Reduction | Principal Component Analysis (PCA), Non-negative Matrix Factorization (NMF) | Python (`scikit-learn` [@pedregosa2011]), R (`reticulate`) |
+| Feature Selection, Analytical Methods | Q-learning Model Estimation | R (`R.matlab`), Matlab (`CBM` package for Laplace approximation) [@piray2019] |
+| Model Evaluation | Behavioral Signatures | R (`lmtest`, `sandwich`) |
+|  | Heterogeneity analyses of model performance across teachers | R (`sandwich`) |
+| Visualization | Graphs and Tables | R (`ggplot2`, `gt`, `stargazer`) |
 
 : Analytical steps employed in the study. {#tbl-methods}
 
@@ -2431,7 +2455,7 @@ These matrices can reveal underlying patterns of behaviors (from the basis matri
 
 To identify the most appropriate action and reward variables, we employed a multiple model types:
 
-1. Baseline Model:
+1.  Baseline Model:
 
 $$
 \text{Action}_t = \beta_0 + \epsilon_t
@@ -2439,17 +2463,17 @@ $$
 
 where $\beta_0$ is the intercept and $\epsilon_t$ is the error term.
 
-2. Logistic Regression Model: Inspired by dynamic analysis [@lau2005], incorporating lagged variables to capture temporal dynamics:
+2.  Logistic Regression Model: Inspired by dynamic analysis [@lau2005], incorporating lagged variables to capture temporal dynamics:
 
 $$
-\text{logit}(P(\text{Action}_t = 1)) = \beta_0 + \sum_{i=1}^{L} (\beta_i R_{t-i} + \gamma_i \text{Action}_{t-i} + \delta_i (R_{t-i} \times \text{Action}_{t-i}))
+\text{logit}(P(\text{Action}_t = 1)) = \beta_0 + \sum_{i=1}^{L} (\beta_i R_{t-i} + \gamma_i \text{Action}_{t-i})
 $$
 
 where $L$ is the number of lags, $R_t$ is the reward at time $t$, and $\beta_i$, $\gamma_i$, and $\delta_i$ are coefficients.
 
-3. Q-learning Model: A reinforcement learning model capturing adaptive decision-making processes, as explained in the theory section.
+3.  Q-learning Model: A reinforcement learning model capturing adaptive decision-making processes, as explained in the theory section.
 
-4. Simplified Q-learning Model: A version of the Q-learning model with no cost parameter and a starting Q-value of 0.
+4.  Simplified Q-learning Model: A version of the Q-learning model with no cost parameter and a starting Q-value of 0.
 
 We applied reward structures extracted from classroom data via Non-negative Matrix Factorization (NMF) with the Frobenius Non-negative Double Singular Value Decomposition (NNDSVD). Actions were derived similarly from teacher data. We selected one teacher component as the action and one student component as the reward, resulting in 16 possible configurations (4 possible actions and 4 possible rewards).
 
@@ -2487,7 +2511,7 @@ where $N$ is the number of subjects, $p$ is the number of model parameters, and 
 
 We examined three key behavioral signatures:
 
-1. Reward Seeking:  We calculated the probability of choosing an action as a function of its Q-value difference (percentile rank of Q-values). For each model (Q-learning, Lau & Glimcher, and Baseline), we fitted a generalized linear model (GLM) with a quasibinomial family. The model took the form:
+1.  Reward Seeking: We calculated the probability of choosing an action as a function of its Q-value difference (percentile rank of Q-values). For each model (Q-learning, Lau & Glimcher, and Baseline), we fitted a generalized linear model (GLM) with a quasibinomial family. The model took the form:
 
 $$
 \text{logit}(P(\text{Action})) = \beta_0 + \beta_1 Q_\text{percentile}
@@ -2495,7 +2519,7 @@ $$
 
 where $Q_\text{percentile}$ is the percentile rank of Q-values. We extracted the slope ($\beta_1$) and its 95% confidence interval using clustered standard errors at the classroom level to account for within-classroom correlations.
 
-2. Uncertainty Aversion: We examined the probability of choosing the uncertain option as a function of the difference in expected value (EV) between uncertain and certain options. Uncertainty was defined based on the cumulative standard deviation of rewards associated with each action. We fitted a GLM with a quasibinomial family:
+2.  Uncertainty Aversion: We examined the probability of choosing the uncertain option as a function of the difference in expected value (EV) between uncertain and certain options. Uncertainty was defined based on the cumulative standard deviation of rewards associated with each action. We fitted a GLM with a quasibinomial family:
 
 $$
 \text{logit}(P(\text{Uncertain Choice})) = \beta_0 + \beta_1 \Delta EV_\text{percentile}
@@ -2503,45 +2527,38 @@ $$
 
 where $\Delta EV_\text{percentile}$ is the percentile rank of the difference in expected value between uncertain and certain options. We calculated the indifference point (where $P(\text{Uncertain Choice}) = 0.5$) and its 95% confidence interval for each model.
 
-3. Learning Dynamics: We evaluated learning over time by examining two aspects. First, we computed mean prediction errors across teachers as:
+3.  Learning Dynamics: We evaluated learning over time by examining two aspects. First, we computed mean prediction errors across teachers as:
 
 $$
 PE_t = \gamma R_t - Q_{t-1}(a)
-$$
-where $\gamma$ is the discount factor, $R_t$ is the reward at time $t$, and $Q_{t-1}(a)$ is the Q-value of the chosen action at the previous time step. We then evaluated the evolution of Q-value differences and the difference in mean rewards between action and inaction over time. The reward difference was calculated using a rolling mean with a window size of 4 weeks.
+$$ where $\gamma$ is the discount factor, $R_t$ is the reward at time $t$, and $Q_{t-1}(a)$ is the Q-value of the chosen action at the previous time step. We then evaluated the evolution of Q-value differences and the difference in mean rewards between action and inaction over time. The reward difference was calculated using a rolling mean with a window size of 4 weeks.
 
-All statistical analyses were performed using the `lmtest` package (Zeileis & Hothorn, 2002) for clustered standard errors and the sandwich package (Zeileis, 2004) for robust covariance matrix estimation.
+All statistical analyses were performed with clustered standard errors at the classroom level.
 
 ## Heterogeneity Analysis
 
 After selecting the top-performing model (Q-learning), we explored heterogeneity through:
 
-1. Parameter-Classroom Characteristic Associations: For each Q-learning parameter (learning rate $\alpha$, discount factor $\gamma$, inverse temperature $\tau$, initial Q-value, and cost), we fitted separate models with the following specifications:
+1.  Parameter-Classroom Characteristic Associations: For each Q-learning parameter (learning rate $\alpha$, discount factor $\gamma$, inverse temperature $\tau$, initial Q-value, and cost), we fitted separate models with the following specifications:
 
-   a) For ordinal outcomes (income and poverty levels), we used ordered logistic regression:
-$$
-\text{logit}(P(Y \leq j)) = \theta_j - (\beta_1X_1 + ... + \beta_pX_p)
-$$
-   b) For count outcomes (total students and number of classes), we employed Poisson regression:
-$$
-\log(E(Y)) = \beta_0 + \beta_1X_1 + ... + \beta_pX_p
-$$
-   c) For binary outcomes (paid account status), we used logistic regression:
-$$
-\text{logit}(P(Y=1)) = \beta_0 + \beta_1X_1 + ... + \beta_pX_p
-$$
-where $X_1, ..., X_p$ represent the standardized Q-learning parameters.
+    a)  For ordinal outcomes (income and poverty levels), we used ordered logistic regression: $$
+        \text{logit}(P(Y \leq j)) = \theta_j - (\beta_1X_1 + ... + \beta_pX_p)
+        $$
+    b)  For count outcomes (total students and number of classes), we employed Poisson regression: $$
+        \log(E(Y)) = \beta_0 + \beta_1X_1 + ... + \beta_pX_p
+        $$
+    c)  For binary outcomes (paid account status), we used logistic regression: $$
+        \text{logit}(P(Y=1)) = \beta_0 + \beta_1X_1 + ... + \beta_pX_p
+        $$ where $X_1, ..., X_p$ represent the standardized Q-learning parameters.
 
-2. Parameter-Student Outcome Associations: We examined how model parameters relate to student outcomes using multiple linear regression models. Two key outcomes were analyzed:
+2.  Parameter-Student Outcome Associations: We examined how model parameters relate to student outcomes using multiple linear regression models. Two key outcomes were analyzed:
 
-   a) Average weekly badges earned per student (indicating lesson completion)
-   b) Average weekly tower alerts per tower completion (indicating student struggles)
+    a)  Average weekly badges earned per student (indicating lesson completion)
+    b)  Average weekly tower alerts per tower completion (indicating student struggles)
 
-   The regression model took the form:
-$$
-Y = \beta_0 + \beta_1\alpha + \beta_2\gamma + \beta_3\tau + \beta_4Q_0 + \beta_5\text{cost} + C_i\Gamma + \epsilon
-$$
-where $Y$ is the outcome variable, $\alpha$, $\gamma$, $\tau$, $Q_0$, and cost are the Q-learning parameters, and $C_i$ is a matrix of control variables including AIC, number of weeks, total students, number of classes, grade level, poverty level, charter school status, and paid account status.
+    The regression model took the form: $$
+    Y = \beta_0 + \beta_1\alpha + \beta_2\gamma + \beta_3\tau + \beta_4Q_0 + \beta_5\text{cost} + C_i\Gamma + \epsilon
+    $$ where $Y$ is the outcome variable, $\alpha$, $\gamma$, $\tau$, $Q_0$, and cost are the Q-learning parameters, and $C_i$ is a matrix of control variables including AIC, number of weeks, total students, number of classes, grade level, poverty level, charter school status, and paid account status.
 
 # References
 
@@ -2775,7 +2792,7 @@ chart.Correlation(df_corr, histogram = TRUE, method = "spearman",
 ### Teacher Variables
 
 | **Variable** | **Description** |
-|------------------|------------------------------------------------------|
+|--------------------|----------------------------------------------------|
 | PD Course Guide Download [@zearn2023; @zearn2024c] | Detailed agenda for Professional Development (PD) courses focusing on classroom implementation, leadership, supporting diverse learners, using data to inform teaching practices, and accelerating student learning. |
 | PD Course Notes Download [@zearn2023; @zearn2024c] | Professional development session notes offering insights into effectively using Zearn's curriculum. |
 | Curriculum Map Download [@zearn2024d] | Detailed outline of learning objectives and content. Presents a sequence of interconnected math concepts across grades, aligning with states' instructional requirements. |
@@ -2894,6 +2911,35 @@ stargazer(model4, model5, model6,
 
 ```
 
+```{r}
+#| cache: true
+#| label: fig-corr-rl-params
+#| fig-cap: "Correlation coefficients between estimated RL parameters and outcome variables"
+#| fig-format: png
+
+# Select the RL parameters and outcome variables
+df_corr_rl <- full_data %>%
+  select(alpha, gamma, tau, cost, ev_init, AIC) %>%
+  mutate(across(c(alpha, gamma), function(x) 1/(1 + exp(-x))),
+         tau = exp(tau),
+         cost = exp(cost)) %>%
+  # Remove tau and cost outliers
+  filter(tau < quantile(full_data$tau, probs = .95),
+         cost < quantile(full_data$cost, probs = .95)) %>%
+  rename("Learning Rate" = alpha,
+         "Discount Factor" = gamma,
+         "Inverse Temperature" = tau,
+         "Cost" = cost,
+         "Initial Q-value" = ev_init,
+         "AIC" = AIC)
+
+# Generate the correlation chart
+chart.Correlation(df_corr_rl,
+                  histogram = TRUE,
+                  method = "spearman",
+                  pch="+")
+```
+
 ## Supplemental Figures {#sec-supp-fig}
 
 ![Zearn Student Portal](images/student-feed.PNG){#fig-st-portal fig-align="center"}
@@ -2956,8 +3002,8 @@ comparison_plot2
 {{< pagebreak >}}
 
 ```{r}
-#| label: fig-loglik-histogram
-#| fig-cap: "Distribution of teacher-specific Akaike Information Criteria (AIC). The histogram displays the spread of individual teachers' log-likelihoods, with higher values indicating better fit. The dashed line represents the median log-likelihood across all teachers."
+#| label: fig-aic-ecdf
+#| fig-cap: "Empirical Cumulative Distribution Function (ECDF) of teacher-specific Akaike Information Criteria (AIC) for different models. Lower AIC values indicate better model fit."
 
 # Load the full model data
 full_model <- list(
@@ -2984,7 +3030,7 @@ AIC_full <- AIC_full %>%
                values_to = "AIC") %>%
   separate(Model_Reward, c("Model", "Reward"), "_")
 
-# Create a histogram of log likelihoods
+# Create the ECDF plot
 ggplot(data = AIC_full, aes(x = AIC, color = Model)) +
   stat_ecdf() +
   scale_color_manual(values = c("Baseline" = brewer.pal(8, "Set2")[3],
