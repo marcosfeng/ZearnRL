@@ -1291,7 +1291,7 @@ all_predictions <- load_all_predictions() %>%
 model_folder_path <- "CBM/zearn_results/aggr_results"
 models <- c("q_model", "q_model_simple",
               "logit_model", "baseline_model")
-model_names <- c("Q-learning","Q-learning (cost-free)",
+model_names <- c("Q-learning", "Q-learning (cost-free)",
                    "Lau & Glimcher", "Baseline")
 
 # Create a mapping for action and reward
@@ -1552,9 +1552,7 @@ plot_reward_seeking <- function(sim_data, wrapper,
   all_last_points <- bind_rows(last_points)
   
   p + labs(x = "Q-value difference (percentile)",
-           y = "% Choice",
-           title = paste("Reward Seeking -",
-                         action_reward_mapping[[wrapper]]$reward)) +
+           y = "% Choice") +
     geom_label_repel(data = all_last_points, 
                      aes(x = x, y = y, 
                          label = model, color = model),
@@ -1856,9 +1854,7 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
   all_last_points <- bind_rows(last_points)
   
   p + labs(x = "Diff. EV (Uncertain - Certain) (percentile)",
-           y = "% Choice Uncertain",
-           title = paste("Uncertainty Aversion -",
-                         action_reward_mapping[[wrapper]]$reward)) +
+           y = "% Choice Uncertain") +
     geom_label_repel(data = all_last_points, 
                      aes(x = x, y = y, 
                          label = model, color = model),
@@ -2093,8 +2089,6 @@ plot_prediction_errors <- function(sim_data, wrapper) {
                      size = 3) +
     labs(x = "Biweekly Period", 
          y = "Value",
-         title = paste("Learning Curves -", 
-                       action_reward_mapping[[wrapper]]$reward),
          color = "Measure", fill = "Measure") +
     scale_color_manual(values = colors) +
     scale_fill_manual(values = colors) +
