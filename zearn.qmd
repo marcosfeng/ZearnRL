@@ -1562,7 +1562,7 @@ plot_reward_seeking <- function(sim_data, wrapper,
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     scale_x_continuous(breaks = breaks_q, labels = labels) +
     coord_cartesian(ylim = y_limits,
                     xlim = c(min(breaks_q), max(breaks_q) + 0.15)) +
@@ -1594,7 +1594,7 @@ all_reward_seeking_plots <- map(c(2, 14), function(wrapper) {
   plot_reward_seeking(full_data, wrapper)
 })
 
-all_reward_seeking_plots[[1]]
+all_reward_seeking_plots
 
 ```
 
@@ -1864,7 +1864,7 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     scale_x_continuous(breaks = breaks_q, labels = labels) +
     coord_cartesian(ylim = y_limits,
                     xlim = c(min(breaks_q), max(breaks_q) + 0.25)) +
@@ -1896,7 +1896,7 @@ all_uncertainty_plots <- map(c(2, 14), function(wrapper) {
   plot_uncertainty_aversion(full_data, wrapper)
 })
 
-all_uncertainty_plots[[1]]
+all_uncertainty_plots
 
 ```
 
@@ -2086,7 +2086,7 @@ plot_prediction_errors <- function(sim_data, wrapper) {
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     labs(x = "Biweekly Period", 
          y = "Value",
          color = "Measure", fill = "Measure") +
@@ -2120,7 +2120,7 @@ prediction_error_plots <- map(c(2, 14), function(wrapper) {
   plot_prediction_errors(full_data, wrapper)
 })
 
-prediction_error_plots[[1]]
+prediction_error_plots
 
 ```
 
@@ -2214,7 +2214,7 @@ plot_q_value_reward_diff <- function(sim_data, wrapper, window_size = 4) {
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     geom_label_repel(data = last_points, 
                      aes(x = x, y = y_r, 
                          label = "Difference in mean reward",
@@ -2226,11 +2226,9 @@ plot_q_value_reward_diff <- function(sim_data, wrapper, window_size = 4) {
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     labs(x = "Biweekly Period", 
-         y = "Difference",
-         title = paste("Q-value and Reward Differences -", 
-                       action_reward_mapping[[wrapper]]$reward)) +
+         y = "Difference") +
     scale_color_manual(values = c("Q-value difference" = brewer.pal(8, "Set2")[2],
                                   "Difference in mean reward" = brewer.pal(8, "Set2")[1])) +
     scale_fill_manual(values = c("Q-value difference" = brewer.pal(8, "Set2")[2],
@@ -2272,7 +2270,7 @@ for (wrapper in c(2, 14)) {
   all_pe_plots[[paste(wrapper, sep = "_")]] <- plot
 }
 
-all_pe_plots[[1]]
+all_pe_plots
 
 ```
 
@@ -3149,7 +3147,7 @@ plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     geom_label_repel(data = last_points, 
                      aes(x = x, y = y_actual, 
                          label = "Data",
@@ -3159,7 +3157,7 @@ plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     geom_label_repel(data = last_points, 
                      aes(x = x, y = y_baseline, 
                          label = "Baseline",
@@ -3170,7 +3168,7 @@ plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     geom_label_repel(data = last_points, 
                      aes(x = x, y = y_lau_glimcher, 
                          label = "Lau & Glimcher",
@@ -3181,7 +3179,7 @@ plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
                      box.padding = 0.1,
                      label.padding = 0.1,
                      label.size = 0.1,
-                     size = 3) +
+                     size = 4) +
     labs(x = "Biweekly Period", 
          y = "Action Percentage",
          title = paste("Action Percentages -", 

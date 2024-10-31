@@ -716,6 +716,15 @@ Lau \& Glimcher & $5$ & 25.7 (5.9) & 33.1 (9.6) & $3.04 \times 10^{-57}$ \\
 
 \subsubsection{Reward Seeking}\label{reward-seeking}
 
+\begin{verbatim}
+[[1]]
+\end{verbatim}
+
+\begin{verbatim}
+
+[[2]]
+\end{verbatim}
+
 \begin{figure}
 
 \centering{
@@ -724,7 +733,28 @@ Lau \& Glimcher & $5$ & 25.7 (5.9) & 33.1 (9.6) & $3.04 \times 10^{-57}$ \\
 
 }
 
-\caption{\label{fig-reward-seeking}Reward-seeking behavior. The graphs
+\caption{\label{fig-reward-seeking-1}Reward-seeking behavior. The graphs
+compare three models (Q-learning, Lau \& Glimcher, and Baseline) in
+their ability to capture teachers' reward-seeking behavior. The x-axis
+represents the percentile of the difference in Q-values between action
+and inaction. The y-axis shows the proportion of times teachers chose to
+act. Black points represent mean proportions observed across teachers,
+with error bars depicting the standard error of these means. The dashed
+black line represents the smoothed trend of observed teacher behavior.
+Colored lines and shaded areas show model predictions with 95\%
+confidence intervals.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-reward-seeking-2.pdf}
+
+}
+
+\caption{\label{fig-reward-seeking-2}Reward-seeking behavior. The graphs
 compare three models (Q-learning, Lau \& Glimcher, and Baseline) in
 their ability to capture teachers' reward-seeking behavior. The x-axis
 represents the percentile of the difference in Q-values between action
@@ -739,7 +769,7 @@ confidence intervals.}
 
 We first examine whether teachers display a preference for choices with
 higher relative expected values, as measured by the estimated Q-value
-difference. Figure~\ref{fig-reward-seeking} demonstrates this
+difference. \textbf{?@fig-reward-seeking} demonstrates this
 reward-seeking behavior in the data (\(b = 1.02\), 95\% CI
 \([0.947, 1.09]\)). It also shows that the Q-learning model most closely
 fits the observed data (\(b = 1.34\), 95\% CI \([1.29, 1.39]\)). The
@@ -751,6 +781,15 @@ fixed choice probability (\(b = 0.005\), 95\% CI \([0.002,0.007]\)).
 
 \subsubsection{Uncertainty Aversion}\label{uncertainty-aversion}
 
+\begin{verbatim}
+[[1]]
+\end{verbatim}
+
+\begin{verbatim}
+
+[[2]]
+\end{verbatim}
+
 \begin{figure}
 
 \centering{
@@ -759,7 +798,31 @@ fixed choice probability (\(b = 0.005\), 95\% CI \([0.002,0.007]\)).
 
 }
 
-\caption{\label{fig-uncertainty-aversion}Uncertainty aversion. The
+\caption{\label{fig-uncertainty-aversion-1}Uncertainty aversion. The
+graphs compare three models (Q-learning, Lau \& Glimcher, and Baseline)
+in their ability to capture teachers' uncertainty-related behavior. The
+x-axis represents the percentile of the difference in expected value
+(EV) between uncertain and certain options, calculated from the
+cumulative means and standard deviations of rewards associated with each
+action. The y-axis shows the proportion of times teachers chose the
+uncertain option. Black points represent mean proportions observed
+across teachers, with error bars depicting the standard error of these
+means. The dashed black line represents the smoothed trend of observed
+teacher behavior. Colored lines and shaded areas show model predictions
+with 95\% confidence intervals. The horizontal dashed line at 50\%
+represents indifference between certain and uncertain options.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-uncertainty-aversion-2.pdf}
+
+}
+
+\caption{\label{fig-uncertainty-aversion-2}Uncertainty aversion. The
 graphs compare three models (Q-learning, Lau \& Glimcher, and Baseline)
 in their ability to capture teachers' uncertainty-related behavior. The
 x-axis represents the percentile of the difference in expected value
@@ -776,7 +839,7 @@ represents indifference between certain and uncertain options.}
 \end{figure}%
 
 Next, we examine whether teachers are averse to choices with a more
-uncertain reward relationship. Figure~\ref{fig-uncertainty-aversion}
+uncertain reward relationship. \textbf{?@fig-uncertainty-aversion}
 provides insights into this behavioral signature. The x-axis represents
 the difference in expected value (EV) between uncertain and certain
 options, while the y-axis shows the proportion of times teachers chose
@@ -791,6 +854,15 @@ ability to capture this signature.
 
 \subsubsection{Evidence for Learning}\label{evidence-for-learning}
 
+\begin{verbatim}
+[[1]]
+\end{verbatim}
+
+\begin{verbatim}
+
+[[2]]
+\end{verbatim}
+
 \begin{figure}
 
 \centering{
@@ -799,7 +871,7 @@ ability to capture this signature.
 
 }
 
-\caption{\label{fig-prediction-errors}Learning curves. The plots show
+\caption{\label{fig-prediction-errors-1}Learning curves. The plots show
 the mean reward prediction errors across teachers over time. The x-axis
 represents biweekly periods throughout the school year. The solid line
 represents mean values and the shaded area represents the standard error
@@ -814,11 +886,55 @@ until March.}
 
 \centering{
 
+\includegraphics{zearn_files/figure-pdf/fig-prediction-errors-2.pdf}
+
+}
+
+\caption{\label{fig-prediction-errors-2}Learning curves. The plots show
+the mean reward prediction errors across teachers over time. The x-axis
+represents biweekly periods throughout the school year. The solid line
+represents mean values and the shaded area represents the standard error
+of the mean. A dashed horizontal line at y=0 serves as a reference for
+zero prediction error. The curve illustrates a general trend of
+increasing prediction accuracy (decreasing absolute prediction error)
+until March.}
+
+\end{figure}%
+
+\begin{verbatim}
+$`2`
+\end{verbatim}
+
+\begin{verbatim}
+
+$`14`
+\end{verbatim}
+
+\begin{figure}
+
+\centering{
+
 \includegraphics{zearn_files/figure-pdf/fig-q-value-reward-diff-1.pdf}
 
 }
 
-\caption{\label{fig-q-value-reward-diff}Q-value and reward differences
+\caption{\label{fig-q-value-reward-diff-1}Q-value and reward differences
+over time. The x-axis represents biweekly periods throughout the school
+year. The y-axis shows the difference in Q-values or mean rewards
+between action and inaction. Shaded areas represent the standard error
+of the mean.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\includegraphics{zearn_files/figure-pdf/fig-q-value-reward-diff-2.pdf}
+
+}
+
+\caption{\label{fig-q-value-reward-diff-2}Q-value and reward differences
 over time. The x-axis represents biweekly periods throughout the school
 year. The y-axis shows the difference in Q-values or mean rewards
 between action and inaction. Shaded areas represent the standard error
@@ -828,15 +944,15 @@ of the mean.}
 
 Given the Q-learning model best captures reward-seeking behavior, we
 also examine its performance in capturing learning processes in
-teachers' decision-making. Figure~\ref{fig-prediction-errors}
-illustrates the prediction error over the course of the academic year,
-averaged across classrooms. This measure is an indicator of how well
-teachers are able to anticipate the outcomes of their actions. We
-observe a consistent decrease in prediction errors, suggesting that
-teachers are progressively improving their ability to predict the
-rewards associated with their choices.
+teachers' decision-making. \textbf{?@fig-prediction-errors} illustrates
+the prediction error over the course of the academic year, averaged
+across classrooms. This measure is an indicator of how well teachers are
+able to anticipate the outcomes of their actions. We observe a
+consistent decrease in prediction errors, suggesting that teachers are
+progressively improving their ability to predict the rewards associated
+with their choices.
 
-Furthermore, Figure~\ref{fig-q-value-reward-diff} provides additional
+Furthermore, \textbf{?@fig-q-value-reward-diff} provides additional
 insight into the learning process by showing the evolution of Q-values
 and reward differences over the academic year, averaged across
 classrooms. The graph demonstrates a gradual convergence between the
@@ -1757,7 +1873,7 @@ standardized (z-scored) before analysis.}
 \begin{verbatim}
 
 % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-% Date and time: Tue, Oct 01, 2024 - 18:54:06
+% Date and time: Wed, Oct 02, 2024 - 12:47:10
 % Requires LaTeX packages: dcolumn 
 \begin{table}[!htbp] \centering 
   \caption{Relationship between RL Parameters and Classroom Characteristics} 
