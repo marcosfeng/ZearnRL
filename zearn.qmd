@@ -63,7 +63,7 @@ library(doParallel)
 library(data.table)
 library(tidyverse)
 
-# library(cmdstanr)
+library(cmdstanr)
 # library(brms)
 # library(bayesplot)
 ```
@@ -1125,6 +1125,54 @@ We evaluated the performance of each model configuration using log-likelihood va
 
 ## Model Performance and Behavioral Signatures
 
+```{r load_parameters}
+
+load_parameters <- function(file_path, transformed = TRUE) {
+  mat_data <- readMat(file_path)
+  if(grepl("_2_", file_path)) student_var = 1
+  if(grepl("_6_", file_path)) student_var = 2
+  if(grepl("_10_", file_path)) student_var = 3
+  if(grepl("_14_", file_path)) student_var = 4
+  
+  parameters <- mat_data[["cbm"]][[5]][[1]]
+  raw_data <- mat_data[["cbm"]][[5]][[5]]
+
+  # Create a data frame
+  data <- list_rbind(
+    map(1:nrow(parameters), function(i) {
+      tibble(Classroom.ID = raw_data[[i]][[1]][[9]][[3]][,1])
+      })
+    )
+  if (transformed) {
+    data <- data %>%
+      bind_cols(
+      tibble(
+        alpha = 1 / (1 + exp(-parameters[, 1])),
+        gamma = 1 / (1 + exp(-parameters[, 2])),
+        tau = exp(parameters[, 3]),
+        ev_init = parameters[, 4],
+        cost = exp(parameters[, 5])
+        )
+    )
+  } else {
+    data <- data %>%
+      bind_cols(
+      tibble(
+        alpha = parameters[, 1],
+        gamma = parameters[, 2],
+        tau = parameters[, 3],
+        ev_init = parameters[, 4],
+        cost = parameters[, 5]
+        )
+    )
+  }
+    
+
+  return(data)
+}
+
+```
+
 Given these findings, we focus our subsequent analyses on the models featuring "Pedagogical Knowledge" as the action and "Badges" as reward (see Appendix for similar analyses with "Activity" as reward). In the next stage of our analyses, we used the Akaike Information Criterion (AIC) to further compare the performance of our models, while adjusting for model complexity. @tbl-model-summary presents the number of parameters and mean AIC values for each model. The scores were computed using individual model-fitting with Matlab's cbm toolbox, with lower AIC values indicating better model fit. The baseline model, with its advantage in parsimony, achieved the lowest AIC, followed by the full Q-learning model. Note, however, that the baseline model does not provide insights into the decision-making process of teachers, which is a key goal of this study. As such, we proceed with a more detailed examination of the behavioral signatures in our data and investigate which models best capture them, excluding the simplified Q-learning model, which underperformed in both measures of model fit.
 
 <!-- Load prediction data and prepare for analysis -->
@@ -1441,6 +1489,156 @@ model_summary_table
 
 ```
 
+<!-- fig-parameter-correlations -->
+
+```{r}
+#| label: fig-parameter-correlations
+#| fig-cap: "Correlation between individual parameter estimates from non-hierarchical (Matlab) and hierarchical (Stan) estimation approaches. Each point represents one teacher. Correlation values are Spearman's rho, with asterisks indicating p < 0.001."
+
+# Load Stan results 
+stan_fit <- readRDS("Bayesian/Results/ql_opt.RDS")
+
+# Extract individual parameters from Stan fit
+stan_params <- stan_fit$draws(format = "df") %>%
+  select(starts_with(c("alpha[", "gamma[", "tau[", "cost[", "ev_init["))) %>%
+  # Calculate mean for each parameter
+  summarise(across(everything(), mean)) %>%
+  # Reshape to long format
+  pivot_longer(everything(), 
+              names_to = c("parameter", "id"), 
+              names_pattern = "([[:alpha:]_]+)\\[(\\d+)\\]",
+              values_to = "stan_value")
+
+# Load Matlab parameters using existing function
+matlab_params <- load_parameters(
+  "CBM/zearn_results/aggr_results/lap_aggr_q_model_2.mat"
+) %>%
+  pivot_longer(-Classroom.ID,
+               names_to = "parameter",
+               values_to = "matlab_value")
+
+# Join the estimates
+param_comparison <- stan_params %>%
+  mutate(id = as.integer(id)) %>%
+  left_join(matlab_params %>%
+              group_by(parameter) %>%
+              mutate(id = row_number()) %>%
+              ungroup(),
+            by = c("id", "parameter"))
+
+# Calculate correlations and create labels
+param_cors <- param_comparison %>%
+  group_by(parameter) %>%
+  summarise(
+    correlation = cor(matlab_value, stan_value, method = "spearman"),
+    p_value = cor.test(matlab_value, stan_value, method = "spearman")$p.value,
+    label = sprintf("r = %.2f%s", 
+                   correlation,
+                   ifelse(p_value < 0.001, "*", ""))
+  )
+
+# Create correlation plot with annotations
+ggplot(param_comparison, 
+       aes(x = matlab_value, y = stan_value)) +
+  geom_point(size = 0.5, alpha = 0.3) +
+  geom_text(data = param_cors,
+            aes(label = label),
+            x = -Inf, y = Inf,
+            hjust = -0.2, vjust = 1) +
+  facet_wrap(~parameter, scales = "free",
+             labeller = as_labeller(c(
+              alpha = "Learning Rate",
+              gamma = "Discount Factor",
+              tau = "Inv. Temperature",
+              cost = "Cost",
+              ev_init = "Initial Q-value"
+            ))) +
+  labs(x = "Non-hierarchical Estimate",
+       y = "Hierarchical Estimate") +
+  theme_minimal() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_line(color = "gray90"),
+    strip.text = element_text(size = 11, face = "bold"),
+    axis.text = element_text(size = 9),
+    axis.title = element_text(size = 10)
+  )
+``` 
+
+```{r prep-stan-behavioral}
+
+# Function to calculate Q-values and prediction errors using Stan parameters  
+calculate_stan_learning <- function(data) {
+  data %>%
+    group_by(Classroom.ID) %>%
+    arrange(week) %>%
+    mutate(
+      
+      # Initialize vectors
+      q_val = numeric(n()),
+      pe = numeric(n()),
+      
+      # Compute week differences like Stan
+      week_diff = c(0, diff(week)),
+      
+      # Set initial Q-value
+      q_val = ev_init
+    ) %>%
+    group_modify(function(classroom_data, classroom_id) {
+      n_trials <- nrow(classroom_data)
+      
+      # Loop through trials to calculate Q-values and PEs sequentially
+      for(t in 2:n_trials) {
+        gamma_power <- classroom_data$gamma[1]^classroom_data$week_diff[t]
+        reward_discounted <- gamma_power * classroom_data$reward[t]
+        
+        if(classroom_data$action[t-1] == 1) {
+          delta <- reward_discounted - classroom_data$q_val[t-1]
+          classroom_data$pe[t] <- delta
+          classroom_data$q_val[t] <- classroom_data$q_val[t-1] + 
+            classroom_data$alpha[1] * delta
+        } else {
+          classroom_data$pe[t] <- -reward_discounted
+          classroom_data$q_val[t] <- classroom_data$q_val[t-1] - 
+            classroom_data$alpha[1] * reward_discounted
+        }
+      }
+      classroom_data
+    }) %>%
+    ungroup() %>%
+    mutate(
+      pred = 1/(1+exp(-tau * (q_val - cost)))
+    )
+}
+
+# Get parameters in wide format for predictions
+stan_params_wide <- param_comparison %>%
+  select(-matlab_value) %>%
+  pivot_wider(names_from = parameter, 
+              values_from = stan_value,
+              id_cols = id)
+
+# Get predictions from Stan fit
+stan_predictions <- stan_fit$summary(variables = "y_pred", "mean") %>%
+  pull(mean)
+
+# Calculate Q-values and prediction errors for Stan estimates
+sim_data_stan <- all_predictions[[
+  paste0("lap_aggr_q_model_2.mat")
+  ]] %>%
+  mutate(classroom_idx = as.numeric(factor(Classroom.ID))) %>%
+  select(-c("pred_0","pred_1","q_val")) %>%
+  left_join(stan_params_wide, by = c("classroom_idx" = "id")) %>%
+  group_split(Classroom.ID) %>%
+  map_dfr(~calculate_stan_learning(.x)) %>%
+  mutate(
+    stan_pred = stan_predictions,
+    pred_diff = abs(pred - stan_pred)
+  )
+
+
+```
+
 ### Reward Seeking
 
 ```{r}
@@ -1657,6 +1855,200 @@ slopes <- tibble(
 ) %>%
   unnest(slope_data)
 
+
+```
+
+``` {r}
+#| label: fig-reward-seeking-stan
+#| fig-cap: "Reward-seeking behavior based on hierarchical model estimates. The x-axis represents the percentile of the difference in Q-values between action and inaction. The y-axis shows the proportion of times teachers chose to act."
+
+plot_reward_seeking_stan <- function(sim_data, 
+                                   lower_bound = 0.05,
+                                   upper_bound = 0.95,
+                                   y_limits = c(0.25,0.45)) {
+  
+  # Calculate EV and Uncertainty using Stan estimates
+  sim_data <- sim_data %>%
+    group_by(Classroom.ID) %>%
+    mutate(
+      q_val_percentile = percent_rank(q_val)
+    ) %>%
+    ungroup()
+
+  # Filter data for geom_smooth
+  smooth_data <- sim_data %>%
+    filter(q_val_percentile >= lower_bound,
+           q_val_percentile <= upper_bound)
+
+  # Create quantile-based bins for EV
+  sim_data <- smooth_data %>%
+    mutate(
+      q_bin = cut(
+        q_val_percentile,
+        breaks = seq(lower_bound, upper_bound,
+                     (upper_bound-lower_bound)/6),
+        labels = FALSE,
+        include.lowest = TRUE
+        ))
+
+  # Prepare plot data
+  plot_data_qv <- sim_data %>%
+    group_by(q_bin) %>%
+    summarise(
+      mean_choice = mean(action, na.rm = TRUE),
+      se_choice = sd(action, na.rm = TRUE) / sqrt(n()),
+      mean_q_diff = mean(q_val, na.rm = TRUE),
+      mean_q_diff_perc = mean(q_val_percentile, na.rm = TRUE),
+      mean_pred = mean(stan_pred, na.rm = TRUE),
+      se_pred = sd(stan_pred, na.rm = TRUE) / sqrt(n()),
+      mean_pred_bl = mean(baseline_pred, na.rm = TRUE),  # Add baseline predictions
+      se_pred_bl = sd(baseline_pred, na.rm = TRUE) / sqrt(n())
+    ) %>%
+    filter(!is.na(q_bin))
+
+  # Calculate x-axis breaks and labels
+  breaks_q <- plot_data_qv$mean_q_diff_perc
+  labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
+
+  model_colors <- c(
+    "Data" = "black", 
+    "Q-learning" = brewer.pal(8, "Set2")[2],
+    "Baseline" = brewer.pal(8, "Set2")[8])  # Add baseline color
+
+  p <- ggplot(smooth_data) +
+    geom_smooth(aes(x = q_val_percentile,
+                    y = action), color = model_colors["Data"],
+                method = "glm", method.args = list(family = "binomial"),
+                se = FALSE, linetype = "dashed") +
+    geom_point(data = plot_data_qv,
+               aes(x = mean_q_diff_perc,
+                   y = mean_choice), color = model_colors["Data"], size = 1) +
+    geom_errorbar(data = plot_data_qv,
+                  aes(x = mean_q_diff_perc, y = mean_choice,
+                      ymin = mean_choice - se_choice,
+                      ymax = mean_choice + se_choice),
+                  color = model_colors["Data"], width = 0)
+
+  # Add Q-learning model predictions
+  p <- p + geom_smooth(aes(x = q_val_percentile,
+                          y = stan_pred), 
+                      method = "glm",
+                      method.args = list(family = "quasibinomial"),
+                      se = TRUE, alpha = 0.2,
+                      color = model_colors["Q-learning"],
+                      fill = model_colors["Q-learning"])
+
+  # Add baseline model predictions  
+  p <- p + geom_smooth(aes(x = q_val_percentile,
+                          y = baseline_pred),
+                      method = "glm", 
+                      method.args = list(family = "quasibinomial"),
+                      se = TRUE, alpha = 0.2,
+                      color = model_colors["Baseline"],
+                      fill = model_colors["Baseline"])
+
+  # Get last points for labels
+  last_points <- bind_rows(
+    smooth_data %>%
+      filter(q_val_percentile == max(q_val_percentile)) %>%
+      summarise(x = max(q_val_percentile),
+                y = mean(stan_pred, na.rm = TRUE),
+                model = "Q-learning"),
+    smooth_data %>%
+      filter(q_val_percentile == max(q_val_percentile)) %>%
+      summarise(x = max(q_val_percentile),
+                y = mean(baseline_pred, na.rm = TRUE),
+                model = "Baseline")
+  )
+  
+  p + labs(x = "Q-value difference (percentile)",
+           y = "% Choice") +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y, 
+                         label = model, 
+                         color = model),
+                     nudge_x = 0.1,
+                     direction = "y",
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 4) +
+    scale_x_continuous(breaks = breaks_q, labels = labels) +
+    coord_cartesian(ylim = y_limits,
+                    xlim = c(min(breaks_q), max(breaks_q) + 0.15)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    scale_color_manual(values = model_colors) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(size = 10),
+      axis.line = element_line(colour = "black"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    )
+}
+
+# Get baseline predictions and add them to sim_data_stan
+bl_fit <- readRDS("Bayesian/Results/bl_opt.RDS")
+baseline_predictions <- bl_fit$summary(variables = "y_pred", "mean") %>%
+  pull(mean)
+
+sim_data_stan <- sim_data_stan %>%
+  mutate(baseline_pred = baseline_predictions)
+
+# Create plot using Stan estimates
+plot_reward_seeking_stan(sim_data_stan)
+```
+
+```{r reward-seeking-corr-stan}
+
+library(lmtest)
+library(sandwich)
+
+# Function to fit model and extract slope with clustered SE and CI
+get_slope_ci <- function(data, y_var) {
+  if(y_var != "action") {
+    model_fam <- quasibinomial
+  } else {
+    model_fam <- binomial
+  }
+  model <- glm(as.formula(paste(y_var, "~ q_val_percentile")),
+               family = model_fam,
+               data = data)
+  
+  # Calculate clustered standard errors
+  vcov_cluster <- vcovCL(model, cluster = ~ Classroom.ID)
+  
+  # Extract coefficients and calculate CI
+  coef_summary <- coeftest(model, vcov. = vcov_cluster)
+  estimate <- coef_summary["q_val_percentile", "Estimate"]
+  se <- coef_summary["q_val_percentile", "Std. Error"]
+  ci_lower <- estimate - 1.96 * se
+  ci_upper <- estimate + 1.96 * se
+  
+  return(tibble(estimate = estimate, 
+                ci_lower = ci_lower, 
+                ci_upper = ci_upper))
+}
+
+# Calculate percentiles and prepare data
+sim_data_corr <- sim_data_stan %>%
+  group_by(Classroom.ID) %>%
+  mutate(q_val_percentile = percent_rank(q_val)) %>%
+  ungroup()
+
+# Calculate slopes for all models
+slopes <- tibble(
+  model = c("Actual", "Q-learning", "Baseline"),
+  slope_data = list(
+    get_slope_ci(sim_data_corr, "action"),
+    get_slope_ci(sim_data_corr, "stan_pred"),
+    get_slope_ci(sim_data_corr, "baseline_pred")
+  )
+) %>%
+  unnest(slope_data)
 
 ```
 
@@ -1979,42 +2371,266 @@ indifference_points <- tibble(
 
 ```
 
+```{r}
+#| label: fig-uncertainty-aversion-stan
+#| fig-cap: "Uncertainty aversion comparing hierarchical models. The graphs compare Q-learning and baseline hierarchical models in their ability to capture teachers' uncertainty-related behavior. The x-axis represents the percentile of the difference in expected value (EV) between uncertain and certain options. The y-axis shows the proportion of times teachers chose the uncertain option. The horizontal dashed line at 50% represents indifference between certain and uncertain options."
+
+# Function to calculate EV and uncertainty
+calculate_ev_uncertainty <- function(df) {
+  # Calculate values for action = 0
+  v_0 <- df$reward
+  v_0[df$action > 0] <- NA
+  if (is.na(v_0[1])) v_0[1] <- 0
+
+  # Calculate values for action = 1
+  v_1 <- df$reward
+  v_1[df$action == 0] <- NA
+  if (is.na(v_1[1])) v_1[1] <- 0
+
+  # Calculate EVs
+  ev_0 <- cummean_ignore_na(v_0)
+  ev_1 <- cummean_ignore_na(v_1)
+  ev <- ev_1 - ev_0
+
+  # Calculate uncertainties
+  uncertainty_0 <- cumsd(v_0)
+  uncertainty_1 <- cumsd(v_1)
+  uncertainty <- uncertainty_1 - uncertainty_0
+
+  return(list(ev = ev, uncertainty = uncertainty))
+}
+
+# Function to plot uncertainty aversion
+plot_uncertainty_aversion <- function(sim_data, 
+                                    lower_bound = 0.05,
+                                    upper_bound = 0.95,
+                                    y_limits = c(0.35, 0.65)) {
+  
+  # Calculate delta EV and choice_uncertain
+  sim_data <- sim_data %>%
+    group_by(Classroom.ID) %>%
+    group_modify(~{
+      ev_unc <- calculate_ev_uncertainty(.x)
+      mutate(.x,
+             ev = ev_unc$ev,
+             sd = ev_unc$uncertainty)
+    }) %>%
+    mutate(
+      lag_ev = c(0, ev[-n()]),
+      lag_sd = c(0, replace_na(sd[-n()], 0)),
+      delta_ev = if_else(lag_sd > 0, lag_ev, -lag_ev),
+      choice_uncertain = as.numeric(xor(action == 0, lag_sd > 0)),
+      # choice_uncertain for each model
+      choice_uncertain_ql = if_else(lag_sd > 0, stan_pred, 1 - stan_pred),
+      choice_uncertain_bl = if_else(lag_sd > 0, baseline_pred, 1 - baseline_pred)
+    ) %>%
+    summarize(
+      delta_ev = mean(delta_ev, na.rm = TRUE),
+      choice_uncertain = mean(choice_uncertain, na.rm = TRUE),
+      choice_uncertain_ql = mean(choice_uncertain_ql, na.rm = TRUE),
+      choice_uncertain_bl = mean(choice_uncertain_bl, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    mutate(
+      delta_ev_percentile = percent_rank(delta_ev)
+    )
+
+  # Filter data for geom_smooth
+  smooth_data <- sim_data %>%
+    filter(delta_ev_percentile >= lower_bound,
+           delta_ev_percentile <= upper_bound)
+
+  # Create quantile-based bins
+  sim_data <- smooth_data %>%
+    mutate(
+      ev_bin = cut(
+        delta_ev_percentile,
+        breaks = seq(lower_bound, upper_bound,
+                     (upper_bound-lower_bound)/6),
+        labels = FALSE,
+        include.lowest = TRUE
+      ))
+
+  # Prepare plot data
+  plot_data <- sim_data %>%
+    group_by(ev_bin) %>%
+    summarise(
+      mean_choice_uncertain = mean(choice_uncertain, na.rm = TRUE),
+      se_choice_uncertain = sd(choice_uncertain, na.rm = TRUE) / sqrt(n()),
+      mean_delta_ev = mean(delta_ev, na.rm = TRUE),
+      mean_delta_ev_perc = mean(delta_ev_percentile, na.rm = TRUE),
+      choice_uncertain_ql = mean(choice_uncertain_ql, na.rm = TRUE),
+      se_ql = sd(choice_uncertain_ql, na.rm = TRUE) / sqrt(n()),
+      choice_uncertain_bl = mean(choice_uncertain_bl, na.rm = TRUE),
+      se_bl = sd(choice_uncertain_bl, na.rm = TRUE) / sqrt(n())
+    ) %>%
+    filter(!is.na(ev_bin))
+
+  # Calculate x-axis breaks and labels
+  breaks_q <- plot_data$mean_delta_ev_perc
+  labels <- c("5-20%", "20-35%", "35-50%", "50-65%", "65-80%", "80-95%")
+
+  model_colors <- c(
+    "Data" = "black", 
+    "Q-learning" = brewer.pal(8, "Set2")[2],
+    "Baseline" = brewer.pal(8, "Set2")[8])
+
+  p <- ggplot(smooth_data) +
+    geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
+    geom_smooth(aes(x = delta_ev_percentile, y = choice_uncertain),
+                color = model_colors["Data"],
+                method = "glm", method.args = list(family = "quasibinomial"),
+                se = FALSE, linetype = "dashed") +
+    geom_point(data = plot_data,
+               aes(x = mean_delta_ev_perc, y = mean_choice_uncertain),
+               color = model_colors["Data"], size = 1) +
+    geom_errorbar(data = plot_data,
+                  aes(x = mean_delta_ev_perc, y = mean_choice_uncertain,
+                      ymin = mean_choice_uncertain - se_choice_uncertain,
+                      ymax = mean_choice_uncertain + se_choice_uncertain),
+                  color = model_colors["Data"], width = 0)
+
+  # Add model predictions - Q-learning
+  p <- p + geom_smooth(aes(x = delta_ev_percentile,
+                          y = choice_uncertain_ql), 
+                      method = "glm",
+                      method.args = list(family = "quasibinomial"),
+                      se = TRUE, alpha = 0.2,
+                      color = model_colors["Q-learning"],
+                      fill = model_colors["Q-learning"])
+
+  # Add model predictions - Baseline
+  p <- p + geom_smooth(aes(x = delta_ev_percentile,
+                          y = choice_uncertain_bl), 
+                      method = "glm",
+                      method.args = list(family = "quasibinomial"),
+                      se = TRUE, alpha = 0.2,
+                      color = model_colors["Baseline"],
+                      fill = model_colors["Baseline"])
+
+  # Get last points for labels
+  last_points <- bind_rows(
+    smooth_data %>%
+      filter(delta_ev_percentile == max(delta_ev_percentile)) %>%
+      summarise(x = max(delta_ev_percentile),
+                y = mean(choice_uncertain_ql, na.rm = TRUE),
+                model = "Q-learning"),
+    smooth_data %>%
+      filter(delta_ev_percentile == max(delta_ev_percentile)) %>%
+      summarise(x = max(delta_ev_percentile),
+                y = mean(choice_uncertain_bl, na.rm = TRUE),
+                model = "Baseline")
+  )
+  
+  p + labs(x = "Diff. EV (Uncertain - Certain) (percentile)",
+           y = "% Choice Uncertain") +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y, 
+                         label = model,
+                         color = model),
+                     nudge_x = 0.2,
+                     direction = "y",
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 4) +
+    scale_x_continuous(breaks = breaks_q, labels = labels) +
+    coord_cartesian(ylim = y_limits,
+                    xlim = c(min(breaks_q), max(breaks_q) + 0.25)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    scale_color_manual(values = model_colors) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(size = 10),
+      axis.line = element_line(colour = "black"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    )
+}
+
+plot_uncertainty_aversion(sim_data_stan)
+```
+
+```{r uncertainty-corr-stan}
+
+# Function to fit model and extract indifference point with CI
+get_indifference_point_ci <- function(data, y_var, x_var) {
+  model <- glm(as.formula(paste(y_var, "~", x_var)),
+               family = "quasibinomial",
+               data = data)
+  
+  # Calculate clustered standard errors
+  vcov_cluster <- vcovCL(model, cluster = ~ Classroom.ID)
+  
+  # Extract coefficients and calculate CI
+  coef_summary <- coeftest(model, vcov. = vcov_cluster)
+  intercept <- coef_summary["(Intercept)", "Estimate"]
+  slope <- coef_summary[x_var, "Estimate"]
+  
+  # Calculate indifference point (where intercept + slope*x = 0)
+  indifference_point <- -intercept / slope
+  
+  # Calculate standard error of indifference point
+  se_intercept <- coef_summary["(Intercept)", "Std. Error"]
+  se_slope <- coef_summary[x_var, "Std. Error"]
+  se_indifference <- sqrt((se_intercept/slope)^2 + (se_slope*(0.5-intercept)/slope^2)^2)
+  
+  ci_lower <- indifference_point - 1.96 * se_indifference
+  ci_upper <- indifference_point + 1.96 * se_indifference
+  
+  return(tibble(indifference_point = indifference_point, 
+                ci_lower = ci_lower, 
+                ci_upper = ci_upper))
+}
+
+# Prepare data with EVs and uncertainties
+full_data <- sim_data_stan %>%
+  group_by(Classroom.ID) %>%
+  group_modify(~{
+    ev_unc <- calculate_ev_uncertainty(.x)
+    mutate(.x,
+           ev = ev_unc$ev,
+           sd = ev_unc$uncertainty)
+  }) %>%
+  mutate(
+    lag_ev = c(0, ev[-n()]),
+    lag_sd = c(0, replace_na(sd[-n()], 0)),
+    delta_ev = if_else(lag_sd > 0, lag_ev, -lag_ev),
+    choice_uncertain = as.numeric(xor(action == 0, lag_sd > 0)),
+    # choice_uncertain for each model
+    choice_uncertain_ql = if_else(lag_sd > 0, stan_pred, 1 - stan_pred),
+    choice_uncertain_bl = if_else(lag_sd > 0, baseline_pred, 1 - baseline_pred)
+  ) %>%
+  summarize(
+    delta_ev = mean(delta_ev, na.rm = TRUE),
+    choice_uncertain = mean(choice_uncertain, na.rm = TRUE),
+    choice_uncertain_ql = mean(choice_uncertain_ql, na.rm = TRUE),
+    choice_uncertain_bl = mean(choice_uncertain_bl, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    delta_ev = percent_rank(delta_ev)
+  )
+
+# Calculate indifference points for all models
+indifference_points <- tibble(
+  model = c("Actual", "Q-learning", "Baseline"),
+  indifference_data = list(
+    get_indifference_point_ci(full_data, "choice_uncertain", "delta_ev"),
+    get_indifference_point_ci(full_data, "choice_uncertain_ql", "delta_ev"),
+    get_indifference_point_ci(full_data, "choice_uncertain_bl", "delta_ev")
+  )
+) %>%
+  unnest(indifference_data)
+
+```
+
 Next, we examine whether teachers are averse to choices with a more uncertain reward relationship. @fig-uncertainty-aversion provides insights into this behavioral signature. The x-axis represents the difference in expected value (EV) between uncertain and certain options, while the y-axis shows the proportion of times teachers chose the uncertain option. The key measure in this plot is the location at which the teacher is indifferent between uncertain and certain choices. The data show uncertainty happens at the $50.6$ percentile (95% CI $[40.7,60.6]$), and the models estimate similar indifference points (Q-learning: $56.5$, 95% CI $[44.9, 68.2]$; logit: $50.2$, 95% CI $[39.1, 61.3]$; baseline: $53.2$, 95% CI $[40.0, 66.5]$). Thus, this analysis cannot differentiate the three models in their ability to capture this signature.
 
 ### Evidence for Learning
-
-```{r load_parameters}
-
-load_parameters <- function(file_path) {
-  mat_data <- readMat(file_path)
-  if(grepl("_2_", file_path)) student_var = 1
-  if(grepl("_6_", file_path)) student_var = 2
-  if(grepl("_10_", file_path)) student_var = 3
-  if(grepl("_14_", file_path)) student_var = 4
-  
-  parameters <- mat_data[["cbm"]][[5]][[1]]
-  raw_data <- mat_data[["cbm"]][[5]][[5]]
-
-  # Create a data frame
-  data <- list_rbind(
-    map(1:nrow(parameters), function(i) {
-      tibble(Classroom.ID = raw_data[[i]][[1]][[9]][[3]][,1])
-      })
-    ) %>%
-    bind_cols(
-      tibble(
-        alpha = 1 / (1 + exp(-parameters[, 1])),
-        gamma = 1 / (1 + exp(-parameters[, 2])),
-        tau = exp(parameters[, 3]),
-        ev_init = exp(parameters[, 4]),
-        cost = exp(parameters[, 5])
-        )
-    )
-
-  return(data)
-}
-
-```
 
 ```{r}
 #| label: fig-prediction-errors
@@ -2035,7 +2651,7 @@ plot_prediction_errors <- function(sim_data, wrapper) {
     mutate(
       time_diff = week - lag(week),
       q_pe = case_when(
-        lag(action) == 1 ~  gamma^time_diff * reward - q_val,
+        lag(action) == 1 ~  gamma^time_diff * reward - lag(q_val),
         lag(action) == 0 ~ -gamma^time_diff * reward,
         TRUE ~ NA_real_
       ),
@@ -2125,6 +2741,97 @@ prediction_error_plots
 ```
 
 ```{r}
+#| label: fig-prediction-errors-stan
+#| fig-cap: "Learning curves for hierarchical models. The plots show the mean reward prediction errors across teachers over time. The x-axis represents biweekly periods throughout the school year. The solid lines represent mean values and the shaded areas represent the standard error of the mean. A dashed horizontal line at y=0 serves as a reference for zero prediction error."
+
+plot_prediction_errors <- function(sim_data) {
+  # Add adjusted week and date for plotting
+  plot_data <- sim_data %>%
+    group_by(Classroom.ID) %>%
+    arrange(Classroom.ID, week) %>%
+    mutate(
+      # Baseline PE is just deviation from mean prediction
+      biweek = ceiling(adjusted_week / 2)
+    ) %>%
+    ungroup() %>%
+    group_by(biweek) %>%
+    summarise(
+      mean_q_pe = mean(pe, na.rm = TRUE),
+      se_q_pe = sd(pe, na.rm = TRUE) / sqrt(n()),
+      date = mean(date)
+    )
+
+  # Prepare x-axis breaks and labels
+  month_breaks <- plot_data %>%
+    mutate(month = floor_date(date, "month")) %>%
+    group_by(month) %>%
+    summarise(biweek = first(biweek)) %>%
+    mutate(month_label = format(month, "%b")) %>%
+    mutate(month_label = if_else(month_label == "Aug", "", month_label))
+
+  # Define color scheme
+  colors <- c(
+    "Prediction Error" = brewer.pal(8, "Set2")[1]
+  )
+  
+  # Prepare label data
+  last_points <- plot_data %>%
+    ungroup() %>%
+    filter(biweek == max(biweek)) %>%
+    summarise(
+      x = max(biweek),
+      y = mean(mean_q_pe)
+    )
+
+  # Create the plot
+  ggplot(plot_data, aes(x = biweek)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+    # Q-learning prediction errors
+    geom_line(aes(y = mean_q_pe, color = "Prediction Error")) +
+    geom_ribbon(aes(ymin = mean_q_pe - se_q_pe, 
+                    ymax = mean_q_pe + se_q_pe, 
+                    fill = "Prediction Error"), alpha = 0.2) +
+    # Add labels
+    geom_label_repel(data = last_points,
+                     aes(x = x, y = y, 
+                         label = "Prediction Error",
+                         color = "Prediction Error"),
+                     nudge_x = 0.1,
+                     direction = "y",
+                     segment.color = NA,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 4) +
+    labs(x = "Biweekly Period", 
+         y = "Value",
+         color = "Measure", fill = "Measure") +
+    scale_color_manual(values = colors) +
+    scale_fill_manual(values = colors) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    ) +
+    scale_x_continuous(breaks = month_breaks$biweek,
+                      labels = month_breaks$month_label)
+}
+
+# Generate plot using Stan estimates
+plot_prediction_errors(
+  sim_data_stan %>%
+    group_by(Classroom.ID) %>%
+    filter(week == 10) %>%
+    pull(Classroom.ID) %>%
+    {filter(sim_data_stan, Classroom.ID %in% .)} %>%
+    mutate(adjusted_week = week - 8) %>%
+    filter(adjusted_week >= 1) %>%
+    mutate(date = as_date("2019-08-26") + weeks(adjusted_week - 1))
+  )
+```
+
+```{r}
 #| label: fig-q-value-reward-diff
 #| fig-cap: "Q-value and reward differences over time. The x-axis represents biweekly periods throughout the school year. The y-axis shows the difference in Q-values or mean rewards between action and inaction. Shaded areas represent the standard error of the mean."
 
@@ -2166,14 +2873,18 @@ plot_q_value_reward_diff <- function(sim_data, wrapper, window_size = 4) {
     mutate(
       mean_q_val = mean(q_val, na.rm = TRUE),
       se_q_val = sd(q_val, na.rm = TRUE) / sqrt(n()),
-      mean_reward_action = mean(rolling_reward_action, na.rm = TRUE),
-      se_reward_action = sd(rolling_reward_action, na.rm = TRUE) / sqrt(n()),
-      mean_reward_inaction = mean(rolling_reward_inaction, na.rm = TRUE),
-      se_reward_inaction = sd(rolling_reward_inaction, na.rm = TRUE) / sqrt(n())
-    ) %>%
-    mutate(
-      reward_diff = mean_reward_action - mean_reward_inaction,
-      se_reward_diff = sqrt(se_reward_action^2 + se_reward_inaction^2)
+      reward_diff = mean(rolling_reward_action - rolling_reward_inaction,
+                         na.rm = TRUE),
+      se_reward_diff = sd(rolling_reward_action - rolling_reward_inaction,
+                          na.rm = TRUE)/sqrt(n())
+    #   mean_reward_action = mean(rolling_reward_action, na.rm = TRUE),
+    #   se_reward_action = sd(rolling_reward_action, na.rm = TRUE) / sqrt(n()),
+    #   mean_reward_inaction = mean(rolling_reward_inaction, na.rm = TRUE),
+    #   se_reward_inaction = sd(rolling_reward_inaction, na.rm = TRUE) / sqrt(n())
+    # ) %>%
+    # mutate(
+    #   reward_diff = mean_reward_action - mean_reward_inaction,
+    #   se_reward_diff = sqrt(se_reward_action^2 + se_reward_inaction^2)
     )
   
   # Prepare month breaks
@@ -2274,6 +2985,136 @@ all_pe_plots
 
 ```
 
+```{r}
+#| label: fig-q-value-reward-diff-stan
+#| fig-cap: "Q-value and reward differences over time for hierarchical model. The x-axis represents biweekly periods throughout the school year. The y-axis shows the difference in Q-values or mean rewards between action and inaction. Shaded areas represent the standard error of the mean."
+
+plot_q_value_reward_diff <- function(sim_data, window_size = 4) {
+  plot_data <- sim_data %>%
+    group_by(Classroom.ID) %>%
+    arrange(Classroom.ID, week) %>%
+    mutate(
+      rolling_reward_action = rollmean(
+        reward * lag(action, default = 0),
+        k = window_size, fill = NA,
+        align = "right"
+        ),
+      rolling_reward_inaction = rollmean(
+        reward * lag(1 - action, default = 1),
+        k = window_size, fill = NA,
+        align = "right"
+        ),
+      biweek = ceiling(adjusted_week / 2)
+    )
+
+  # Check for NA or infinite values
+  plot_data <- plot_data %>%
+    mutate(across(where(is.numeric),
+                  ~ifelse(is.infinite(.) | is.na(.), 0, .)))
+
+  # Add rolling averages
+  plot_data <- plot_data %>%
+    group_by(biweek) %>%
+    mutate(
+      mean_q_val = mean(q_val, na.rm = TRUE),
+      se_q_val = sd(q_val, na.rm = TRUE) / sqrt(n()),
+      reward_diff = mean(rolling_reward_action - rolling_reward_inaction,
+                         na.rm = TRUE),
+      se_reward_diff = sd(rolling_reward_action - rolling_reward_inaction,
+                          na.rm = TRUE)/sqrt(n())
+    #   mean_reward_action = mean(rolling_reward_action, na.rm = TRUE),
+    #   se_reward_action = sd(rolling_reward_action, na.rm = TRUE) / sqrt(n()),
+    #   mean_reward_inaction = mean(rolling_reward_inaction, na.rm = TRUE),
+    #   se_reward_inaction = sd(rolling_reward_inaction, na.rm = TRUE) / sqrt(n())
+    # ) %>%
+    # mutate(
+    #   reward_diff = mean_reward_action - mean_reward_inaction,
+    #   se_reward_diff = sqrt(se_reward_action^2 + se_reward_inaction^2)
+    )
+  
+  # Prepare month breaks
+  month_breaks <- plot_data %>%
+    mutate(month = floor_date(date, "month")) %>%
+    group_by(month) %>%
+    summarise(biweek = first(biweek)) %>%
+    mutate(month_label = format(month, "%b")) %>%
+    mutate(month_label = if_else(month_label == "Aug", "", month_label))
+  
+   # Prepare label data
+  last_points <- plot_data %>%
+    ungroup() %>%
+    filter(biweek == max(biweek)) %>%
+    summarise(
+      x = max(biweek),
+      y_q = mean(mean_q_val),
+      y_r = mean(reward_diff)
+    ) %>%
+    pivot_longer(
+      cols = starts_with("y_"),
+      names_to = "metric",
+      values_to = "y"
+    ) %>%
+    mutate(
+      label = case_when(
+        metric == "y_q" ~ "Q-value difference",
+        metric == "y_r" ~ "Difference in mean reward"
+      )
+    )
+
+  ggplot(plot_data, aes(x = biweek)) +
+    geom_line(aes(y = mean_q_val, color = "Q-value difference")) +
+    geom_ribbon(aes(ymin = mean_q_val - se_q_val, 
+                    ymax = mean_q_val + se_q_val, 
+                    fill = "Q-value difference"), alpha = 0.2) +
+    geom_line(aes(y = reward_diff, color = "Difference in mean reward")) +
+    geom_ribbon(aes(ymin = reward_diff - se_reward_diff, 
+                    ymax = reward_diff + se_reward_diff, 
+                    fill = "Difference in mean reward"), alpha = 0.2) +
+    geom_label_repel(data = last_points, 
+                     aes(x = x, y = y, 
+                         label = label,
+                         color = label),
+                     nudge_x = 1,
+                     direction = "y",
+                     segment.color = "gray50",
+                     segment.size = 0.2,
+                     box.padding = 0.1,
+                     label.padding = 0.1,
+                     label.size = 0.1,
+                     size = 4) +
+    labs(x = "Biweekly Period", 
+         y = "Difference") +
+    scale_color_manual(values = c("Q-value difference" = brewer.pal(8, "Set2")[2],
+                                 "Difference in mean reward" = brewer.pal(8, "Set2")[1])) +
+    scale_fill_manual(values = c("Q-value difference" = brewer.pal(8, "Set2")[2],
+                                "Difference in mean reward" = brewer.pal(8, "Set2")[1])) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold"),
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      legend.position = "none"
+    ) +
+    scale_x_continuous(breaks = month_breaks$biweek,
+                       labels = month_breaks$month_label,
+                       minor_breaks = seq(min(plot_data$biweek),
+                                          max(plot_data$biweek),
+                                          by = 1)) +
+    coord_cartesian(xlim = c(min(plot_data$biweek), max(plot_data$biweek) + 1.5))
+}
+
+# Generate plots
+plot_q_value_reward_diff(
+  sim_data_stan %>%
+    group_by(Classroom.ID) %>%
+    filter(week == 9) %>%
+    pull(Classroom.ID) %>%
+    {filter(sim_data_stan, Classroom.ID %in% .)} %>%
+    mutate(adjusted_week = week - 9 + 1) %>%
+    filter(adjusted_week >= 1) %>%
+    mutate(date = as_date("2019-08-26") + weeks(week - 1))
+)
+```
+
 Given the Q-learning model best captures reward-seeking behavior, we also examine its performance in capturing learning processes in teachers' decision-making. @fig-prediction-errors illustrates the prediction error over the course of the academic year, averaged across classrooms. This measure is an indicator of how well teachers are able to anticipate the outcomes of their actions. We observe a consistent decrease in prediction errors, suggesting that teachers are progressively improving their ability to predict the rewards associated with their choices.
 
 Furthermore, @fig-q-value-reward-diff provides additional insight into the learning process by showing the evolution of Q-values and reward differences over the academic year, averaged across classrooms. The graph demonstrates a gradual convergence between the Q-value difference and the empirical difference in mean rewards (from the previous four weeks). This convergence indicates that the model's value estimates (Q-values) are becoming increasingly accurate predictors of actual rewards.
@@ -2316,7 +3157,7 @@ AIC_data <- tibble(
   AIC = as.vector(AIC_full)
 )
 
-full_data <- load_parameters(model_path) %>%
+full_data <- load_parameters(model_path, transformed = FALSE) %>%
   inner_join(
     df_cleaned %>%
       group_by(Classroom.ID, Teacher.User.ID) %>%
@@ -2333,6 +3174,7 @@ full_data <- load_parameters(model_path) %>%
                 .groups = "drop"),
     by = c("Classroom.ID")) %>%
   inner_join(AIC_data, by = "Classroom.ID") %>%
+  mutate(AIC = AIC/`No. of Weeks`) %>%
   mutate(across(all_of(predictors), scale),
          Income = factor(Income, ordered = TRUE), 
          grade = factor(grade, ordered = TRUE,
@@ -2389,6 +3231,114 @@ stargazer(model1, model2, model3,
 
 ```
 
+```{r, results='asis'}
+#| label: tbl-optimality-stan
+#| tbl-cap: "Impact of Q-learning Model Parameters on Average Weekly Badges Earned per Student. Three linear regression models examine the correlations between a teacher's reinforcement learning (RL) parameters and student engagement, measured by average weekly badges earned per student. Model 1 includes only RL parameters. Model 2 adds controls for LOOIC, number of weeks, total students, and number of classes. Model 3 further incorporates controls for grade level, poverty level, charter school status, and whether the school has a paid Zearn account."
+
+predictors <- c("alpha", "gamma", "tau", "cost", "ev_init")
+
+# Load LOOIC
+ql_opt_loo <- readRDS("~/GitHub/ZearnRL/Bayesian/Results/model_comparison.RDS")
+
+stan_params <- stan_fit$draws(format = "df") %>%
+  select(starts_with(c("alpha_raw[", "gamma_raw[", "tau_raw[", "cost_raw["))) %>%
+  # Calculate mean for each parameter
+  summarise(across(everything(), mean)) %>%
+  # Reshape to long format
+  pivot_longer(everything(), 
+              names_to = c("parameter", "id"), 
+              names_pattern = "([[:alpha:]_]+)\\[(\\d+)\\]",
+              values_to = "stan_value") %>%
+  pivot_wider(names_from = parameter, 
+              values_from = stan_value,
+              id_cols = id) %>%
+  mutate(id = as.integer(id))
+
+sim_data_stan <- sim_data_stan %>%
+  inner_join(stan_params, by = c("classroom_idx" = "id"))
+
+# Create dataframe for regression
+full_data <- sim_data_stan %>%
+  group_by(Classroom.ID) %>%
+  summarise(
+    alpha = first(alpha_raw),
+    gamma = first(gamma_raw),
+    tau = first(tau_raw),
+    cost = first(cost_raw),
+    ev_init = first(ev_init),
+    .groups = "drop"
+  ) %>%
+  # Add demographics
+  inner_join(
+    df_cleaned %>%
+      group_by(Classroom.ID, Teacher.User.ID) %>%
+      summarise(Income = first(income),
+                Poverty = first(poverty),
+                `Paid Account` = first(school.account),
+                `No. of Weeks` = n_distinct(week),
+                `Avg. Badges` = mean(Badges.per.Active.User),
+                `Avg. Tower Alerts` = mean(Tower.Alerts.per.Tower.Completion),
+                grade = first(Grade.Level),
+                `Total Students` = mean(Students...Total),
+                `No. of Classes` = mean(teacher_number_classes),
+                `Charter School` = first(charter.school),
+                .groups = "drop"),
+    by = c("Classroom.ID")) %>%
+  # Add LOOIC
+  inner_join(sim_data_stan %>%
+           pull(Classroom.ID) %>%
+           cbind(Classroom.ID = .,
+                 looic = ql_opt_loo[["qlearning"]][["mixis"]]) %>%
+           as_data_frame() %>%
+           group_by(Classroom.ID) %>%
+           summarize(LOOIC = mean(looic)),
+           by = c("Classroom.ID")) %>%
+  mutate(across(all_of(predictors), scale),
+         Income = factor(Income, ordered = TRUE), 
+         grade = factor(grade, ordered = TRUE,
+                       levels = c("Kindergarten",
+                                "1st", "2nd", "3rd", "4th", "5th")),
+         Poverty = factor(Poverty, ordered = TRUE)) %>%
+  arrange(Classroom.ID) %>%
+  dplyr::mutate(
+    Income = ordered_factor(Income), 
+    grade = ordered_factor(grade),
+    Poverty = ordered_factor(Poverty)
+  )
+
+# Run regression models
+model1 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init,
+             data = full_data)
+model2 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
+               LOOIC + `No. of Weeks` + `Total Students` + `No. of Classes`,
+             data = full_data)
+model3 <- lm(`Avg. Badges` ~ alpha + gamma + tau + cost + ev_init +
+               LOOIC + `No. of Weeks` + `Total Students` + `No. of Classes` +
+               grade +  Poverty + `Charter School` + `Paid Account`,
+             data = full_data)
+
+# Create table with stargazer
+stargazer(model1, model2, model3,
+          type = "latex",
+          header=FALSE,
+          align = TRUE,
+          covariate.labels = c("$\\alpha$", "$\\gamma$",
+                              "$\\tau$", "Cost", "Starting Q-value",
+                              "No. of Weeks", "No. of Students",
+                              "No. of Classes",
+                              "Charter School", "Paid Zearn Account"),
+          omit = c("LOOIC", "grade", "Poverty"),
+          dep.var.labels = "Badges",
+          star.cutoffs = c(.05, .01, .001), 
+          star.char = c("*", "**", "***"),
+          add.lines = list(c("Control for LOOIC",
+                            "", "Yes", "Yes"),
+                          c("Control for Grade Level",
+                            "", "", "Yes"),
+                          c("Control for Poverty Level",
+                            "", "", "Yes")))
+```
+
 We analyzed teacher-specific parameters to capture individual differences in learning and the relationship between model parameters, classroom characteristics, and student performance metrics.
 
 We found that the cost parameter showed significant negative association with income level ($b = -0.260$, $p < .001$) and positive association with poverty level ($b = 0.218$, $p < .001$). The learning rate ($\alpha$) also showed a negative association with income level ($b = -0.119$, $p = .0156$), whereas the initial Q-value difference showed a positive association ($b = 0.232$, $p < .001$). Inverse temperature ($\tau$) and the discount factor ($\gamma$) did not show significant associations with classroom or school characteristics (see Table\~\ref{tbl-heterogeneity-reg}).
@@ -2431,6 +3381,29 @@ We focus our analysis on the teachers who most likely take advantage of a wide r
 #| fig-cap: "Histogram of number of weeks of data per classroom. Most classrooms include a full year (52 weeks) of data. A smaller but significant subset of classrooms has less than 18 weeks of data. The dashed line acts as a threshold that excludes a notable segment of classrooms from further analysis. The lack of data between these two peaks suggests distinct patterns of usage. Some classrooms consistently use the platform throughout the academic year, while others show sporadic engagement, possibly reflecting trial periods or intermittent usage."
 
 fig_classroom_weeks
+
+# Calculate number of weeks per classroom
+classroom_weeks <- df %>%
+  group_by(Classroom.ID) %>%
+  summarize(Weeks = n())
+
+# Create the histogram
+ggplot(classroom_weeks, aes(x = Weeks)) +
+  geom_histogram(
+    color = "black",
+    fill = "steelblue",
+    binwidth = 2,
+    boundary = 0
+  ) +
+  scale_x_continuous(
+    breaks = c(1, seq(5, max(classroom_weeks$Weeks), by = 5))
+  ) +
+  labs(
+    x = "Total Number of Effective Weeks",
+    y = "Frequency (Classrooms)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
 
 ```
 

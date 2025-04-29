@@ -81,15 +81,17 @@
 \makesavenoteenv{longtable}
 \usepackage{graphicx}
 \makeatletter
-\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
-\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
-\makeatother
-% Scale images if necessary, so that they will not overflow the page
-% margins by default, and it is still possible to overwrite the defaults
-% using explicit options in \includegraphics[width, height, ...]{}
-\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
 % Set default figure placement to htbp
-\makeatletter
 \def\fps@figure{htbp}
 \makeatother
 
@@ -108,6 +110,7 @@
 \usepackage{makecell}
 \usepackage{xcolor}
 \usepackage{caption}
+\usepackage{anyfontsize}
 \usepackage{dcolumn}
 \usepackage{typearea}
 \usepackage{longtable}
@@ -153,9 +156,6 @@
 \@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
 \makeatother
 
-\ifLuaTeX
-  \usepackage{selnolig}  % disable illegal ligatures
-\fi
 \usepackage[]{natbib}
 \bibliographystyle{elsarticle-num}
 \usepackage{bookmark}
@@ -241,13 +241,13 @@ As the teacher learns from experience, the Q-value estimates gradually
 converge toward the true values for each action.
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1429}}@{}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}@{}}
 \caption{Example of a Q-learning algorithm for a teacher on the Zearn
 platform. Each week (\(t\)), the teacher decides between action 1 and
 action 2 based on the difference in Q-values (\(Q_t\)) for each action.
@@ -485,7 +485,7 @@ actions into binary variables, following a median split. In our case, a
 median split is equivalent to giving a value of 1 to any positive value.
 
 \begin{verbatim}
-743
+134
 \end{verbatim}
 
 \paragraph{Interpreting Components}\label{interpreting-components}
@@ -549,7 +549,7 @@ students invest in and the frequency of their interactions with Zearn.
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-nmf-heatmap-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-nmf-heatmap-1.pdf}}
 
 }
 
@@ -567,7 +567,7 @@ and lesson preparation.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-nmf-heatmap-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-nmf-heatmap-2.pdf}}
 
 }
 
@@ -714,6 +714,19 @@ Lau \& Glimcher & $5$ & 25.7 (5.9) & 33.1 (9.6) & $3.04 \times 10^{-57}$ \\
 
 \end{longtable}
 
+\begin{figure}[H]
+
+{\centering \pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/parameter-correlations-1.pdf}}
+
+}
+
+\caption{Correlation between individual parameter estimates from
+non-hierarchical (Matlab) and hierarchical (Stan) estimation approaches.
+Each point represents one teacher. Correlation values are Spearman's
+rho, with asterisks indicating p \textless{} 0.001.}
+
+\end{figure}%
+
 \subsubsection{Reward Seeking}\label{reward-seeking}
 
 \begin{verbatim}
@@ -729,7 +742,7 @@ Lau \& Glimcher & $5$ & 25.7 (5.9) & 33.1 (9.6) & $3.04 \times 10^{-57}$ \\
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-reward-seeking-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-reward-seeking-1.pdf}}
 
 }
 
@@ -750,7 +763,7 @@ confidence intervals.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-reward-seeking-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-reward-seeking-2.pdf}}
 
 }
 
@@ -764,6 +777,21 @@ with error bars depicting the standard error of these means. The dashed
 black line represents the smoothed trend of observed teacher behavior.
 Colored lines and shaded areas show model predictions with 95\%
 confidence intervals.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-reward-seeking-stan-1.pdf}}
+
+}
+
+\caption{\label{fig-reward-seeking-stan}Reward-seeking behavior based on
+hierarchical model estimates. The x-axis represents the percentile of
+the difference in Q-values between action and inaction. The y-axis shows
+the proportion of times teachers chose to act.}
 
 \end{figure}%
 
@@ -794,7 +822,7 @@ fixed choice probability (\(b = 0.005\), 95\% CI \([0.002,0.007]\)).
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-uncertainty-aversion-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-uncertainty-aversion-1.pdf}}
 
 }
 
@@ -818,7 +846,7 @@ represents indifference between certain and uncertain options.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-uncertainty-aversion-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-uncertainty-aversion-2.pdf}}
 
 }
 
@@ -835,6 +863,25 @@ means. The dashed black line represents the smoothed trend of observed
 teacher behavior. Colored lines and shaded areas show model predictions
 with 95\% confidence intervals. The horizontal dashed line at 50\%
 represents indifference between certain and uncertain options.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-uncertainty-aversion-stan-1.pdf}}
+
+}
+
+\caption{\label{fig-uncertainty-aversion-stan}Uncertainty aversion
+comparing hierarchical models. The graphs compare Q-learning and
+baseline hierarchical models in their ability to capture teachers'
+uncertainty-related behavior. The x-axis represents the percentile of
+the difference in expected value (EV) between uncertain and certain
+options. The y-axis shows the proportion of times teachers chose the
+uncertain option. The horizontal dashed line at 50\% represents
+indifference between certain and uncertain options.}
 
 \end{figure}%
 
@@ -867,7 +914,7 @@ ability to capture this signature.
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-prediction-errors-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-prediction-errors-1.pdf}}
 
 }
 
@@ -886,7 +933,7 @@ until March.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-prediction-errors-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-prediction-errors-2.pdf}}
 
 }
 
@@ -898,6 +945,23 @@ of the mean. A dashed horizontal line at y=0 serves as a reference for
 zero prediction error. The curve illustrates a general trend of
 increasing prediction accuracy (decreasing absolute prediction error)
 until March.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-prediction-errors-stan-1.pdf}}
+
+}
+
+\caption{\label{fig-prediction-errors-stan}Learning curves for
+hierarchical models. The plots show the mean reward prediction errors
+across teachers over time. The x-axis represents biweekly periods
+throughout the school year. The solid lines represent mean values and
+the shaded areas represent the standard error of the mean. A dashed
+horizontal line at y=0 serves as a reference for zero prediction error.}
 
 \end{figure}%
 
@@ -914,7 +978,7 @@ $`14`
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-q-value-reward-diff-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-q-value-reward-diff-1.pdf}}
 
 }
 
@@ -930,7 +994,7 @@ of the mean.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-q-value-reward-diff-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-q-value-reward-diff-2.pdf}}
 
 }
 
@@ -939,6 +1003,22 @@ over time. The x-axis represents biweekly periods throughout the school
 year. The y-axis shows the difference in Q-values or mean rewards
 between action and inaction. Shaded areas represent the standard error
 of the mean.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-q-value-reward-diff-stan-1.pdf}}
+
+}
+
+\caption{\label{fig-q-value-reward-diff-stan}Q-value and reward
+differences over time for hierarchical model. The x-axis represents
+biweekly periods throughout the school year. The y-axis shows the
+difference in Q-values or mean rewards between action and inaction.
+Shaded areas represent the standard error of the mean.}
 
 \end{figure}%
 
@@ -999,48 +1079,124 @@ for each parameter.}
 \\[-1.8ex] & \multicolumn{3}{c}{Badges} \\ 
 \\[-1.8ex] & \multicolumn{1}{c}{(1)} & \multicolumn{1}{c}{(2)} & \multicolumn{1}{c}{(3)}\\ 
 \hline \\[-1.8ex] 
- $\alpha$ & 0.050^{**} & 0.074^{***} & 0.061^{***} \\ 
+ $\alpha$ & 0.064^{***} & 0.083^{***} & 0.072^{***} \\ 
   & (0.015) & (0.015) & (0.015) \\ 
   & & & \\ 
- $\gamma$ & -0.088^{***} & -0.081^{***} & -0.083^{***} \\ 
-  & (0.018) & (0.017) & (0.017) \\ 
+ $\gamma$ & -0.072^{***} & -0.077^{***} & -0.082^{***} \\ 
+  & (0.018) & (0.017) & (0.018) \\ 
   & & & \\ 
- $\tau$ & 0.046^{**} & 0.054^{***} & 0.046^{**} \\ 
-  & (0.015) & (0.015) & (0.015) \\ 
+ $\tau$ & 0.035^{*} & 0.052 & 0.064^{*} \\ 
+  & (0.017) & (0.027) & (0.027) \\ 
   & & & \\ 
- Cost & 0.014 & 0.058^{**} & 0.047^{*} \\ 
-  & (0.016) & (0.021) & (0.021) \\ 
+ Cost & 0.004 & 0.021 & 0.027 \\ 
+  & (0.017) & (0.021) & (0.022) \\ 
   & & & \\ 
- Starting Q-value & -0.111^{***} & -0.059^{**} & -0.057^{**} \\ 
-  & (0.017) & (0.018) & (0.018) \\ 
+ Starting Q-value & -0.098^{***} & -0.073^{***} & -0.075^{***} \\ 
+  & (0.019) & (0.020) & (0.020) \\ 
   & & & \\ 
- No. of Weeks &  & 0.012^{***} & 0.010^{***} \\ 
-  &  & (0.003) & (0.003) \\ 
+ No. of Weeks &  & 0.024^{***} & 0.022^{***} \\ 
+  &  & (0.002) & (0.003) \\ 
   & & & \\ 
  No. of Students &  & 0.001 & 0.001 \\ 
   &  & (0.002) & (0.002) \\ 
   & & & \\ 
- No. of Classes &  & -0.124^{***} & -0.124^{***} \\ 
+ No. of Classes &  & -0.127^{***} & -0.126^{***} \\ 
   &  & (0.013) & (0.016) \\ 
   & & & \\ 
- Charter School &  &  & -0.096 \\ 
+ Charter School &  &  & -0.086 \\ 
   &  &  & (0.053) \\ 
   & & & \\ 
- Paid Zearn Account &  &  & 0.218^{***} \\ 
+ Paid Zearn Account &  &  & 0.228^{***} \\ 
   &  &  & (0.039) \\ 
   & & & \\ 
- Constant & 1.558^{***} & 1.190^{***} & 1.627^{***} \\ 
-  & (0.013) & (0.079) & (0.175) \\ 
+ Constant & 1.558^{***} & 0.966^{***} & 1.357^{***} \\ 
+  & (0.013) & (0.140) & (0.210) \\ 
   & & & \\ 
 \hline \\[-1.8ex] 
 Control for AIC &  & Yes & Yes \\ 
 Control for Grade Level &  &  & Yes \\ 
 Control for Poverty Level &  &  & Yes \\ 
 Observations & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,668} \\ 
-R$^{2}$ & \multicolumn{1}{c}{0.077} & \multicolumn{1}{c}{0.165} & \multicolumn{1}{c}{0.217} \\ 
-Adjusted R$^{2}$ & \multicolumn{1}{c}{0.075} & \multicolumn{1}{c}{0.160} & \multicolumn{1}{c}{0.208} \\ 
-Residual Std. Error & \multicolumn{1}{c}{0.541 (df = 1776)} & \multicolumn{1}{c}{0.515 (df = 1772)} & \multicolumn{1}{c}{0.507 (df = 1649)} \\ 
-F Statistic & \multicolumn{1}{c}{29.810$^{***}$ (df = 5; 1776)} & \multicolumn{1}{c}{38.833$^{***}$ (df = 9; 1772)} & \multicolumn{1}{c}{25.350$^{***}$ (df = 18; 1649)} \\ 
+R$^{2}$ & \multicolumn{1}{c}{0.067} & \multicolumn{1}{c}{0.154} & \multicolumn{1}{c}{0.210} \\ 
+Adjusted R$^{2}$ & \multicolumn{1}{c}{0.064} & \multicolumn{1}{c}{0.149} & \multicolumn{1}{c}{0.202} \\ 
+Residual Std. Error & \multicolumn{1}{c}{0.544 (df = 1776)} & \multicolumn{1}{c}{0.519 (df = 1772)} & \multicolumn{1}{c}{0.509 (df = 1649)} \\ 
+F Statistic & \multicolumn{1}{c}{25.514$^{***}$ (df = 5; 1776)} & \multicolumn{1}{c}{35.756$^{***}$ (df = 9; 1772)} & \multicolumn{1}{c}{24.404$^{***}$ (df = 18; 1649)} \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{3}{r}{$^{*}$p$<$0.05; $^{**}$p$<$0.01; $^{***}$p$<$0.001} \\ 
+\end{tabular} 
+
+}
+
+\end{table}%
+
+\begin{table}
+
+\caption{\label{tbl-optimality-stan}Impact of Q-learning Model
+Parameters on Average Weekly Badges Earned per Student. Three linear
+regression models examine the correlations between a teacher's
+reinforcement learning (RL) parameters and student engagement, measured
+by average weekly badges earned per student. Model 1 includes only RL
+parameters. Model 2 adds controls for LOOIC, number of weeks, total
+students, and number of classes. Model 3 further incorporates controls
+for grade level, poverty level, charter school status, and whether the
+school has a paid Zearn account.}
+
+\centering{
+
+[!htbp] \centering 
+  \caption{} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}}lD{.}{.}{-3} D{.}{.}{-3} D{.}{.}{-3} } 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{3}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-4} 
+\\[-1.8ex] & \multicolumn{3}{c}{Badges} \\ 
+\\[-1.8ex] & \multicolumn{1}{c}{(1)} & \multicolumn{1}{c}{(2)} & \multicolumn{1}{c}{(3)}\\ 
+\hline \\[-1.8ex] 
+ $\alpha$ & 0.062^{***} & 0.060^{***} & 0.063^{***} \\ 
+  & (0.015) & (0.015) & (0.015) \\ 
+  & & & \\ 
+ $\gamma$ & -0.032 & -0.045^{**} & -0.044^{*} \\ 
+  & (0.017) & (0.017) & (0.017) \\ 
+  & & & \\ 
+ $\tau$ & -0.039^{*} & -0.098^{***} & -0.090^{***} \\ 
+  & (0.016) & (0.025) & (0.026) \\ 
+  & & & \\ 
+ Cost & -0.018 & -0.024 & -0.007 \\ 
+  & (0.021) & (0.021) & (0.021) \\ 
+  & & & \\ 
+ Starting Q-value & -0.149^{***} & -0.106^{***} & -0.089^{***} \\ 
+  & (0.021) & (0.024) & (0.025) \\ 
+  & & & \\ 
+ No. of Weeks &  & 0.021^{***} & 0.018^{***} \\ 
+  &  & (0.002) & (0.002) \\ 
+  & & & \\ 
+ No. of Students &  & 0.002 & 0.001 \\ 
+  &  & (0.002) & (0.002) \\ 
+  & & & \\ 
+ No. of Classes &  & -0.125^{***} & -0.123^{***} \\ 
+  &  & (0.013) & (0.016) \\ 
+  & & & \\ 
+ Charter School &  &  & -0.098 \\ 
+  &  &  & (0.052) \\ 
+  & & & \\ 
+ Paid Zearn Account &  &  & 0.220^{***} \\ 
+  &  &  & (0.039) \\ 
+  & & & \\ 
+ Constant & 1.558^{***} & 1.446^{***} & 1.861^{***} \\ 
+  & (0.013) & (0.131) & (0.204) \\ 
+  & & & \\ 
+\hline \\[-1.8ex] 
+Control for LOOIC &  & Yes & Yes \\ 
+Control for Grade Level &  &  & Yes \\ 
+Control for Poverty Level &  &  & Yes \\ 
+Observations & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,668} \\ 
+R$^{2}$ & \multicolumn{1}{c}{0.086} & \multicolumn{1}{c}{0.171} & \multicolumn{1}{c}{0.226} \\ 
+Adjusted R$^{2}$ & \multicolumn{1}{c}{0.083} & \multicolumn{1}{c}{0.167} & \multicolumn{1}{c}{0.217} \\ 
+Residual Std. Error & \multicolumn{1}{c}{0.538 (df = 1776)} & \multicolumn{1}{c}{0.513 (df = 1772)} & \multicolumn{1}{c}{0.504 (df = 1649)} \\ 
+F Statistic & \multicolumn{1}{c}{33.449$^{***}$ (df = 5; 1776)} & \multicolumn{1}{c}{40.660$^{***}$ (df = 9; 1772)} & \multicolumn{1}{c}{26.685$^{***}$ (df = 18; 1649)} \\ 
 \hline 
 \hline \\[-1.8ex] 
 \textit{Note:}  & \multicolumn{3}{r}{$^{*}$p$<$0.05; $^{**}$p$<$0.01; $^{***}$p$<$0.001} \\ 
@@ -1082,9 +1238,9 @@ Table~\ref{tbl-optimality-2}).
 \section{Materials and Methods}\label{materials-and-methods}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.2500}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.4028}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3472}}@{}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4028}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3472}}@{}}
 \caption{Analytical steps employed in the
 study.}\label{tbl-methods}\tabularnewline
 \toprule\noalign{}
@@ -1137,24 +1293,29 @@ level of granularity still enabled us to capture the temporal dynamics
 of teacher-student interactions and their subsequent influence on
 student achievement.
 
-\begin{longtable}{l|rrrrr}
+\begin{table}
 
 \caption{\label{tbl-summary}Summary statistics by school. The table
 presents the mean, median, standard deviation (SD), minimum, and maximum
 values for the number of teachers, total students, and average weeks of
 active engagement (across all classrooms within a school).}
 
-\tabularnewline
+\centering{
 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l|rrrrr}
 \toprule
-\multicolumn{1}{l}{} & Mean & Median & SD & Min & Max \\ 
+ & Mean & Median & SD & Min & Max \\ 
 \midrule\addlinespace[2.5pt]
-Teachers & $12.09$ & $9$ & $11.86$ & $1$ & $72$ \\ 
-Students & $268.69$ & $207$ & $279.57$ & $1$ & $3,289$ \\ 
-Weeks & $24.10$ & $27$ & $12.54$ & $1$ & $51$ \\ 
+Teachers & 12.09 & 9 & 11.86 & 1 & 72 \\ 
+Students & 268.69 & 207 & 279.57 & 1 & 3,289 \\ 
+Weeks & 24.10 & 27 & 12.54 & 1 & 51 \\ 
 \bottomrule
+\end{tabular*}
 
-\end{longtable}
+}
+
+\end{table}%
 
 The dataset includes 31046 classrooms and 19689 educators, with an
 average of 17.6 students per classroom. Classrooms and teachers are also
@@ -1173,8 +1334,8 @@ settings. First, we selected virtual classrooms with at least five
 active students weekly, filtering out parents or tutors who may use
 Zearn outside the classroom setting. We also removed teachers with more
 than four classrooms and those who logged in for less than 16 weeks
-(Figure~\ref{fig-classroom-weeks} reveals that a non-negligible number
-of classrooms has less than 3 to 4 months of data). Finally, we excluded
+(\textbf{?@fig-classroom-weeks} reveals that a non-negligible number of
+classrooms has less than 3 to 4 months of data). Finally, we excluded
 classrooms in the 6th to 8th grades, as they represent only a small
 proportion of the data. Table~\ref{tbl-classroom-summary} summarizes the
 refined dataset, providing a snapshot of the key variables of interest.
@@ -1185,23 +1346,43 @@ level and overall (across all grades).
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-classroom-weeks-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-classroom-weeks-1.pdf}}
 
 }
 
-\caption{\label{fig-classroom-weeks}Histogram of number of weeks of data
-per classroom. Most classrooms include a full year (52 weeks) of data. A
-smaller but significant subset of classrooms has less than 18 weeks of
-data. The dashed line acts as a threshold that excludes a notable
-segment of classrooms from further analysis. The lack of data between
-these two peaks suggests distinct patterns of usage. Some classrooms
-consistently use the platform throughout the academic year, while others
-show sporadic engagement, possibly reflecting trial periods or
-intermittent usage.}
+\caption{\label{fig-classroom-weeks-1}Histogram of number of weeks of
+data per classroom. Most classrooms include a full year (52 weeks) of
+data. A smaller but significant subset of classrooms has less than 18
+weeks of data. The dashed line acts as a threshold that excludes a
+notable segment of classrooms from further analysis. The lack of data
+between these two peaks suggests distinct patterns of usage. Some
+classrooms consistently use the platform throughout the academic year,
+while others show sporadic engagement, possibly reflecting trial periods
+or intermittent usage.}
 
 \end{figure}%
 
-\begin{longtable}{l|rrrr}
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-classroom-weeks-2.pdf}}
+
+}
+
+\caption{\label{fig-classroom-weeks-2}Histogram of number of weeks of
+data per classroom. Most classrooms include a full year (52 weeks) of
+data. A smaller but significant subset of classrooms has less than 18
+weeks of data. The dashed line acts as a threshold that excludes a
+notable segment of classrooms from further analysis. The lack of data
+between these two peaks suggests distinct patterns of usage. Some
+classrooms consistently use the platform throughout the academic year,
+while others show sporadic engagement, possibly reflecting trial periods
+or intermittent usage.}
+
+\end{figure}%
+
+\begin{table}
 
 \caption{\label{tbl-classroom-summary}Classroom engagement metrics by
 grade level. The table presents the means and standard deviations (in
@@ -1211,21 +1392,33 @@ lesson completion), Tower Alerts per lesson completion (indicating
 student struggle), and minutes spent on the platform per teacher per
 week.}
 
-\tabularnewline
+\centering{
 
+\fontsize{12.0pt}{14.4pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l|rrrr}
 \toprule
-\multicolumn{1}{l}{} & Minutes & Badges & Tower Alerts & Teacher Minutes \\ 
+ & Minutes & Badges & Tower Alerts & Teacher Minutes \\ 
 \midrule\addlinespace[2.5pt]
-Overall, N = 135,784 & 81 (56) & 2.43 (1.91) & 0.47 (0.81) & 84 (149) \\ 
-Kindergarten, N = 7,486 & 41 (34) & 4.44 (3.59) & 0.05 (0.35) & 21 (46) \\ 
-1st, N = 21,126 & 80 (51) & 2.50 (1.64) & 0.40 (0.45) & 65 (107) \\ 
-2nd, N = 26,424 & 84 (55) & 2.46 (1.67) & 0.36 (0.59) & 70 (122) \\ 
-3rd, N = 26,316 & 84 (55) & 2.42 (1.71) & 0.44 (0.60) & 100 (175) \\ 
-4th, N = 27,048 & 84 (59) & 2.13 (1.74) & 0.56 (0.81) & 100 (169) \\ 
-5th, N = 27,384 & 84 (59) & 2.10 (1.66) & 0.71 (1.28) & 101 (165) \\ 
+Overall  
+N = 135,784 & 81 (56) & 2.43 (1.91) & 0.47 (0.81) & 84 (149) \\ 
+Kindergarten  
+N = 7,486 & 41 (34) & 4.44 (3.59) & 0.05 (0.35) & 21 (46) \\ 
+1st  
+N = 21,126 & 80 (51) & 2.50 (1.64) & 0.40 (0.45) & 65 (107) \\ 
+2nd  
+N = 26,424 & 84 (55) & 2.46 (1.67) & 0.36 (0.59) & 70 (122) \\ 
+3rd  
+N = 26,316 & 84 (55) & 2.42 (1.71) & 0.44 (0.60) & 100 (175) \\ 
+4th  
+N = 27,048 & 84 (59) & 2.13 (1.74) & 0.56 (0.81) & 100 (169) \\ 
+5th  
+N = 27,384 & 84 (59) & 2.10 (1.66) & 0.71 (1.28) & 101 (165) \\ 
 \bottomrule
+\end{tabular*}
 
-\end{longtable}
+}
+
+\end{table}%
 
 \subsection{Operationalizing Actions and
 Rewards}\label{operationalizing-actions-and-rewards}
@@ -1658,7 +1851,7 @@ and the minima in the BIC curves.
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-panel-bic-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-panel-bic-1.pdf}}
 
 }
 
@@ -1670,7 +1863,7 @@ and the minima in the BIC curves.
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-panel-bic-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-panel-bic-2.pdf}}
 
 }
 
@@ -1682,7 +1875,7 @@ and the minima in the BIC curves.
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-panel-bic-3.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-panel-bic-3.pdf}}
 
 }
 
@@ -1694,7 +1887,7 @@ and the minima in the BIC curves.
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-panel-bic-4.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-panel-bic-4.pdf}}
 
 }
 
@@ -1738,7 +1931,7 @@ of each variable.
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-corr-1.png}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-corr-1.png}}
 
 }
 
@@ -1752,8 +1945,8 @@ after stardardization}
 \subsubsection{Teacher Variables}\label{teacher-variables}
 
 \begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.2778}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.7222}}@{}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.2778}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.7222}}@{}}
 \caption{Catalog of Teacher Activities. This table presents teachers'
 actions, including curriculum engagement, downloads of pedagogical
 materials, and completion of various interactive components within the
@@ -1873,7 +2066,7 @@ standardized (z-scored) before analysis.}
 \begin{verbatim}
 
 % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-% Date and time: Wed, Oct 02, 2024 - 12:47:10
+% Date and time: Wed, Jan 08, 2025 - 11:02:49
 % Requires LaTeX packages: dcolumn 
 \begin{table}[!htbp] \centering 
   \caption{Relationship between RL Parameters and Classroom Characteristics} 
@@ -1888,28 +2081,28 @@ standardized (z-scored) before analysis.}
  & \multicolumn{1}{c}{\textit{logistic}} & \multicolumn{1}{c}{\textit{logistic}} & \multicolumn{1}{c}{\textit{}} & \multicolumn{1}{c}{\textit{}} & \multicolumn{1}{c}{\textit{}} \\ 
 \\[-1.8ex] & \multicolumn{1}{c}{(1)} & \multicolumn{1}{c}{(2)} & \multicolumn{1}{c}{(3)} & \multicolumn{1}{c}{(4)} & \multicolumn{1}{c}{(5)}\\ 
 \hline \\[-1.8ex] 
- Learning Rate ($\alpha$) & -0.119^{*} & 0.032 & 0.006 & 0.021 & 0.208^{*} \\ 
-  & (0.049) & (0.056) & (0.006) & (0.019) & (0.084) \\ 
+ Learning Rate ($\alpha$) & -0.113^{*} & 0.007 & 0.004 & 0.019 & 0.198^{*} \\ 
+  & (0.049) & (0.055) & (0.006) & (0.019) & (0.084) \\ 
   & & & & & \\ 
- Discount Factor ($\gamma$) & 0.021 & 0.112 & -0.006 & -0.038 & 0.003 \\ 
-  & (0.057) & (0.064) & (0.007) & (0.022) & (0.104) \\ 
+ Discount Factor ($\gamma$) & -0.045 & 0.077 & -0.007 & -0.036 & 0.077 \\ 
+  & (0.052) & (0.058) & (0.006) & (0.020) & (0.093) \\ 
   & & & & & \\ 
- Inverse Temperature ($\tau$) & -0.018 & -0.066 & 0.007 & -0.023 & 0.093 \\ 
-  & (0.050) & (0.053) & (0.006) & (0.021) & (0.080) \\ 
+ Inverse Temperature ($\tau$) & 0.028 & -0.040 & 0.008 & -0.023 & 0.044 \\ 
+  & (0.046) & (0.049) & (0.005) & (0.019) & (0.070) \\ 
   & & & & & \\ 
- Initial Q-value & 0.232^{***} & 0.086 & 0.001 & -0.007 & -0.239^{*} \\ 
-  & (0.056) & (0.063) & (0.007) & (0.021) & (0.099) \\ 
+ Initial Q-value & 0.219^{***} & 0.025 & -0.002 & -0.009 & -0.237^{*} \\ 
+  & (0.050) & (0.056) & (0.006) & (0.019) & (0.093) \\ 
   & & & & & \\ 
- Cost & -0.260^{***} & 0.218^{***} & -0.014^{*} & -0.059^{**} & 0.609^{***} \\ 
-  & (0.052) & (0.061) & (0.006) & (0.020) & (0.122) \\ 
+ Cost & -0.325^{***} & 0.191^{***} & -0.014^{*} & -0.057^{**} & 0.689^{***} \\ 
+  & (0.049) & (0.057) & (0.006) & (0.019) & (0.119) \\ 
   & & & & & \\ 
- Constant &  &  & 3.027^{***} & 0.756^{***} & 2.139^{***} \\ 
+ Constant &  &  & 3.027^{***} & 0.756^{***} & 2.145^{***} \\ 
   &  &  & (0.005) & (0.016) & (0.086) \\ 
   & & & & & \\ 
 \hline \\[-1.8ex] 
 Observations & \multicolumn{1}{c}{1,737} & \multicolumn{1}{c}{1,668} & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,782} \\ 
-Log Likelihood &  &  & \multicolumn{1}{c}{-5,728.112} & \multicolumn{1}{c}{-2,671.142} & \multicolumn{1}{c}{-628.732} \\ 
-Akaike Inf. Crit. &  &  & \multicolumn{1}{c}{11,468.220} & \multicolumn{1}{c}{5,354.284} & \multicolumn{1}{c}{1,269.464} \\ 
+Log Likelihood &  &  & \multicolumn{1}{c}{-5,728.098} & \multicolumn{1}{c}{-2,671.068} & \multicolumn{1}{c}{-628.413} \\ 
+Akaike Inf. Crit. &  &  & \multicolumn{1}{c}{11,468.200} & \multicolumn{1}{c}{5,354.136} & \multicolumn{1}{c}{1,268.826} \\ 
 \hline 
 \hline \\[-1.8ex] 
 \textit{Note:}  & \multicolumn{5}{r}{$^{*}$p$<$0.05; $^{**}$p$<$0.01; $^{***}$p$<$0.001} \\ 
@@ -1947,48 +2140,48 @@ for each parameter.}
 \\[-1.8ex] & \multicolumn{3}{c}{Tower Alerts} \\ 
 \\[-1.8ex] & \multicolumn{1}{c}{(1)} & \multicolumn{1}{c}{(2)} & \multicolumn{1}{c}{(3)}\\ 
 \hline \\[-1.8ex] 
- $\alpha$ & 0.061^{***} & 0.059^{***} & 0.050^{***} \\ 
+ $\alpha$ & 0.059^{***} & 0.060^{***} & 0.054^{***} \\ 
   & (0.015) & (0.015) & (0.015) \\ 
   & & & \\ 
- $\gamma$ & 0.006 & 0.015 & 0.023 \\ 
-  & (0.017) & (0.017) & (0.017) \\ 
+ $\gamma$ & 0.013 & 0.035^{*} & 0.042^{*} \\ 
+  & (0.017) & (0.018) & (0.017) \\ 
   & & & \\ 
- $\tau$ & -0.019 & -0.023 & -0.023 \\ 
-  & (0.015) & (0.016) & (0.015) \\ 
+ $\tau$ & -0.031 & -0.098^{***} & -0.113^{***} \\ 
+  & (0.017) & (0.028) & (0.027) \\ 
   & & & \\ 
- Cost & 0.031^{*} & 0.031 & 0.042^{*} \\ 
-  & (0.016) & (0.021) & (0.021) \\ 
+ Cost & 0.028 & -0.007 & -0.016 \\ 
+  & (0.017) & (0.022) & (0.021) \\ 
   & & & \\ 
- Starting Q-value & -0.019 & -0.013 & -0.002 \\ 
-  & (0.017) & (0.019) & (0.018) \\ 
+ Starting Q-value & -0.006 & 0.030 & 0.049^{*} \\ 
+  & (0.019) & (0.020) & (0.020) \\ 
   & & & \\ 
- No. of Weeks &  & 0.008^{**} & 0.007^{**} \\ 
+ No. of Weeks &  & 0.005^{*} & 0.005 \\ 
   &  & (0.003) & (0.003) \\ 
   & & & \\ 
  No. of Students &  & -0.006^{**} & -0.008^{***} \\ 
   &  & (0.002) & (0.002) \\ 
   & & & \\ 
- No. of Classes &  & 0.066^{***} & -0.007 \\ 
+ No. of Classes &  & 0.064^{***} & -0.012 \\ 
   &  & (0.013) & (0.016) \\ 
   & & & \\ 
- Charter School &  &  & -0.026 \\ 
+ Charter School &  &  & -0.021 \\ 
   &  &  & (0.052) \\ 
   & & & \\ 
- Paid Zearn Account &  &  & 0.130^{***} \\ 
+ Paid Zearn Account &  &  & 0.134^{***} \\ 
   &  &  & (0.038) \\ 
   & & & \\ 
- Constant & 0.934^{***} & 0.730^{***} & -0.157 \\ 
-  & (0.013) & (0.080) & (0.172) \\ 
+ Constant & 0.934^{***} & 1.036^{***} & 0.211 \\ 
+  & (0.013) & (0.142) & (0.205) \\ 
   & & & \\ 
 \hline \\[-1.8ex] 
 Control for AIC &  & Yes & Yes \\ 
 Control for Grade Level &  &  & Yes \\ 
 Control for Poverty Level &  &  & Yes \\ 
 Observations & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,668} \\ 
-R$^{2}$ & \multicolumn{1}{c}{0.026} & \multicolumn{1}{c}{0.051} & \multicolumn{1}{c}{0.162} \\ 
-Adjusted R$^{2}$ & \multicolumn{1}{c}{0.023} & \multicolumn{1}{c}{0.046} & \multicolumn{1}{c}{0.153} \\ 
-Residual Std. Error & \multicolumn{1}{c}{0.534 (df = 1776)} & \multicolumn{1}{c}{0.527 (df = 1772)} & \multicolumn{1}{c}{0.498 (df = 1649)} \\ 
-F Statistic & \multicolumn{1}{c}{9.479$^{***}$ (df = 5; 1776)} & \multicolumn{1}{c}{10.646$^{***}$ (df = 9; 1772)} & \multicolumn{1}{c}{17.683$^{***}$ (df = 18; 1649)} \\ 
+R$^{2}$ & \multicolumn{1}{c}{0.023} & \multicolumn{1}{c}{0.054} & \multicolumn{1}{c}{0.166} \\ 
+Adjusted R$^{2}$ & \multicolumn{1}{c}{0.020} & \multicolumn{1}{c}{0.049} & \multicolumn{1}{c}{0.157} \\ 
+Residual Std. Error & \multicolumn{1}{c}{0.535 (df = 1776)} & \multicolumn{1}{c}{0.527 (df = 1772)} & \multicolumn{1}{c}{0.497 (df = 1649)} \\ 
+F Statistic & \multicolumn{1}{c}{8.198$^{***}$ (df = 5; 1776)} & \multicolumn{1}{c}{11.224$^{***}$ (df = 9; 1772)} & \multicolumn{1}{c}{18.223$^{***}$ (df = 18; 1649)} \\ 
 \hline 
 \hline \\[-1.8ex] 
 \textit{Note:}  & \multicolumn{3}{r}{$^{*}$p$<$0.05; $^{**}$p$<$0.01; $^{***}$p$<$0.001} \\ 
@@ -2004,7 +2197,7 @@ F Statistic & \multicolumn{1}{c}{9.479$^{***}$ (df = 5; 1776)} & \multicolumn{1}
 
 \centering{
 
-\includegraphics{images/student-feed.PNG}
+\pandocbounded{\includegraphics[keepaspectratio]{images/student-feed.PNG}}
 
 }
 
@@ -2016,7 +2209,7 @@ F Statistic & \multicolumn{1}{c}{9.479$^{***}$ (df = 5; 1776)} & \multicolumn{1}
 
 \centering{
 
-\includegraphics{images/PD-calendar.jpg}
+\pandocbounded{\includegraphics[keepaspectratio]{images/PD-calendar.jpg}}
 
 }
 
@@ -2032,7 +2225,7 @@ F Statistic & \multicolumn{1}{c}{9.479$^{***}$ (df = 5; 1776)} & \multicolumn{1}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-income-dist-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-income-dist-1.pdf}}
 
 }
 
@@ -2044,7 +2237,7 @@ F Statistic & \multicolumn{1}{c}{9.479$^{***}$ (df = 5; 1776)} & \multicolumn{1}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-income-dist-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-income-dist-2.pdf}}
 
 }
 
@@ -2065,7 +2258,7 @@ incomes for a school's associated region.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-teachers-map-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-teachers-map-1.pdf}}
 
 }
 
@@ -2081,7 +2274,7 @@ five cities where Zearn adoption is most prevalent.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-logins-week-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-logins-week-1.pdf}}
 
 }
 
@@ -2101,7 +2294,7 @@ major holiday periods (e.g., Thanksgiving and Winter Break).}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-nmf-pca-comparison-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-nmf-pca-comparison-1.pdf}}
 
 }
 
@@ -2113,7 +2306,7 @@ major holiday periods (e.g., Thanksgiving and Winter Break).}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-nmf-pca-comparison-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-nmf-pca-comparison-2.pdf}}
 
 }
 
@@ -2146,7 +2339,7 @@ generally suggest that a sample has been assigned to the wrong cluster.}
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-aic-ecdf-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-aic-ecdf-1.pdf}}
 
 }
 
@@ -2171,7 +2364,7 @@ $`14`
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-action-percentages-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-action-percentages-1.pdf}}
 
 }
 
@@ -2189,7 +2382,7 @@ represent predictions from different models. Shaded areas represent the
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-action-percentages-2.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-action-percentages-2.pdf}}
 
 }
 
@@ -2209,7 +2402,7 @@ represent predictions from different models. Shaded areas represent the
 
 \centering{
 
-\includegraphics{zearn_files/figure-pdf/fig-corr-rl-params-1.pdf}
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-corr-rl-params-1.pdf}}
 
 }
 

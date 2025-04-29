@@ -13,25 +13,21 @@ data  = fdata.data;
 
 %% Models
 
-fname_template = {
-    'aggr_results/lap_aggr_baseline_model_2.mat', ... % Baseline
-    % 'aggr_results/lap_aggr_logit_model_2.mat', ... % Logit
-    'aggr_results/lap_aggr_q_model_2.mat'}; % Q-learning
 models = {
     @posterior_baseline_model_2, ...
-    % @posterior_logit_model_2, ...
+    ... @posterior_logit_model_2, ...
     @posterior_q_model_2};
 num_parameters = [
-    % 1, 5, 5
+    ... 1, 5, 5
     1, 5
     ];
 
 %% Re-estimate all relevant models
 
 fname_template = {
-    'comp_results/lap_baseline.mat', ... % Baseline
-    % 'comp_results/lap_logit.mat', ...  % Logit
-    'comp_results/lap_ql.mat'}; % Q-learning
+    'comp_results/lap_baseline.mat', ...  Baseline
+    ... 'comp_results/lap_logit.mat', ...   Logit
+    'comp_results/lap_ql.mat'}; ... Q-learning
 
 % Define the prior variance
 v = 6.25;
@@ -98,9 +94,9 @@ pconfig.tolx = 0.0100 / mult;
 % cbm_ql.output.parameters = cbm_ql.output.parameters(success);
 % 
 % fname_template = {
-%     'test/lap_baseline.mat', ... % Baseline
-%     % 'comp_results/lap_logit.mat', ...  % Logit
-%     'test/lap_ql.mat'}; % Q-learning
+%     'test/lap_baseline.mat', ... Baseline
+%     ... 'comp_results/lap_logit.mat', ...   Logit
+%     'test/lap_ql.mat'}; ... Q-learning
 % cbm = cbm_bl;
 % save(fname_template{1},"cbm");
 % cbm = cbm_ql;
@@ -119,11 +115,12 @@ end
 %% Posteriors
 
 prob = cell(length(data),numel(idx));
-auc = nan(length(data),numel(idx));
-auc_conf = nan(length(data),numel(idx));
-roc = cell(length(data),numel(idx));
+% auc = nan(length(data),numel(idx));
+% auc_conf = nan(length(data),numel(idx));
+% roc = cell(length(data),numel(idx));
 loglik = nan(length(data),numel(idx));
-bic = nan(length(data),numel(idx));
+% bic = nan(length(data),numel(idx));
+aic = nan(length(data),numel(idx));
 for hbi_idx = 1:size(idx,1)
     hbi_model = load(fname_hbi{hbi_idx});
     success_filter = all(success(:,idx(hbi_idx,:)),2);
@@ -132,27 +129,29 @@ for hbi_idx = 1:size(idx,1)
             sprintf('wrapper_post_%d', idx(hbi_idx,model_idx)));
 
         for j = 1:length(data)
-            if ~success_filter(j), continue, end
+            % if ~success_filter(j), continue, end
             [loglik(j,((hbi_idx-1)*size(idx,2)+model_idx)), ...
                 prob{j,((hbi_idx-1)*size(idx,2)+model_idx)}, ...
                 choice] = wrapper( ...
-                hbi_model.cbm.output.parameters{model_idx}( ...
-                j - sum(~success_filter(1:j)),:), ...
+                hbi_model.cbm.output.parameters(j,:), ...
                 data{j});
-            bic(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
+            aic(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
                 -2*loglik(j,((hbi_idx-1)*size(idx,2)+model_idx)) + ...
-                length(hbi_model.cbm.output.parameters{model_idx}( ...
-                j - sum(~success_filter(1:j)),:)) * ...
-                log(length(choice));
-            roc{j,((hbi_idx-1)*size(idx,2)+model_idx)} = ...
-                rocmetrics(choice, ...
-                prob{j,((hbi_idx-1)*size(idx,2)+model_idx)}, [0,1], ...
-                NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
-            auc(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
-                roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(1,1);
-            auc_conf(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
-                roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(3,1) - ...
-                roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(2,1);
+                4 * length(hbi_model.cbm.output.parameters(j,:));
+            % bic(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
+            %     -2*loglik(j,((hbi_idx-1)*size(idx,2)+model_idx)) + ...
+            %     length(hbi_model.cbm.output.parameters{model_idx}( ...
+            %     j - sum(~success_filter(1:j)),:)) * ...
+            %     log(length(choice));
+            % roc{j,((hbi_idx-1)*size(idx,2)+model_idx)} = ...
+            %     rocmetrics(choice, ...
+            %     prob{j,((hbi_idx-1)*size(idx,2)+model_idx)}, [0,1], ...
+            %     NumBootstraps=500,BootstrapOptions=statset(UseParallel=true));
+            % auc(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
+            %     roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(1,1);
+            % auc_conf(j,((hbi_idx-1)*size(idx,2)+model_idx)) = ...
+            %     roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(3,1) - ...
+            %     roc{j,((hbi_idx-1)*size(idx,2)+model_idx)}.AUC(2,1);
         end
     end
 end
