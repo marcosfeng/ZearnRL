@@ -199,6 +199,23 @@ extract_parameter_summaries <-
       }
     }
 
+    inverse_transform <- function(param_name, values) {
+      if(param_name %in% c("alpha", "gamma")) {
+        # Apply bounds to prevent Inf/-Inf
+        values_bounded <- pmin(pmax(values, 0.0001), 0.9999)
+        # Inverse of logistic: logit function
+        return(log(values_bounded/(1-values_bounded)))
+      } else if(param_name %in% c("tau", "cost")) {
+        # Apply minimum bound to prevent -Inf
+        values_bounded <- pmax(values, 0.0001)
+        # Inverse of exponential: log function
+        return(log(values_bounded))
+      } else {
+        # No transform for ev_init
+        return(values)
+      }
+    }
+
     # Function to get parameter summary
     get_param_summary <- function(param_name) {
       # Get all columns matching the parameter name
@@ -218,27 +235,43 @@ extract_parameter_summaries <-
       # Calculate summaries for individual parameters
       if(length(param_cols) > 0) {
         param_draws <- draws[, param_cols, drop = FALSE]
-        param_mean <- mean(param_draws)
-        param_se <- sd(param_draws)/sqrt(length(param_draws))
+
+        # Calculate mean for each subject, then average
+        n_subjects <- ncol(param_draws)
+        subject_untransformed_means <- numeric(n_subjects)
+        for(j in 1:n_subjects) {
+          raw_values <- inverse_transform(param_name, param_draws[, j])
+          subject_untransformed_means[j] <- mean(raw_values)
+        }
+
+        # Calculate overall statistics across subjects (still in raw space)
+        param_mean_raw <- mean(subject_untransformed_means)
+        param_median_raw <- median(subject_untransformed_means)
+        param_se_raw <- sd(subject_untransformed_means)/sqrt(n_subjects)
+
         pooled_stats <- list(
-          Mean = param_mean,
-          Median = median(param_draws),
-          CI_lower = param_mean - 1.96 * param_se,  # For 95% CI
-          CI_upper = param_mean + 1.96 * param_se
+          # Transform back for reporting
+          Mean = transform_param(param_name, param_mean_raw),
+          Median = transform_param(param_name, param_median_raw),
+          # For 95% CI
+          CI_lower = transform_param(param_name, param_mean_raw - 1.96 * param_se_raw),
+          CI_upper = transform_param(param_name, param_mean_raw + 1.96 * param_se_raw)
         )
       } else {
         pooled_stats <- NULL
       }
 
-      # Calculate summaries for hyperparameters
+      # Calculate summaries for hyperparameters (already in raw scale)
       if(length(hyper_mu_cols) > 0) {
         hyper_draws <- draws[, hyper_mu_cols, drop = FALSE]
-        # Transform the raw hyperparameter values
-        transformed_draws <- transform_param(param_name, hyper_draws)
+        hyper_mean_raw <- mean(hyper_draws[, 1])
+        transformed_mean <- transform_param(param_name, hyper_mean_raw)
+        # For CI, transform each sample then compute quantiles
+        transformed_samples <- transform_param(param_name, hyper_draws[, 1])
         hyper_stats <- list(
-          Mean = mean(transformed_draws),
-          CI_lower = quantile(transformed_draws, 0.025),
-          CI_upper = quantile(transformed_draws, 0.975)
+          Mean = transformed_mean,
+          CI_lower = quantile(transformed_samples, 0.025),
+          CI_upper = quantile(transformed_samples, 0.975)
         )
       } else {
         hyper_stats <- NULL
