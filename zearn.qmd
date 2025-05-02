@@ -1202,7 +1202,7 @@ remove_inactive_periods <- function(data) {
   data %>%
     mutate(month = floor_date(as.Date(date), "month")) %>%
     semi_join(active_months, by = c("Classroom.ID", "month")) %>%
-    select(-month)
+    dplyr::select(-month)
 }
 df_cleaned <- df %>%
   mutate(date=(as.Date(date,format = "%Y-%m-%d") - 7)) %>%
@@ -1324,7 +1324,7 @@ load_all_predictions <- function() {
 
 # Load all predictions
 all_predictions <- load_all_predictions() %>%
-  discard(is.null)
+  purrr::discard(is.null)
 
 ```
 
@@ -4050,14 +4050,14 @@ plot_action_percentages <- function(sim_data, wrapper, y_lim = c(0.13, 0.5)) {
   # Calculate action percentages
   plot_data <- sim_data %>%
     inner_join(parameters, by = "Classroom.ID") %>%
-    group_by(Classroom.ID) %>%
-    arrange(Classroom.ID, week) %>%
-    mutate(
-      biweek = ceiling(adjusted_week / 2),
-      actual_action = action,
-      q_action = pred_1_ql,  # Q-learning prediction
-      lau_glimcher_action = pred_1_lg,  # Lau & Glimcher prediction
-      baseline_action = pred_1  # Baseline model prediction
+    mutate(biweek = ceiling(adjusted_week / 2)) %>%
+    group_by(Classroom.ID, biweek) %>%
+    summarize(
+      actual_action = mean(action, na.rm = TRUE),
+      q_action = mean(pred_1_ql, na.rm = TRUE),  # Q-learning prediction
+      lau_glimcher_action = mean(pred_1_lg, na.rm = TRUE),  # Lau & Glimcher prediction
+      baseline_action = mean(pred_1, na.rm = TRUE),  # Baseline model prediction
+      date = first(date)
     ) %>%
     ungroup() %>%
     group_by(biweek) %>%
@@ -4198,7 +4198,7 @@ for (wrapper in c(2, 14)) {
     ) %>%
     full_join(all_predictions[[
       paste0("lap_aggr_baseline_model_", wrapper, ".mat")
-    ]] %>% select(-reward), by = c("Classroom.ID", "week", "action"))
+    ]] %>% dplyr::select(-reward), by = c("Classroom.ID", "week", "action"))
   full_data <- full_data %>%
     group_by(Classroom.ID) %>%
     filter(week == 10) %>%
@@ -4218,6 +4218,71 @@ action_percentage_plots
 
 ```
 
+```{r}
+#| label: fig-action-percentages-balanced
+#| fig-cap: "Observed teacher behavior and model predictions over the academic year. The graph shows the percentage of times teachers chose to engage in Pedagogical Content activities. The x-axis represents biweekly periods throughout the school year. The black dashed line represents observed teacher behavior, while colored lines represent predictions from different models. Shaded areas represent the 95% confidence intervals for each model's predictions."
+
+# Create a list to store all plots
+action_percentage_balanced_plots <- list()
+
+# Generate all plots
+for (wrapper in c(2, 14)) {
+  full_data <- all_predictions[[
+    paste0("lap_aggr_q_model_", wrapper, ".mat")
+  ]] %>%
+    full_join(all_predictions[[
+      paste0("lap_aggr_logit_model_", wrapper, ".mat")
+    ]], by = c("Classroom.ID", "week", "action", "reward"),
+    suffix = c("_ql", "_lg")
+    ) %>%
+    full_join(all_predictions[[
+      paste0("lap_aggr_baseline_model_", wrapper, ".mat")
+    ]] %>% dplyr::select(-reward), by = c("Classroom.ID", "week", "action"))
+  
+  # Create biweekly periods and standardize dates
+  analysis_biweeks <- 1:16
+  balanced_data <- full_data %>%
+    mutate(
+      adjusted_week = week - 8,
+      biweek = ceiling(adjusted_week / 2),
+      date = as_date("2019-08-26") + weeks(adjusted_week - 1)
+    ) %>%
+    filter(adjusted_week >= 1)
+  
+  # Find teachers with at least one observation in each biweekly period
+  teacher_completeness <- balanced_data %>%
+    filter(biweek %in% analysis_biweeks) %>%
+    group_by(Classroom.ID, biweek) %>%
+    summarize(has_data = n() > 0, .groups = "drop") %>%
+    group_by(Classroom.ID) %>%
+    summarize(
+      unique_biweeks = sum(has_data),
+      expected_biweeks = length(analysis_biweeks),
+      is_complete = unique_biweeks == expected_biweeks
+    )
+  
+  # Get list of teachers with complete data
+  complete_teachers <- teacher_completeness %>% 
+    filter(is_complete == TRUE) %>%
+    pull(Classroom.ID)
+  
+  # Create balanced panel
+  balanced_panel <- balanced_data %>%
+    filter(
+      Classroom.ID %in% complete_teachers,
+      biweek %in% analysis_biweeks
+    )
+
+  plot <- plot_action_percentages(
+    balanced_panel, wrapper
+    )
+  action_percentage_balanced_plots[[paste(wrapper, sep = "_")]] <- plot
+}
+
+action_percentage_balanced_plots
+
+```
+
 {{< pagebreak >}}
 
 ```{r}
@@ -4230,7 +4295,7 @@ model_path <- "CBM/zearn_results/aggr_results/lap_aggr_q_model_2.mat"
 df_corr_rl <- load_parameters(model_path)
 df_corr_rl <- df_corr_rl %>%
   inner_join(AIC_data, by = "Classroom.ID") %>%
-  select(alpha, gamma, tau, cost, ev_init, AIC) %>%
+  dplyr::select(alpha, gamma, tau, cost, ev_init, AIC) %>%
   # Remove tau and cost outliers
   filter(tau < quantile(df_corr_rl$tau, probs = .75),
          cost < quantile(df_corr_rl$cost, probs = .95)) %>%
