@@ -1788,7 +1788,7 @@ all_reward_seeking_plots <- map(c(2, 14), function(wrapper) {
     ) %>%
     full_join(all_predictions[[
       paste0("lap_aggr_baseline_model_", wrapper, ".mat")
-    ]] %>% select(-reward), by = c("Classroom.ID", "week", "action"))
+    ]] %>% dplyr::select(-reward), by = c("Classroom.ID", "week", "action"))
   plot_reward_seeking(full_data, wrapper)
 })
 
@@ -3215,16 +3215,15 @@ stargazer(model1, model2, model3,
           align = TRUE,
           covariate.labels = c("$\\alpha$", "$\\gamma$",
                                "$\\tau$", "Cost", "Starting Q-value",
+                               "Goodness of fit (AIC)",
                                "No. of Weeks", "No. of Students",
                                "No. of Classes",
                                "Charter School", "Paid Zearn Account"),
-          omit = c("AIC", "grade", "Poverty"),
+          omit = c("grade", "Poverty"),
           dep.var.labels = "Badges",
           star.cutoffs = c(.05, .01, .001), 
           star.char = c("*", "**", "***"),
-          add.lines = list(c("Control for AIC",
-                             "", "Yes", "Yes", "", "Yes", "Yes"),
-                           c("Control for Grade Level",
+          add.lines = list(c("Control for Grade Level",
                              "", "", "Yes", "", "", "Yes"),
                            c("Control for Poverty Level",
                              "", "", "Yes", "", "", "Yes")))
@@ -3324,16 +3323,15 @@ stargazer(model1, model2, model3,
           align = TRUE,
           covariate.labels = c("$\\alpha$", "$\\gamma$",
                               "$\\tau$", "Cost", "Starting Q-value",
+                              "Goodness of fit (LOOIC)",
                               "No. of Weeks", "No. of Students",
                               "No. of Classes",
                               "Charter School", "Paid Zearn Account"),
-          omit = c("LOOIC", "grade", "Poverty"),
+          omit = c("grade", "Poverty"),
           dep.var.labels = "Badges",
           star.cutoffs = c(.05, .01, .001), 
           star.char = c("*", "**", "***"),
-          add.lines = list(c("Control for LOOIC",
-                            "", "Yes", "Yes"),
-                          c("Control for Grade Level",
+          add.lines = list(c("Control for Grade Level",
                             "", "", "Yes"),
                           c("Control for Poverty Level",
                             "", "", "Yes")))
