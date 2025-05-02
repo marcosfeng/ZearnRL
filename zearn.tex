@@ -1,4 +1,5 @@
 % Options for packages loaded elsewhere
+% Options for packages loaded elsewhere
 \PassOptionsToPackage{unicode}{hyperref}
 \PassOptionsToPackage{hyphens}{url}
 \PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
@@ -8,21 +9,22 @@
   preprint,
   3p,
   onecolumn]{elsarticle}
-
+\usepackage{xcolor}
 \usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{5}
 \usepackage{iftex}
 \ifPDFTeX
   \usepackage[T1]{fontenc}
   \usepackage[utf8]{inputenc}
   \usepackage{textcomp} % provide euro and other symbols
 \else % if luatex or xetex
-  \usepackage{unicode-math}
+  \usepackage{unicode-math} % this also loads fontspec
   \defaultfontfeatures{Scale=MatchLowercase}
   \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
 \fi
 \usepackage{lmodern}
-\ifPDFTeX\else  
-    % xetex/luatex font selection
+\ifPDFTeX\else
+  % xetex/luatex font selection
 \fi
 % Use upquote if available, for straight quotes in verbatim environments
 \IfFileExists{upquote.sty}{\usepackage{upquote}}{}
@@ -40,9 +42,6 @@
 }{% if KOMA class
   \KOMAoptions{parskip=half}}
 \makeatother
-\usepackage{xcolor}
-\setlength{\emergencystretch}{3em} % prevent overfull lines
-\setcounter{secnumdepth}{5}
 % Make \paragraph and \subparagraph free-standing
 \makeatletter
 \ifx\paragraph\undefined\else
@@ -68,8 +67,7 @@
 \makeatother
 
 
-\providecommand{\tightlist}{%
-  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}\usepackage{longtable,booktabs,array}
+\usepackage{longtable,booktabs,array}
 \usepackage{calc} % for calculating minipage widths
 % Correct order of tables after \paragraph or \subparagraph
 \usepackage{etoolbox}
@@ -94,6 +92,22 @@
 % Set default figure placement to htbp
 \def\fps@figure{htbp}
 \makeatother
+
+
+
+
+
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+
+ 
+\usepackage[]{natbib}
+\bibliographystyle{elsarticle-num}
+
 
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -155,13 +169,9 @@
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
 \makeatother
-
-\usepackage[]{natbib}
-\bibliographystyle{elsarticle-num}
 \usepackage{bookmark}
-
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
-\urlstyle{same} % disable monospaced font for URLs
+\urlstyle{same}
 \hypersetup{
   pdftitle={Unveiling Adaptive Pedagogy: Reinforcement Learning Models Illuminate Teacher Decision-Making in an Online Math-Teaching Platform},
   pdfauthor={Marcos Gallo},
@@ -485,7 +495,7 @@ actions into binary variables, following a median split. In our case, a
 median split is equivalent to giving a value of 1 to any positive value.
 
 \begin{verbatim}
-134
+809
 \end{verbatim}
 
 \paragraph{Interpreting Components}\label{interpreting-components}
@@ -714,16 +724,19 @@ Lau \& Glimcher & $5$ & 25.7 (5.9) & 33.1 (9.6) & $3.04 \times 10^{-57}$ \\
 
 \end{longtable}
 
-\begin{figure}[H]
+\begin{figure}
 
-{\centering \pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/parameter-correlations-1.pdf}}
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-parameter-correlations-1.pdf}}
 
 }
 
-\caption{Correlation between individual parameter estimates from
-non-hierarchical (Matlab) and hierarchical (Stan) estimation approaches.
-Each point represents one teacher. Correlation values are Spearman's
-rho, with asterisks indicating p \textless{} 0.001.}
+\caption{\label{fig-parameter-correlations}Correlation between
+individual parameter estimates from non-hierarchical (Matlab) and
+hierarchical (Stan) estimation approaches. Each point represents one
+teacher. Correlation values are Spearman's rho, with asterisks
+indicating p \textless{} 0.001.}
 
 \end{figure}%
 
@@ -1068,7 +1081,7 @@ for each parameter.}
 
 \centering{
 
-[!htbp] \centering 
+ \centering 
   \caption{} 
   \label{} 
 \begin{tabular}{@{\extracolsep{5pt}}lD{.}{.}{-3} D{.}{.}{-3} D{.}{.}{-3} } 
@@ -1094,6 +1107,9 @@ for each parameter.}
  Starting Q-value & -0.098^{***} & -0.073^{***} & -0.075^{***} \\ 
   & (0.019) & (0.020) & (0.020) \\ 
   & & & \\ 
+ Goodness of fit (AIC) &  & 0.169^{**} & 0.204^{**} \\ 
+  &  & (0.064) & (0.066) \\ 
+  & & & \\ 
  No. of Weeks &  & 0.024^{***} & 0.022^{***} \\ 
   &  & (0.002) & (0.003) \\ 
   & & & \\ 
@@ -1113,7 +1129,6 @@ for each parameter.}
   & (0.013) & (0.140) & (0.210) \\ 
   & & & \\ 
 \hline \\[-1.8ex] 
-Control for AIC &  & Yes & Yes \\ 
 Control for Grade Level &  &  & Yes \\ 
 Control for Poverty Level &  &  & Yes \\ 
 Observations & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,668} \\ 
@@ -1144,7 +1159,7 @@ school has a paid Zearn account.}
 
 \centering{
 
-[!htbp] \centering 
+ \centering 
   \caption{} 
   \label{} 
 \begin{tabular}{@{\extracolsep{5pt}}lD{.}{.}{-3} D{.}{.}{-3} D{.}{.}{-3} } 
@@ -1155,20 +1170,23 @@ school has a paid Zearn account.}
 \\[-1.8ex] & \multicolumn{3}{c}{Badges} \\ 
 \\[-1.8ex] & \multicolumn{1}{c}{(1)} & \multicolumn{1}{c}{(2)} & \multicolumn{1}{c}{(3)}\\ 
 \hline \\[-1.8ex] 
- $\alpha$ & 0.062^{***} & 0.060^{***} & 0.063^{***} \\ 
-  & (0.015) & (0.015) & (0.015) \\ 
+ $\alpha$ & 0.062^{***} & 0.059^{***} & 0.062^{***} \\ 
+  & (0.015) & (0.016) & (0.016) \\ 
   & & & \\ 
- $\gamma$ & -0.032 & -0.045^{**} & -0.044^{*} \\ 
-  & (0.017) & (0.017) & (0.017) \\ 
+ $\gamma$ & -0.032 & -0.045^{*} & -0.043^{*} \\ 
+  & (0.017) & (0.018) & (0.018) \\ 
   & & & \\ 
- $\tau$ & -0.039^{*} & -0.098^{***} & -0.090^{***} \\ 
+ $\tau$ & -0.039^{*} & -0.086^{***} & -0.078^{**} \\ 
   & (0.016) & (0.025) & (0.026) \\ 
   & & & \\ 
- Cost & -0.018 & -0.024 & -0.007 \\ 
+ Cost & -0.018 & -0.021 & -0.005 \\ 
   & (0.021) & (0.021) & (0.021) \\ 
   & & & \\ 
- Starting Q-value & -0.149^{***} & -0.106^{***} & -0.089^{***} \\ 
-  & (0.021) & (0.024) & (0.025) \\ 
+ Starting Q-value & -0.149^{***} & -0.110^{***} & -0.093^{***} \\ 
+  & (0.021) & (0.026) & (0.027) \\ 
+  & & & \\ 
+ Goodness of fit (LOOIC) &  & 0.233 & 0.170 \\ 
+  &  & (0.192) & (0.196) \\ 
   & & & \\ 
  No. of Weeks &  & 0.021^{***} & 0.018^{***} \\ 
   &  & (0.002) & (0.002) \\ 
@@ -1179,24 +1197,23 @@ school has a paid Zearn account.}
  No. of Classes &  & -0.125^{***} & -0.123^{***} \\ 
   &  & (0.013) & (0.016) \\ 
   & & & \\ 
- Charter School &  &  & -0.098 \\ 
+ Charter School &  &  & -0.097 \\ 
   &  &  & (0.052) \\ 
   & & & \\ 
  Paid Zearn Account &  &  & 0.220^{***} \\ 
   &  &  & (0.039) \\ 
   & & & \\ 
- Constant & 1.558^{***} & 1.446^{***} & 1.861^{***} \\ 
-  & (0.013) & (0.131) & (0.204) \\ 
+ Constant & 1.558^{***} & 1.380^{***} & 1.795^{***} \\ 
+  & (0.013) & (0.135) & (0.206) \\ 
   & & & \\ 
 \hline \\[-1.8ex] 
-Control for LOOIC &  & Yes & Yes \\ 
 Control for Grade Level &  &  & Yes \\ 
 Control for Poverty Level &  &  & Yes \\ 
 Observations & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,782} & \multicolumn{1}{c}{1,668} \\ 
-R$^{2}$ & \multicolumn{1}{c}{0.086} & \multicolumn{1}{c}{0.171} & \multicolumn{1}{c}{0.226} \\ 
-Adjusted R$^{2}$ & \multicolumn{1}{c}{0.083} & \multicolumn{1}{c}{0.167} & \multicolumn{1}{c}{0.217} \\ 
-Residual Std. Error & \multicolumn{1}{c}{0.538 (df = 1776)} & \multicolumn{1}{c}{0.513 (df = 1772)} & \multicolumn{1}{c}{0.504 (df = 1649)} \\ 
-F Statistic & \multicolumn{1}{c}{33.449$^{***}$ (df = 5; 1776)} & \multicolumn{1}{c}{40.660$^{***}$ (df = 9; 1772)} & \multicolumn{1}{c}{26.685$^{***}$ (df = 18; 1649)} \\ 
+R$^{2}$ & \multicolumn{1}{c}{0.086} & \multicolumn{1}{c}{0.170} & \multicolumn{1}{c}{0.225} \\ 
+Adjusted R$^{2}$ & \multicolumn{1}{c}{0.083} & \multicolumn{1}{c}{0.166} & \multicolumn{1}{c}{0.216} \\ 
+Residual Std. Error & \multicolumn{1}{c}{0.538 (df = 1776)} & \multicolumn{1}{c}{0.514 (df = 1772)} & \multicolumn{1}{c}{0.504 (df = 1649)} \\ 
+F Statistic & \multicolumn{1}{c}{33.449$^{***}$ (df = 5; 1776)} & \multicolumn{1}{c}{40.383$^{***}$ (df = 9; 1772)} & \multicolumn{1}{c}{26.578$^{***}$ (df = 18; 1649)} \\ 
 \hline 
 \hline \\[-1.8ex] 
 \textit{Note:}  & \multicolumn{3}{r}{$^{*}$p$<$0.05; $^{**}$p$<$0.01; $^{***}$p$<$0.001} \\ 
@@ -2066,7 +2083,7 @@ standardized (z-scored) before analysis.}
 \begin{verbatim}
 
 % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-% Date and time: Wed, Jan 08, 2025 - 11:02:49
+% Date and time: Fri, May 02, 2025 - 17:06:54
 % Requires LaTeX packages: dcolumn 
 \begin{table}[!htbp] \centering 
   \caption{Relationship between RL Parameters and Classroom Characteristics} 
@@ -2129,7 +2146,7 @@ for each parameter.}
 
 \centering{
 
-[!htbp] \centering 
+ \centering 
   \caption{} 
   \label{} 
 \begin{tabular}{@{\extracolsep{5pt}}lD{.}{.}{-3} D{.}{.}{-3} D{.}{.}{-3} } 
@@ -2393,6 +2410,51 @@ x-axis represents biweekly periods throughout the school year. The black
 dashed line represents observed teacher behavior, while colored lines
 represent predictions from different models. Shaded areas represent the
 95\% confidence intervals for each model's predictions.}
+
+\end{figure}%
+
+\begin{verbatim}
+$`2`
+\end{verbatim}
+
+\begin{verbatim}
+
+$`14`
+\end{verbatim}
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-action-percentages-balanced-1.pdf}}
+
+}
+
+\caption{\label{fig-action-percentages-balanced-1}Observed teacher
+behavior and model predictions over the academic year. The graph shows
+the percentage of times teachers chose to engage in Pedagogical Content
+activities. The x-axis represents biweekly periods throughout the school
+year. The black dashed line represents observed teacher behavior, while
+colored lines represent predictions from different models. Shaded areas
+represent the 95\% confidence intervals for each model's predictions.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{zearn_files/figure-pdf/fig-action-percentages-balanced-2.pdf}}
+
+}
+
+\caption{\label{fig-action-percentages-balanced-2}Observed teacher
+behavior and model predictions over the academic year. The graph shows
+the percentage of times teachers chose to engage in Pedagogical Content
+activities. The x-axis represents biweekly periods throughout the school
+year. The black dashed line represents observed teacher behavior, while
+colored lines represent predictions from different models. Shaded areas
+represent the 95\% confidence intervals for each model's predictions.}
 
 \end{figure}%
 
