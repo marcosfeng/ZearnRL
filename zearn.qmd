@@ -1731,7 +1731,7 @@ plot_reward_seeking <- function(sim_data, wrapper,
     p <- p + geom_smooth(aes(x = q_val_percentile,
                              y = !!sym(y_col)), 
                          method = "glm",
-                         method.args = list(family = "quasibinomial"),
+                         method.args = list(family = "binomial"),
                          se = TRUE, alpha = 0.2,
                          color = model_colors[model],
                          fill = model_colors[model])
@@ -1804,7 +1804,7 @@ library(sandwich)
 # Function to fit model and extract slope with clustered SE and CI
 get_slope_ci <- function(data, y_var) {
   if(y_var != "action") {
-    model_fam <- quasibinomial
+    model_fam <- binomial
   } else {
     model_fam <- binomial
   }
@@ -1933,7 +1933,7 @@ plot_reward_seeking_stan <- function(sim_data,
   p <- p + geom_smooth(aes(x = q_val_percentile,
                           y = stan_pred), 
                       method = "glm",
-                      method.args = list(family = "quasibinomial"),
+                      method.args = list(family = "binomial"),
                       se = TRUE, alpha = 0.2,
                       color = model_colors["Q-learning"],
                       fill = model_colors["Q-learning"])
@@ -1942,7 +1942,7 @@ plot_reward_seeking_stan <- function(sim_data,
   p <- p + geom_smooth(aes(x = q_val_percentile,
                           y = baseline_pred),
                       method = "glm", 
-                      method.args = list(family = "quasibinomial"),
+                      method.args = list(family = "binomial"),
                       se = TRUE, alpha = 0.2,
                       color = model_colors["Baseline"],
                       fill = model_colors["Baseline"])
@@ -2010,7 +2010,7 @@ library(sandwich)
 # Function to fit model and extract slope with clustered SE and CI
 get_slope_ci <- function(data, y_var) {
   if(y_var != "action") {
-    model_fam <- quasibinomial
+    model_fam <- binomial
   } else {
     model_fam <- binomial
   }
@@ -2202,7 +2202,7 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
     geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
     geom_smooth(aes(x = delta_ev_percentile, y = choice_uncertain),
                 color = model_colors["Data"],
-                method = "glm", method.args = list(family = "quasibinomial"),
+                method = "glm", method.args = list(family = "binomial"),
                 se = FALSE, linetype = "dashed") +
     geom_point(data = plot_data,
                aes(x = mean_delta_ev_perc, y = mean_choice_uncertain),
@@ -2227,7 +2227,7 @@ plot_uncertainty_aversion <- function(sim_data, wrapper,
     
     p <- p + geom_smooth(aes(x = delta_ev_percentile, y = !!sym(y_col)), 
                          method = "glm",
-                         method.args = list(family = "quasibinomial"),
+                         method.args = list(family = "binomial"),
                          se = TRUE, alpha = 0.2,
                          color = model_colors[model],
                          fill = model_colors[model])
@@ -2297,7 +2297,7 @@ all_uncertainty_plots
 # Function to fit model and extract indifference point with CI
 get_indifference_point_ci <- function(data, y_var, x_var) {
   model <- glm(as.formula(paste(y_var, "~", x_var)),
-               family = "quasibinomial",
+               family = "binomial",
                data = data)
   
   # Calculate clustered standard errors
@@ -2479,7 +2479,7 @@ plot_uncertainty_aversion <- function(sim_data,
     geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray50") +
     geom_smooth(aes(x = delta_ev_percentile, y = choice_uncertain),
                 color = model_colors["Data"],
-                method = "glm", method.args = list(family = "quasibinomial"),
+                method = "glm", method.args = list(family = "binomial"),
                 se = FALSE, linetype = "dashed") +
     geom_point(data = plot_data,
                aes(x = mean_delta_ev_perc, y = mean_choice_uncertain),
@@ -2494,7 +2494,7 @@ plot_uncertainty_aversion <- function(sim_data,
   p <- p + geom_smooth(aes(x = delta_ev_percentile,
                           y = choice_uncertain_ql), 
                       method = "glm",
-                      method.args = list(family = "quasibinomial"),
+                      method.args = list(family = "binomial"),
                       se = TRUE, alpha = 0.2,
                       color = model_colors["Q-learning"],
                       fill = model_colors["Q-learning"])
@@ -2503,7 +2503,7 @@ plot_uncertainty_aversion <- function(sim_data,
   p <- p + geom_smooth(aes(x = delta_ev_percentile,
                           y = choice_uncertain_bl), 
                       method = "glm",
-                      method.args = list(family = "quasibinomial"),
+                      method.args = list(family = "binomial"),
                       se = TRUE, alpha = 0.2,
                       color = model_colors["Baseline"],
                       fill = model_colors["Baseline"])
@@ -2559,7 +2559,7 @@ plot_uncertainty_aversion(sim_data_stan)
 # Function to fit model and extract indifference point with CI
 get_indifference_point_ci <- function(data, y_var, x_var) {
   model <- glm(as.formula(paste(y_var, "~", x_var)),
-               family = "quasibinomial",
+               family = "binomial",
                data = data)
   
   # Calculate clustered standard errors
@@ -3516,7 +3516,7 @@ where $N$ is the number of subjects, $p$ is the number of model parameters, and 
 
 We examined three key behavioral signatures:
 
-1.  Reward Seeking: We calculated the probability of choosing an action as a function of its Q-value difference (percentile rank of Q-values). For each model (Q-learning, Lau & Glimcher, and Baseline), we fitted a generalized linear model (GLM) with a quasibinomial family. The model took the form:
+1.  Reward Seeking: We calculated the probability of choosing an action as a function of its Q-value difference (percentile rank of Q-values). For each model (Q-learning, Lau & Glimcher, and Baseline), we fitted a generalized linear model (GLM) with a binomial family. The model took the form:
 
 $$
 \text{logit}(P(\text{Action})) = \beta_0 + \beta_1 Q_\text{percentile}
@@ -3524,7 +3524,7 @@ $$
 
 where $Q_\text{percentile}$ is the percentile rank of Q-values. We extracted the slope ($\beta_1$) and its 95% confidence interval using clustered standard errors at the classroom level to account for within-classroom correlations.
 
-2.  Uncertainty Aversion: We examined the probability of choosing the uncertain option as a function of the difference in expected value (EV) between uncertain and certain options. Uncertainty was defined based on the cumulative standard deviation of rewards associated with each action. We fitted a GLM with a quasibinomial family:
+2.  Uncertainty Aversion: We examined the probability of choosing the uncertain option as a function of the difference in expected value (EV) between uncertain and certain options. Uncertainty was defined based on the cumulative standard deviation of rewards associated with each action. We fitted a GLM with a binomial family:
 
 $$
 \text{logit}(P(\text{Uncertain Choice})) = \beta_0 + \beta_1 \Delta EV_\text{percentile}
