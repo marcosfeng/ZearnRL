@@ -1712,8 +1712,8 @@ We examined three key behavioral signatures:
   Reward Seeking: We calculated the probability of choosing an action as
   a function of its Q-value difference (percentile rank of Q-values).
   For each model (Q-learning, Lau \& Glimcher, and Baseline), we fitted
-  a generalized linear model (GLM) with a quasibinomial family. The
-  model took the form:
+  a generalized linear model (GLM) with a binomial family. The model
+  took the form:
 \end{enumerate}
 
 \[
@@ -1734,7 +1734,7 @@ within-classroom correlations.
   uncertain option as a function of the difference in expected value
   (EV) between uncertain and certain options. Uncertainty was defined
   based on the cumulative standard deviation of rewards associated with
-  each action. We fitted a GLM with a quasibinomial family:
+  each action. We fitted a GLM with a binomial family:
 \end{enumerate}
 
 \[
@@ -2083,7 +2083,7 @@ standardized (z-scored) before analysis.}
 \begin{verbatim}
 
 % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-% Date and time: Fri, May 02, 2025 - 17:06:54
+% Date and time: Fri, May 02, 2025 - 20:06:22
 % Requires LaTeX packages: dcolumn 
 \begin{table}[!htbp] \centering 
   \caption{Relationship between RL Parameters and Classroom Characteristics} 
